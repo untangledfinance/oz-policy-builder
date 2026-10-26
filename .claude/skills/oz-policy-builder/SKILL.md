@@ -21,8 +21,10 @@ everything they produce is an unsigned transaction for a wallet to sign.
 
 ## Setup
 
-Register version 5.1.0, the release that matches this repository at tag
-`v5.1.0`. Versions before 5.0.0 pin an interpreter instance this release no
+Register version 5.2.0, the release that matches this repository at tag
+`v5.2.0`. Versions before 5.2.0 cannot sign for an OpenZeppelin 0.8.0 account
+(`8286422f…`): they sign every account's `__check_auth` in the 0.7.2-line
+digest form, which that account refuses. Versions before 5.0.0 pin an interpreter instance this release no
 longer trusts (`CD46LN75…` in 4.1.0) and cannot write rules that follow
 another rule, keyless rules for an execution adapter or their binding
 (`bind_policy`). Versions before 3.0.0 target an older interpreter or lack
@@ -31,7 +33,7 @@ another rule, keyless rules for an execution adapter or their binding
 
 ```json
 { "mcpServers": { "policy-builder": {
-  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp@5.1.0"] } } }
+  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp@5.2.0"] } } }
 ```
 
 From a checkout of this repository, build the packages and run
@@ -113,7 +115,7 @@ contract would do, with its deny code.
 | Check a policy before installing it | `verify_policy` with `encodedPredicate` (or `expr`) and the call that must be permitted (`call`, or `calls` one per `or` branch, or `hash`/`xdr`) |
 | Ask what one call would do | `simulate_policy`: the predicate and `calls` |
 | Explain a predicate | `simulate_policy` with only `expr` or `encodedPredicate` |
-| Show what an account already allows | No tool lists an account's rules. `install_policy` reads every live rule when it builds, and lists in `authorityScan.overlaps` each one the new rule's key could pick. `revoke_policy` with a `ruleId` returns that rule as `removes`, with its review when the account runs a known OpenZeppelin build (`91a2cd56…`); its transaction changes nothing until the owner signs it |
+| Show what an account already allows | No tool lists an account's rules. `install_policy` reads every live rule when it builds, and lists in `authorityScan.overlaps` each one the new rule's key could pick. `revoke_policy` with a `ruleId` returns that rule as `removes`, with its review when the account runs a known OpenZeppelin build (the 0.7.2-line `91a2cd56…` or the 0.8.0 `8286422f…`; any other build is refused, since the builder cannot know how its signer authorises); its transaction changes nothing until the owner signs it |
 | Remove a rule | `revoke_policy` with `ruleId` |
 | Let anyone run a fixed batch with no key (a liquidation through an execution adapter) | A keyless rule: `install_policy` with `signers: []` and `executor`, then `bind_policy` once the rule is on the account. See "Keyless rules and the binding" |
 | Have one rule enforce another rule's predicate (an issuer governs a borrower's fence) | `install_policy` with `follow: { smartAccount, ruleId }` in place of a source. See "Rules that follow another rule" |

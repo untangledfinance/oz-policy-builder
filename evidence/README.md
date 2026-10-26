@@ -21,6 +21,7 @@ and funded by friendbot; the keys never leave the run.
 | `execution-null-gate-testnet.log` | `bun scripts/verify-execution-null-gate-testnet.ts` | 69 of 69, for a G account and an OpenZeppelin Prime: a bundle of three calls with one authorisation; an agent's bundle at its cap; refusals for a failed call (nothing moves), an expired entry, a call to the Prime, a grant, any wait, `rebind`, a stranger's `cancel`, an agent over its cap or citing its adapter rule for a token, and a pull through custody's gate; then the cost of 1, 3 and 10 calls with and without a gate |
 | `nogate-liquidation-testnet.log` | the no-gate liquidation probe, 25 October 2026, run from our build host (probe kept off the repository like the executor-binding probe; `contracts/stellar/policy-interpreter/oz08/tests/nogate.rs` runs the same cases in the test host on the real wasm and account) | 24 of 24 rows as expected on an OpenZeppelin 0.8.0 account (`8286422f…`, OZ `v0.8.0` tag `ddc327e`), a fresh interpreter instance from `6704996f…` and adapters from `bf85432c…`: a stranger liquidates alone through the no-gate adapter under keyless bound rules; every grant that is not the adapter's exact word is refused 3; a missing word, a direct ask after the run and a gated adapter fail at the binding; a replayed entry fails on its nonce; a root rule without the batch shape fails 221 at bind, at an install under the binding and in `enforce`; off-shape batches, an insider, a high y, a large R and a healthy position fail 100; a wait fails 10 and `run` 5; the adapter-signed liquidate rule fails 3017; an agent's keyed batch with no words runs. The E-36 hazard (a keyed door without the grants pin) is shown in `oz08/tests/nogate.rs`, not on testnet. Every refusal also failed on chain, with its transaction id. Section 6.7 of the threat model |
 | `nogate-liquidation-mutants.log` | 32 mutants of the no-gate word (adapter) and the batch pin (interpreter), each applied alone and the relevant suites run | 31 killed; the survivor (A5) is equivalent, since the deploy variant is refused twice, and the mutant that removes both (A5b) is killed |
+| `oz-0.8.0-migration-testnet.log` | the OpenZeppelin `v0.8.0` migration, 26 October 2026, run from our build host (probe kept off the repository like the executor-binding probe); the builds, deploys and TTL extensions it relies on are in `deployments/oz-accounts.json` and `deployments/oz-policies.json` | 17 of 17 rows as expected (12 on the 0.8.0 account, 5 on the 0.7.2-line one), plus the `policy-synth` before and after. On the 0.8.0 testnet reference account (`CDS2W673…`, `8286422f…`) through `CDER6P73…`: every instance runs its recorded code; a keyless rule pair bound to a dedicated no-gate adapter moves 0.5 XLM for a stranger, 2 XLM fails 100, an unbound keyless rule fails 210; the `v0.8.0` `spending_limit` permits 1.5 of 2 XLM and refuses 1 more (3221); `simple_threshold` 2 refuses one signer (3202) and permits two; `weighted_threshold` refuses the weight-1 signer alone (3213) and permits the weight-2 one. The keyless rows pass on a 0.7.2-line account (`91a2cd56…`) too. `install_policy` on the 0.8.0 account fails at 5.1.0 (`Error(Auth, InvalidAction)`: it signed the 0.7.2-line digest) and lands at 5.2.0 (the 0.8.0 preimage), as do the 0.7.2-line control and a `revoke_policy` |
 | `oz-threshold-live.log` | `bun packages/policy-synth/scripts/live-threshold.ts`, then with `WEIGHTED=1` | `simple_threshold(2)` beside the interpreter: signer A alone refused 3202, A and B together permitted (transfer sent). With `WEIGHTED=1` (A:2, B:1, threshold 2) `install_policy` refuses the rule before any transaction, because A alone meets the threshold |
 | `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test` per crate and in `oz08/`, conformance in release, each `build-wasm.sh` and its hash check | every step passed: interpreter 416 tests (its 18 conformance cases again in release), `oz08/` 12, adapter 62, gate 3, `prime-seat` 21; each rebuilt wasm equals its pin, and `test-blend-pool` built with the same path remaps gives `7ba261ed…` |
 | `offchain-gate.log` | `bun run check`, the three package builds, `bun run typecheck`, `bun test`, `bun run test:isolated`, 21 October 2026, after the lockfile update and the MCP input cap | every step passed: biome 0 errors (36 warnings), typecheck clean, `bun test` 1,782 pass and 0 fail, isolated 1,758 + 6 + 18 |
@@ -150,13 +151,27 @@ The nonce covers its replay class.
 ### 5. The OpenZeppelin policies the builder pins
 
 `simple_threshold`, `weighted_threshold` and `spending_limit` are OpenZeppelin
-example contracts that we built and deployed ourselves from
-`OpenZeppelin/stellar-contracts` tag `v0.7.2` (`a9c4216`, 9 June 2026). We did
-not audit them. Testnet addresses and wasm hashes are in
-`deployments/oz-policies.json` and in `PINNED_OZ_POLICY_ADDRESS_BY_NETWORK` /
-`PINNED_OZ_POLICY_WASM_SHA256`, exported from `@crediolabs/policy-synth/run`.
+example contracts that we built and deployed ourselves: on testnet from
+`OpenZeppelin/stellar-contracts` tag `v0.8.0` (`ddc327e`, deployed 26 October
+2026), on mainnet from tag `v0.7.2` (`a9c4216`, 9 June 2026). We did not audit
+them. Addresses, wasm hashes, the build command and the superseded testnet
+`v0.7.2` instances are in `deployments/oz-policies.json`; the addresses are
+`SPENDING_LIMIT`, `OZ_THRESHOLD` and `SUPERSEDED_OZ_POLICIES` in
+`packages/policy-synth/src/config.ts`.
 
-- `policies/spending_limit.rs` is byte-identical between `v0.7.0` and `v0.7.2`,
+- From `v0.7.2` to `v0.8.0` the code of `policies/` changes in `spending_limit`
+  only: a transfer of amount 0 is always permitted (before, it was refused once
+  a lowered limit sat below the total already spent), and the history cap drops
+  from 1,000 to 815 entries (the most one ledger entry holds).
+  `simple_threshold` and `weighted_threshold` change in comments only, and the
+  `Policy` trait is identical, so the `v0.8.0` policies also serve 0.7.2-line
+  accounts. Every wasm hash differs because the workspace moved from
+  soroban-sdk 26.1.0 to 28.0.0.
+- `v0.8.0` ships an upstream diff audit (`audits/Stellar Contracts Library
+  v0.8.0 Audit.pdf`, snapshots `fbfde38` to `a5bd8cb`) whose scope names
+  `policies/spending_limit.rs` and `smart_account/mod.rs` and `storage.rs`.
+  We did not review it further.
+- For the mainnet `v0.7.2` builds: `policies/spending_limit.rs` is byte-identical between `v0.7.0` and `v0.7.2`,
   and `v0.7.0` is the newest audit in the upstream `audits/` directory, whose
   scope names the file.
 - Two findings of that audit touch this path, and both fixes are in what we

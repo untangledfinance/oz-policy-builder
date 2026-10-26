@@ -22,10 +22,11 @@ The contracts' own READMEs hold the interfaces and test detail:
 
 ## Packages
 
-The three TypeScript packages are published to npm at version 5.1.0 as
+The three TypeScript packages are published to npm at version 5.2.0 as
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp`, the same code as this repository at tag
-`v5.1.0`. The [repository README](../README.md) has the install lines.
+`v5.2.0`. The code submitted for the external audit is tag `v5.1.0`;
+[audit-overview.md](audit-overview.md) lists what 5.2.0 changes after it. The [repository README](../README.md) has the install lines.
 
 ## What runs where
 
@@ -37,7 +38,8 @@ Every contract runs on Stellar testnet.
 | Custody gate | code `b01024f3…`; each custody account deploys its own gate |
 | Execution adapter | code `bf85432c…`, recorded in `deployments/execution-testnet.json` in place of `4985cd12…` and `3dd675c0…`; each Prime deploys its own adapter, bound to a gate or to none |
 | Prime seat | code `393f0e5d…`, one instance per seat owner and account |
-| OpenZeppelin smart account | code `91a2cd56…`, the Prime account |
+| OpenZeppelin smart account | code `91a2cd56…` (0.7.2-line), the Prime account; code `8286422f…` (`v0.8.0`), the reference account `CDS2W673…` |
+| OpenZeppelin policies | `simple_threshold`, `weighted_threshold`, `spending_limit` built from `v0.8.0` on testnet, `v0.7.2` on mainnet (`deployments/oz-policies.json`) |
 
 The records are in [`deployments/`](../deployments) and
 [`contracts/build-hashes.json`](../contracts/build-hashes.json).

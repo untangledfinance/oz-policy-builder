@@ -25,7 +25,7 @@ The deployed account's digest is `sha256(payload ‖ XDR(rule ids))`. The seat c
 - `Delegated(seat)` serves rules other than rule 0 only. `__check_auth` refuses when any id is 0.
 - `__check_auth` also needs the first context to be a call on the stored account, and its first argument to be the digest the preimage hashes to. The seat checks the contract address and that argument; it reads no function name. A seat bound to one account refuses the frames of every other account.
 
-This ties the seat to the digest form of the pinned account wasm (`91a2cd56…`). A newer OZ account that adds the account address to the preimage makes the seat's signatures fail until new seats are deployed. It fails closed.
+This ties the seat to the digest form of the pinned account wasm (`91a2cd56…`). A newer OZ account that adds the account address to the preimage makes the seat's signatures fail until new seats are deployed. OpenZeppelin's `v0.8.0` account (`8286422f…`, which the testnet reference account runs) is such an account: its signers commit to `AuthDigestPreimage { account, context_rule_ids, signature_payload }`, so a Prime with seats stays on `91a2cd56…`. It fails closed.
 
 ## Rule 0 layout
 

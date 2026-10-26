@@ -12,7 +12,7 @@ The on-chain half is the `policy-interpreter` contract in
 ## Install
 
 ```sh
-npm install @crediolabs/policy-synth@5.1.0 @stellar/stellar-sdk
+npm install @crediolabs/policy-synth@5.2.0 @stellar/stellar-sdk
 ```
 
 `@stellar/stellar-sdk` (^14.4.0) is a peer dependency; npm 7 and
@@ -140,7 +140,7 @@ http on loopback. No tool input takes an endpoint.
 | `synthesize_policy` | Source (hash, xdr, recording, intent) -> rules, one per contract: predicate, encoding, hash and review. `ambiguities` are questions to answer with `limit`/`limits`/`allow`. |
 | `simulate_policy` | A predicate (or, with `follow`, an existing rule's predicate now) against calls: permit, or the deny code. With a predicate and no calls it only explains it. |
 | `verify_policy` | Permitted call(s), derived deny cases, minimality; `ok`, `complete`, `unexamined`, `untested`. **`ok` without `complete: true` does not prove every limit** (`untested` conjuncts were not tried): read `complete`. |
-| `install_policy` | Unsigned `add_context_rule`: the account authorises it, and the interpreter installs the predicate in the same transaction. Verifies the interpreter live, reads every rule on the account, and applies the guardrails below. With `follow` the rule follows an existing rule's predicate instead of carrying one (see "Rules that follow another rule"). |
+| `install_policy` | Unsigned `add_context_rule`: the account authorises it, and the interpreter installs the predicate in the same transaction. Verifies the interpreter live, reads every rule on the account, and applies the guardrails below. The account must run an OpenZeppelin build this package signs for, read live: the 0.7.2-line `91a2cd56…` (its signer authorises the digest `sha256(payload ‖ XDR(rule ids))`) or the `v0.8.0` `8286422f…` (the struct `AuthDigestPreimage { account, context_rule_ids, signature_payload }`); any other build, or code that cannot be read, is refused. The same holds for `revoke_policy` and `bind_policy`. With `follow` the rule follows an existing rule's predicate instead of carrying one (see "Rules that follow another rule"). |
 | `revoke_policy` | Unsigned `remove_context_rule`. The rule is read and returned as `removes`, with its review when the account runs a known OpenZeppelin build. The account asks each attached policy to uninstall; the interpreter's `uninstall` needs the policy admins' own authorisation, so unless they sign too, the interpreter keeps its entry for the removed rule until it archives. Nothing reads that entry again, except a rule (on any account) that follows it: that rule keeps enforcing the stored predicate, and its permits keep the entry alive, until the policy admins uninstall it. |
 | `bind_policy` | Unsigned `bind_executor((smartAccount, ruleId), executor)` on the interpreter: the rule then needs that executor's grant for every call (its own `run` excepted), and a keyless rule permits only what the executor vouches for. The rule is read first; see "Keyless rules and the executor binding". |
 | `get_interpreter_info` | The pin, its `limits` and the `ceilings`. `verifyLive` adds what is deployed now. |
@@ -420,8 +420,12 @@ anything but one contract call. Anything else it describes, and lists in
 
 - an authorisation entry for anything but the call, a call under it, or more
   entries than the account's and the source account's;
-- a `__check_auth` digest that does not match the account's entry on the given
-  network (another network, or an entry changed after the build);
+- a `__check_auth` argument that does not match the account's entry on the
+  given network (another network, or an entry changed after the build), in
+  either form: the 0.7.2-line digest bytes or the 0.8.0 preimage struct, which
+  also names the account (`auth.form` says which). With `readContracts` the
+  account's code is read too, and a form other than the one its build asks
+  for, or a build the package does not sign for, is a problem;
 - a signer in the authorisation other than the transaction's source, or a
   rule other than rule 0;
 - a call other than `add_context_rule` or `remove_context_rule`, another
