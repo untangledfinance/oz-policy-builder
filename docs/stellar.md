@@ -91,7 +91,7 @@ names its token.
 
 ### Execution adapter
 
-`contracts/stellar/execution-adapter/src/lib.rs`, 226 sLOC. It exists because
+`contracts/stellar/execution-adapter/src/lib.rs`, 277 sLOC. It exists because
 Soroban allows one host-function invocation per transaction, so a contract has
 to make several calls atomically. The Prime creates it bound to one gate or
 with no gate (see [No gate](#no-gate)). Bound to a gate, it has one rule: **a
@@ -329,7 +329,7 @@ the custody account. Swap proceeds go straight to the custody account.
 
 ### Policy interpreter
 
-`contracts/stellar/policy-interpreter`, 800 sLOC. The smart account calls
+`contracts/stellar/policy-interpreter`, 881 sLOC. The smart account calls
 `enforce` on every call a policed rule authorises. The predicate grammar, its
 limits and the install checks are documented in
 [contracts/stellar/policy-interpreter/README.md](../contracts/stellar/policy-interpreter/README.md).
