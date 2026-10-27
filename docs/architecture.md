@@ -11,7 +11,7 @@ the Stellar contracts.
 |---|---|---|---|
 | Stellar | OpenZeppelin smart account | policy interpreter, custody gate, execution adapter, Prime seat | Stellar testnet |
 | EVM | Safe with Zodiac Roles | `PrimeSeat` | Base Sepolia fork tests; no persistent deployment |
-| Solana | Squads Smart Account | custody gate, `prime-seat` | Solana devnet |
+| Solana | Squads Smart Account | none: a second Squads Smart Account is the custody gate | design only; its key steps passed devnet simulations |
 
 Detail: [stellar.md](stellar.md), [evm.md](evm.md), [solana.md](solana.md).
 
@@ -104,13 +104,13 @@ flowchart LR
 
 | | Stellar | EVM | Solana |
 |---|---|---|---|
-| Custody | A classic Stellar account; the weights and threshold are enforced by the network | A Fordefi address; the rule that all signers approve lives in the Fordefi policy, because EVM cannot put weights on an address | An SPL Token multisig of custody and a trustee, which hands the owner and close authority of a dedicated token account to the gate |
-| What custody approves | A token allowance to the gate, per asset, with an amount and an expiry of up to 180 days | A token approval to the gate, per asset; the amount is the gate's total budget | The hand-over, then a cap the gate sets as the token account's delegated amount |
-| The custody gate | Our contract, deployed by custody; no admin, no settings | A Safe that custody alone owns, with Zodiac Roles rules naming the only venues and addresses | Our program; owns the token account and pays only listed destinations |
-| Where results go | Straight to custody; a Blend position is held in the Prime account's name, and every withdrawal is pinned to custody | Every result, the lending position included, goes to custody | The venue pays proceeds into a gate-owned custody account |
-| Per-move limits | Amount bands in policy-interpreter predicates | Roles bands, a daily cap for the agent and a daily cap on everything leaving custody | Squads policies |
-| Stopping it | Custody sets the allowance to zero or lets it expire, and can cancel any stored move | Custody turns off the gate's trading rules; recovery keeps working unless custody stops that too | Any one custody signer lowers the cap to 0 |
-| Recovery | The Prime owners pull to the recovery address; the pull waits the adapter's minimum wait, and custody or the Prime account can cancel it until it runs | The Prime owners schedule it on an OpenZeppelin timelock; custody can cancel during the delay | The Prime owners pay the recovery address at any time with no cap; the only wait is the Prime account's own time lock |
+| Custody | A classic Stellar account; the weights and threshold are enforced by the network | A Fordefi address; the rule that all signers approve lives in the Fordefi policy, because EVM cannot put weights on an address | A Squads Smart Account of custody's signers and a trustee, all of whom approve; its vault owns custody's token accounts |
+| What custody approves | A token allowance to the gate, per asset, with an amount and an expiry of up to 180 days | A token approval to the gate, per asset; the amount is the gate's total budget | The hand-over of its token accounts, then rules with per-call ceilings, per-period spending limits and an expiry |
+| The custody gate | Our contract, deployed by custody; no admin, no settings | A Safe that custody alone owns, with Zodiac Roles rules naming the only venues and addresses | The custody account itself: its rules pin the only calls, and each lists one Prime vault as its signer |
+| Where results go | Straight to custody; a Blend position is held in the Prime account's name, and every withdrawal is pinned to custody | Every result, the lending position included, goes to custody | The lending position belongs to the custody vault, and every withdrawal is pinned to custody's token account |
+| Per-move limits | Amount bands in policy-interpreter predicates | Roles bands, a daily cap for the agent and a daily cap on everything leaving custody | Per-call ceilings and per-period spending limits in custody's rules; the Prime's bands choose which rule the agent may use |
+| Stopping it | Custody sets the allowance to zero or lets it expire, and can cancel any stored move | Custody turns off the gate's trading rules; recovery keeps working unless custody stops that too | Custody's signers remove the rules, or let them expire |
+| Recovery | The Prime owners pull to the recovery address; the pull waits the adapter's minimum wait, and custody or the Prime account can cancel it until it runs | The Prime owners schedule it on an OpenZeppelin timelock; custody can cancel during the delay | The Prime owners run custody's recovery rule, which pays only the recovery address; the wait is the Prime account's own time lock, and custody stops it by removing the rule |
 
 ## Components
 
@@ -134,17 +134,15 @@ flowchart TB
     PS["PrimeSeat"]
   end
   subgraph SOL["Solana"]
-    SQ["Squads Smart Account"]
-    SP["prime-seat"]
-    G2["custody gate"]
+    SQ["Squads Smart Account<br/>the Prime account"]
+    G2["Squads Smart Account<br/>the custody account"]
   end
   FR == "own signature" ==> OZ
   MM == "own signature" ==> SAFE
   PH == "own signature" ==> SQ
-  OK -. "signs a grant" .-> SS & PS & SP
+  OK -. "signs a grant" .-> SS & PS
   SS --> OZ
   PS --> SAFE
-  SP --> SQ
   OZ --> INT
   OZ --> AD --> G1
   SQ --> G2
@@ -153,13 +151,14 @@ flowchart TB
 | Component | Chain | Trusted for | Written by |
 |---|---|---|---|
 | Custody wallet and its signers | each | holding the funds and approving the limit | the institution (Fordefi or another MPC) |
-| Custody gate | Stellar, Solana | paying only listed destinations within the limit | us |
+| Custody gate | Stellar | paying only listed destinations within the limit | us |
 | Custody gate | EVM | the same, as a Safe owned by custody with Roles rules | Safe, Zodiac (audited code, unmodified) |
+| Custody gate | Solana | the same, as a Squads Smart Account of custody's signers and a trustee whose rules pin each call | Squads (unmodified; its policy engine has no published review) |
 | Execution adapter | Stellar | running a batch atomically; bound to a gate, naming only addresses the gate lists; with no gate, refusing a call to the Prime, any wait and any grant other than its word to the Prime's policy | us |
 | Policy interpreter | Stellar | evaluating a rule's predicate on every call the rule authorises, and holding a rule with no signer to its executor binding | us |
 | Prime account | each | counting owners' approvals and selecting rules | OpenZeppelin, Safe, Squads |
-| Prime seat | each | letting a session key stand in for one owner on one account | us |
-| A seat's owner key | each | signing only the grants and ends its holder means | the holder: a NEAR-routed MPC in the reference integration, or any signer that raw-signs the grant hash |
+| Prime seat | Stellar, EVM | letting a session key stand in for one owner on one account | us |
+| A seat's owner key | Stellar, EVM | signing only the grants and ends its holder means | the holder: a NEAR-routed MPC in the reference integration, or any signer that raw-signs the grant hash |
 | Policy builder | Stellar | writing rules and returning them unsigned for the owners' wallets | us, in this repository |
 | Prime apps and relayer | off chain | building transactions and paying fees; they hold no authority over funds | us, in a separate repository |
 
@@ -167,19 +166,19 @@ flowchart TB
 
 | Party | Can | Cannot |
 |---|---|---|
-| Custody's signers at their threshold | grant, lower and revoke the limit; cancel stored moves (Stellar) and recoveries (Stellar, EVM); release the token account back (Solana) | move funds past the gate without the Prime account; change a gate's list (a new gate is needed) |
-| One custody signer | lower the cap to 0 on Solana | raise a limit or move funds |
-| The Prime owners at their threshold | install and remove rules, add and remove owners, recover to the recovery address; on Stellar and Solana, also draw within the limit to any address on the gate's list | pay an address the gate does not list; exceed custody's limit (except Solana recovery, which has no cap) |
+| Custody's signers at their threshold | grant, lower and revoke the limit; cancel stored moves (Stellar) and recoveries (Stellar, EVM); remove a rule, which stops the moves and the recoveries that call it (Solana) | move funds past the gate without the Prime account; change a gate's list (a new gate is needed) |
+| The Prime owners at their threshold | install and remove rules, add and remove owners, recover to the recovery address; on Stellar, also draw within the limit to any address on the gate's list; on Solana, run the custody rules their vaults are listed on | pay an address the gate does not list; exceed custody's limit (except a Solana recovery rule set with no cap) |
 | The agent | move funds inside the rules that list it | act outside a rule, recover, cancel (Stellar), change a rule |
 | Anyone | run a stored Stellar batch once its wait is over and before its window closes; run an immediate Stellar batch through a no-gate adapter when the Prime's keyless rules bound to that adapter permit it (a liquidation) | change what the batch does, or run it twice; pass a keyless rule with a batch its predicate does not permit |
-| A session key | vote for its seat's owner beside a native owner, and act alone inside rules that list its seat, until its end or the owner's end | act on an account whose owners never listed its seat (on Stellar and EVM the seat is bound to one account on chain; on Solana another account can list the seat, and onboarding refuses that); on Solana, create a transaction |
+| A session key | vote for its seat's owner beside a native owner, and act alone inside rules that list its seat, until its end or the owner's end | act on an account whose owners never listed its seat (the seat is bound to one account on chain) |
 | The holder of a seat's owner key | grant and end sessions for that seat | act for any other owner or seat |
-| The Prime apps and the relayer | submit and pay for transactions, hold session keys in the browser | forge an owner's grant, a native signature or a custody signature. On Solana `prime-seat` passes the transaction's outer signers into the Squads call, so the relayer refuses any transaction that lists its own key except as fee payer or, for an end, rent payer |
-| Us, the builders | run the tooling, the agent and the apps; deploy new code | change a deployed gate, adapter, interpreter, seat or Solana program: none has an admin or an upgrade path |
+| The Prime apps and the relayer | submit and pay for transactions, hold session keys in the browser | forge an owner's grant, a native signature or a custody signature. On Solana the fee payer's signer flag reaches every call inside a Squads execution, so the fee payer holds no token account, delegation or venue permission |
+| Us, the builders | run the tooling, the agent and the apps; deploy new code | change a deployed gate, adapter, interpreter or seat: none has an admin or an upgrade path. On Solana there is no program of ours |
 
 The most money at risk at any moment is the limit custody granted, plus anything
 supplied to a venue. On Solana the Prime owners at their threshold also reach
-the whole gate-owned balance, but only toward the fixed recovery address.
+the whole balance of custody's token accounts through the recovery rule, but
+only toward the recovery address.
 
 ## Owners, Prime seats and session keys
 
@@ -189,8 +188,8 @@ Each owner of a Prime account holds one vote, and casts it in one of two ways.
   account, an EVM wallet such as MetaMask, or a Solana wallet such as Phantom.
   On the account it is a plain signer of rule 0, a Safe owner or a Squads
   settings signer, and it signs every decision itself.
-- **A seat owner** signs with an owner key: an ed25519 key on Stellar and
-  Solana, a secp256k1 key on EVM. Its holder must produce a raw signature over
+- **A seat owner** signs with an owner key: an ed25519 key on Stellar, a
+  secp256k1 key on EVM. Its holder must produce a raw signature over
   the 32-byte grant hash. In the reference integration a NEAR-routed MPC, an
   external custodian outside this repository, holds the key; any signer that can
   raw-sign that hash, such as another MPC, a server-held keypair or a custody
@@ -198,29 +197,29 @@ Each owner of a Prime account holds one vote, and casts it in one of two ways.
   only transactions or prefixed messages produce signatures the seat refuses, so
   a browser wallet cannot hold an owner key: an owner whose wallet lives on
   another chain becomes a seat owner through a custodian that holds the key.
-  On the account the owner has a Prime seat: a contract (Stellar, EVM) or a
-  program address (Solana) that is the signer in its place. Each seat checks
-  one signature format.
+  On the account the owner has a Prime seat: a contract that is the signer in
+  its place. Each seat checks one signature format.
 
 The owner key signs one grant that names the account, the seat, a session key
 and a start and end at most 7 days apart. Until the end, the session key votes
 for the owner and acts inside the rules that list the seat, with no further
 prompt to the owner key. A native owner has no session key.
 
-Every decision needs one native owner, on every chain:
+Solana has no seats: every owner of a Squads account is a signer with its own
+Solana key, and an owner whose wallet lives on another chain needs a custodian
+that holds a Solana key for it ([solana.md](solana.md#owners)).
+
+Every decision needs one native owner, on each chain with seats:
 
 | Chain | How the seat is held back |
 |---|---|
 | Stellar | In the Prime app's rule-0 layout rule 0 carries a weighted threshold: each native account weighs K, each seat 1, and K is the number of seats at creation plus one, so seats alone stay below the threshold (a seat added later sits at weight 0). The seat serves rule 0 only through `External` and other rules only through `Delegated`, so one session cannot pass rule 0 alone through a duplicate entry |
 | EVM | A seat's signature for the Safe holds two parts: the session key's and a Safe owner's own signature over the same transaction hash. A seat vote passes only with the native owner's approval of exactly that transaction |
-| Solana | A seat cannot create a transaction (no Initiate, and `prime-seat` refuses the call), so a native owner writes every change and the seats approve |
 
 Some checks that keep one key from counting twice live in the apps: the owner
-keys must differ, no seat may sit in two accounts, no plain key may sit beside
-its own seat, and on Solana only the canonical seat PDA is accepted. No
-contract enforces the first and the third. The second holds on chain on
-Stellar and EVM, because a seat is bound to one account at construction, and
-only through onboarding on Solana.
+keys must differ, no seat may sit in two accounts, and no plain key may sit
+beside its own seat. No contract enforces the first and the third. The second
+holds on chain, because a seat is bound to one account at construction.
 
 ### Starting a session
 
@@ -232,7 +231,7 @@ sequenceDiagram
   A->>A: make a fresh session key
   A->>O: grant hash: account, seat, key, start, end
   O-->>A: raw signature over the grant hash
-  A->>S: grant (Stellar, EVM: stored on chain)<br/>or carried in every call (Solana)
+  A->>S: grant, stored on chain
   S->>S: check times, freshness and the signature
 ```
 
@@ -257,10 +256,9 @@ The session ends at its end time, when the owner key or the session key itself
 signs an end, or when the owners remove the seat. On Stellar an end stores 0
 for the key, which refuses every later grant for it until that entry expires
 from temporary storage, about 180 days on; after that only a grant the owner
-signs can bring the key back. The EVM seat stores the maximum end, and the
-Solana program takes over a marker account at `[owner, settings, key]`, so on
-those chains an ended key never returns. Removing an owner of any kind must
-always be possible; the apps rewrite or switch off rules that would block it.
+signs can bring the key back. The EVM seat stores the maximum end, so there an
+ended key never returns. Removing an owner of any kind must always be possible;
+the apps rewrite or switch off rules that would block it.
 
 ## Why it is built this way
 
@@ -295,31 +293,32 @@ contract called in the operation, error 3017).
 OpenZeppelin's TimelockController express the gate, the bands and the recovery
 delay without a contract of ours. The seat is the one exception, 72 lines.
 
-**Solana's gate owns the token account:** custody hands the owner and the
-close authority of one token account to the gate. Recovery then reaches the
-whole balance with no cap, and any one custody signer can stop the agent by
-lowering the cap. The alternative, an SPL multisig owning the account and
-approving the gate as delegate, was spiked (162 of 162 checks) and set aside:
-its recovery stops at the remaining allowance and an SPL account has one
-delegate. Swig was tested as a session layer and set aside too: its 7-day cap
-counts slots, it allows one live session per role, and its upgradeable program
-did not match a verified build.
+**Solana runs on configuration only:** a Squads Smart Account owned by
+custody's signers and a trustee holds custody's token accounts, and its rules
+pin each call the Prime may make, with ceilings and per-period limits. That
+gives the gate's two properties with no program of ours: funds stay in
+custody's own account, including a lending position, and they reach only the
+pinned calls, while a single custody key moves nothing. Token-2022's
+extensions carry a permissioned asset's whitelist, freeze and clawback, and
+the venue's own permission gate carries a liquidator whitelist. The cost is
+the checks a Squads rule cannot express: a relation between two fields, a
+comparison with the clock, an inflow cap. Those go to an off-chain co-signer
+or need new code ([solana.md](solana.md#limits)). The earlier gate and seat
+programs were removed on 27 October 2026.
 
 **One signature format for seats:** each seat checks one format over a 32-byte
-hash, the one its chain verifies natively: ed25519 on Stellar and Solana (on
-Solana through the built-in ed25519 program), ECDSA on EVM. No seat needs other
-cryptography. The owner key can live in whichever custodian signs that
-format.
+hash, the one its chain verifies natively: ed25519 on Stellar, ECDSA on EVM. No
+seat needs other cryptography. The owner key can live in whichever custodian
+signs that format.
 
 **Session keys hold a vote, with a native owner beside them:** a session that
 holds an owner's vote can do anything that owner's vote can, so the rule-0
 layout keeps every decision behind one native signature, the grant names its
 account and seat, and a seat is bound to its account on chain.
 
-**Final programs, fresh rule ids:** the Solana programs deploy with `--final`,
-so behaviour changes only with a new deployment and a new pin. On Stellar a
-rule is never edited in place: the interpreter pins the rule's signers, so
-replacing a rule is the safe way to change who signs it.
+**Fresh rule ids:** on Stellar a rule is never edited in place: the interpreter
+pins the rule's signers, so replacing a rule is the safe way to change who
+signs it.
 
 ## Known behaviours
 
