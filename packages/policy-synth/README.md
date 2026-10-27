@@ -538,7 +538,8 @@ It lists as problems:
   destination, a band's account 0), or a destination outside `destinations`;
 - a repay whose obligation is not pinned: klend binds a repay to no owner
   (`handler_repay_obligation_liquidity.rs:115-146`), so the vault could pay
-  down another obligation's debt;
+  down another obligation's debt; and a repay whose owner read (U8Slice at
+  64) names another key than the rule's vault;
 - a collateral withdraw without the `has_debt == 0` read (U8 at 2287, owner
   klend) when the same change permits a borrow or `requireNoDebt` is set, and
   one rule that admits both a borrow and a withdraw or seize (Squads reads
@@ -649,22 +650,23 @@ read into a snapshot, then pure checks):
   needing fewer than all its voting owners, a Prime threshold of 1, or a time
   lock below `minTimeLock` is a problem;
 - every rule on the account (seeds 1 to `policy_seed`, each at its program
-  address), decoded from its account: a live rule that fails the design's
-  checks and shares a signer with a rule the change adds or edits is a
-  problem (that signer keeps the looser path); a live rule that admits the
+  address), decoded from its account: a live rule that admits the
   same instruction to a shared signer with fewer pins (a position open, an
   account read or a data pin left out, or a higher ceiling) is a problem; a new collateral
   withdraw without its `has_debt` read while a live rule borrows is a
-  problem; a duplicate, an overlap, an edit that loosens its rule, or a live
-  rule with problems that shares no signer is a warning; an edit or removal of
+  problem; a live rule that fails the design's checks (a signer it shares with
+  the change keeps that path), a duplicate, an overlap or an edit that loosens
+  its rule is a warning; an edit or removal of
   a rule the account does not hold is a problem;
-- for an execution, the rule it runs under: looser than the design is a
-  problem; a signer, threshold, vault, time lock or claimed constraint it
-  would fail on is a warning;
+- for an execution, the rule it runs under: looser than the design, or a
+  signer, threshold, vault, time lock or claimed constraint it would fail on,
+  is a warning;
 - each pinned destination and each inner call's destination: an absent
   account, an account of another program, an uninitialised one or a FROZEN one
   (on a frozen-by-default Token-2022 mint, one the issuer has not thawed) is a
-  problem; a delegate or close
+  problem. Thawed means on the thaw list only while the mint's default state
+  was never changed; PayFi's `verifyLine` checks that history, this read does
+  not. A delegate or close
   authority is a warning; its mint's authorities and Token-2022 extensions are
   shown, with a permanent delegate, a transfer hook, pausable, a transfer fee,
   non-transferable, or no frozen default (so the thaw list is no whitelist) a

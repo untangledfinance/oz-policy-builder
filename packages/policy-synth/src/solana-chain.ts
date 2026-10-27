@@ -3,7 +3,8 @@
 // unchanged; this adds what only the chain knows: the rules already on the account (one the change
 // duplicates, or a looser one a shared signer could use instead), the account's live owners and
 // threshold after the change, whether each pinned destination exists, holds what it should and is
-// thawed (on a frozen-by-default Token-2022 mint, thawed is whitelisted), the mint's extensions, the
+// thawed (on a frozen-by-default Token-2022 mint whose default state was never updated, thawed is
+// whitelisted; PayFi's verifier checks that history, this read does not), the mint's extensions, the
 // klend reserves a rule pins and their market, and the deploy slots of the Squads and klend
 // programs against the build this review was written for.
 //
@@ -12,14 +13,15 @@
 // `reviewSolanaOnChain` checks the review against that snapshot with no network, so a recorded
 // snapshot replays offline. A read that fails refuses the review; an account the checks needed and
 // the read did not return is a problem. Layouts: Squads `0e51082` (state/settings.rs,
-// state/policies/), klend `e921c64` with SDK 13.0.5 offsets (Reserve, LendingMarket), SPL Token and
+// state/policies/), klend 1.26.0 (`e921c64`, the SDK 13.0.5 layout; 1.27.0 changes LendingMarket only
+// past byte 3440, and the devnet build was checked against live bytes) (Reserve, LendingMarket), SPL Token and
 // Token-2022 (state.rs, extension/mod.rs).
 
-import { createHash } from 'node:crypto'
 import { base58, DecodeError, fromBase58, hex, Reader } from './bytes.ts'
 import { fact, group, type Node } from './card.ts'
 import { messageOf, Refusal } from './envelope.ts'
 import { type Rpc, unread } from './jsonrpc.ts'
+import { onCurve, policyAddress, programAddress, sha256, te, vaultAddress } from './pda.ts'
 import {
   accountConstraint,
   allowedChange,
@@ -81,75 +83,9 @@ export const SOLANA_RPC_DEVNET = 'https://api.devnet.solana.com'
 export const solanaRpcUrl = (): string =>
   process.env.POLICY_BUILDER_SOLANA_RPC_URL ?? SOLANA_RPC_DEVNET
 
-// ---- program addresses ----
+// ---- program addresses (pda.ts) ----
 
-const sha256 = (...parts: Uint8Array[]) => {
-  const h = createHash('sha256')
-  for (const p of parts) h.update(p)
-  return new Uint8Array(h.digest())
-}
-
-// Ed25519: whether 32 bytes decompress to a curve point (curve25519-dalek's
-// CompressedEdwardsY::decompress, which a program address must fail).
-const P = 2n ** 255n - 19n
-const D = (P - ((121665n * inv(121666n)) % P)) % P
-function pow(b: bigint, e: bigint): bigint {
-  let r = 1n
-  let x = ((b % P) + P) % P
-  for (let k = e; k > 0n; k >>= 1n) {
-    if (k & 1n) r = (r * x) % P
-    x = (x * x) % P
-  }
-  return r
-}
-function inv(x: bigint): bigint {
-  return pow(x, P - 2n)
-}
-export function onCurve(key: Uint8Array): boolean {
-  let y = 0n
-  for (let k = 31; k >= 0; k--) y = (y << 8n) | BigInt(key[k] as number)
-  y &= (1n << 255n) - 1n
-  y %= P
-  const y2 = (y * y) % P
-  const u = (y2 - 1n + P) % P
-  const v = (D * y2 + 1n) % P
-  // x = u v^3 (u v^7)^((p-5)/8); a square root of u/v exists iff v x^2 = ±u (or ±u·sqrt(-1) case folds in)
-  const v3 = (v * v * v) % P
-  const x = (u * v3 * pow(u * v3 * v3 * v, (P - 5n) / 8n)) % P
-  const vx2 = (v * x * x) % P
-  if (vx2 === u) return true
-  if (vx2 === (P - u) % P) return true // x · sqrt(-1) is the root
-  return false
-}
-
-/** `Pubkey::find_program_address`. */
-export function programAddress(seeds: Uint8Array[], program: string): string {
-  const id = fromBase58(program, 32)
-  const marker = new TextEncoder().encode('ProgramDerivedAddress')
-  for (let bump = 255; bump >= 0; bump--) {
-    const h = sha256(...seeds, Uint8Array.of(bump), id, marker)
-    if (!onCurve(h)) return base58(h)
-  }
-  throw new DecodeError('no program address off the curve')
-}
-const te = (s: string) => new TextEncoder().encode(s)
-const u64le = (n: bigint | number) => {
-  const b = Buffer.alloc(8)
-  b.writeBigUInt64LE(BigInt(n))
-  return new Uint8Array(b)
-}
-/** A rule of a Squads account (state/seeds.rs:47-54). */
-export const policyAddress = (settings: string, seed: bigint | number): string =>
-  programAddress(
-    [te('smart_account'), te('policy'), fromBase58(settings, 32), u64le(seed)],
-    PROGRAM.smartAccount
-  )
-/** Vault `index` of a Squads account (state/seeds.rs:57-68). */
-export const vaultAddress = (settings: string, index: number): string =>
-  programAddress(
-    [te('smart_account'), fromBase58(settings, 32), te('smart_account'), Uint8Array.of(index)],
-    PROGRAM.smartAccount
-  )
+export { onCurve, policyAddress, programAddress, vaultAddress }
 
 // ---- the snapshot ----
 
@@ -388,8 +324,8 @@ export function mintOf(data: Uint8Array): Mint {
 }
 const nonZeroKey = (b: Uint8Array) => (b.length === 32 && b.some((x) => x !== 0) ? base58(b) : null)
 
-/** klend `Reserve` (state/reserve.rs, zero-copy; offsets from klend SDK 13.0.5's layout, account
- *  bytes with the discriminator). */
+/** klend `Reserve` (state/reserve.rs at 1.26.0 `e921c64`, zero-copy; offsets from klend SDK
+ *  13.0.5's layout, account bytes with the discriminator; unchanged in 1.27.0). */
 export interface Reserve {
   market: string
   liquidityMint: string
@@ -657,7 +593,11 @@ function ruleProblems(
   strangers: boolean
 ): string[] {
   const out: string[] = []
-  const i = strangers ? x.i : { ...x.i, role, destinations: undefined, signers: undefined }
+  // the rule's own account: a repay's owner read is checked against its vault
+  const i = {
+    ...(strangers ? x.i : { ...x.i, destinations: undefined, signers: undefined }),
+    account: r.settings,
+  }
   checkPolicy(
     {
       action: 'PolicyCreate',
@@ -872,9 +812,11 @@ function settingsChange(x: Ctx, actions: SettingsAction[]) {
     const problems = ruleProblems(x, r, x.i.role, noDebt, true)
     if (problems.length === 0) continue
     const shared = r.signers.map((v) => v.key).filter((k) => newSigners.has(k))
+    // A warning: the live rule is the owners' earlier choice and this change grants nothing
+    // through it; the bypass of this change's own pins is the same-instruction check below.
     if (shared.length)
-      x.flag(
-        `${shared.map(x.tag).join(', ')} also sign(s) ${x.tag(r.address)} (seed ${r.seed}), a live rule looser than this change: ${problems.join('; ')}. The change leaves it in place, so its signers keep that path`
+      x.warn(
+        `${shared.map(x.tag).join(', ')} also sign(s) ${x.tag(r.address)} (seed ${r.seed}), a live rule looser than the design: ${problems.join('; ')}. The change leaves it in place, so its signers keep that path`
       )
     else
       x.warn(
@@ -1056,7 +998,7 @@ function token(x: Ctx, k: string, where: string, destination: boolean): TokenAcc
   if (t.state === 2)
     x.flag(
       destination
-        ? `${where} ${k} is FROZEN: it is not on the mint's thaw list, so nothing can be paid into it (Token-2022 refuses a frozen destination, processor.rs:387-388); the issuer thaws an approved holder first`
+        ? `${where} ${k} is FROZEN, so nothing can be paid into it (the token program refuses a frozen destination): on a frozen-by-default mint it is not thawed, so not on the thaw list; the issuer thaws an approved holder first`
         : `${where} ${k} is FROZEN: nothing can leave it until the issuer thaws it`
     )
   if (t.delegate)
@@ -1225,8 +1167,10 @@ function execution(x: Ctx, e: Execution, role: SolanaInput['role'], where: strin
         x.i.requireNoDebt === true || borrowsIn(r.policy),
         role === x.i.role
       )
+      // A warning: the calls this execution makes are read and checked from its bytes; the rule's
+      // looseness is the owners' earlier choice.
       if (problems.length)
-        x.flag(
+        x.warn(
           `${where} runs under ${e.consensusAccount}, a live rule looser than the design: ${problems.join('; ')}`
         )
       if (r.timeLock > 0)

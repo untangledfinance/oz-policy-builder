@@ -14,6 +14,7 @@
 import { base58, DecodeError, fromBase58, hex, Reader } from './bytes.ts'
 import { fact, group, lines, type Node, warned } from './card.ts'
 import { messageOf, Refusal } from './envelope.ts'
+import { vaultAddress } from './pda.ts'
 
 // ---- programs and instructions ----
 
@@ -1237,7 +1238,7 @@ export function checkPolicy(
       )
 
   const shown = p.constraints.map((c, k) =>
-    checkConstraint(c, k, `${where}, constraint ${k}`, i, noDebt, flag, warn, tag)
+    checkConstraint(c, k, `${where}, constraint ${k}`, i, noDebt, flag, warn, tag, p.accountIndex)
   )
   const limits = p.limits.map((l) =>
     fact(
@@ -1273,7 +1274,9 @@ function checkConstraint(
   noDebt: boolean,
   flag: (p: string) => void,
   warn: (w: string) => void,
-  tag: (k: string) => string
+  tag: (k: string) => string,
+  /** The vault the rule acts as. */
+  accountIndex: number
 ): Node {
   const custody = i.role === 'custody'
   const facts: Node[] = []
@@ -1353,6 +1356,25 @@ function checkConstraint(
               flag(
                 `${where}: the obligation-owner read names no klend owner, so another account could answer it`
               )
+          // The owner it reads must be the vault the rule acts as: another key's obligations are
+          // someone else's debt.
+          let vault: string | undefined
+          try {
+            vault = i.account ? vaultAddress(i.account, accountIndex) : undefined
+          } catch {
+            vault = undefined
+          }
+          for (const { d } of owned) {
+            const who = base58(Buffer.from(d.value.value, 'hex'))
+            if (vault === undefined)
+              warn(
+                `${where}: the repay reads its obligation's owner as ${who}; with no account given, whether that is the rule's vault cannot be checked`
+              )
+            else if (who !== vault)
+              flag(
+                `${where}: the repay's obligation-owner read names ${who}, not vault ${accountIndex} of this account (${vault}): the vault's funds could pay down that owner's obligations`
+              )
+          }
         }
         if (spec.kind === 'withdraw') {
           const debt = reads(

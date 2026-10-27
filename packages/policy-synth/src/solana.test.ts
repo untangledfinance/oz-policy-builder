@@ -7,6 +7,7 @@ import { describe, expect, it } from 'bun:test'
 import { createHash } from 'node:crypto'
 import g from '../fixtures/solana/payfi-golden.json'
 import { base58, fromBase58, keccak256 } from './bytes.ts'
+import { vaultAddress } from './pda.ts'
 import { KLEND, OBLIGATION, PROGRAM, reviewSolana, SQUADS_DISC } from './solana.ts'
 import { run } from './tools.ts'
 
@@ -577,6 +578,11 @@ describe('solana_review catches each footgun (problem, signable false)', () => {
       ],
       owner: PROGRAM.klend,
     })
+    // read, but of another owner: that owner's debt could be paid with the vault's funds
+    caught(one([repay]), /the repay's obligation-owner read names .*, not vault 0 of this account/)
+    ;(repay.accounts[2]?.data?.[0] as { value: string }).value = Buffer.from(
+      fromBase58(vaultAddress(CUSTODY, 0), 32)
+    ).toString('hex')
     expect(one([repay]).problems).toEqual([])
   })
 

@@ -65,10 +65,11 @@ Stellar contract, record or build hash changed.
   transaction meets through the operator's RPC (`POLICY_BUILDER_SOLANA_RPC_URL`,
   `POLICY_BUILDER_EVM_RPC_URL`; devnet and test networks only, a mainnet is
   refused), as `readContracts` does for `review_unsigned`. On Solana, after
-  PayFi's v2 verifier: the rules already on the account (a looser live rule a
-  new rule's signer shares, a live rule with fewer pins or a higher ceiling for
-  the same instruction, a duplicate), the owners and threshold after the
-  change, the rule an execution runs under, each pinned destination's thaw
+  PayFi's v2 verifier: the rules already on the account (a live rule with
+  fewer pins or a higher ceiling for the same instruction and a shared signer,
+  or a new withdraw without `has_debt` beside a live borrow, is a problem; a
+  live rule looser than the design, or a duplicate, is a warning), the owners
+  and threshold after the change, the rule an execution runs under, each pinned destination's thaw
   state and its mint's extensions, the reserves and their market, and the
   Squads and klend deploy slots against the build the review was checked
   against. On EVM: the Safe's owners, threshold, modules and guard after the
@@ -81,6 +82,9 @@ Stellar contract, record or build hash changed.
   `httpRpc`, `RpcError`. The tests replay PayFi's live sol-devnet line and the
   move-timelock setup on a Base Sepolia fork in ten states, recorded by
   `packages/policy-synth/scripts/record-chain.ts`.
+- **`solana_review` checks a repay's owner read:** a repay whose obligation
+  owner read (U8Slice at 64) names another key than the rule's vault is a
+  problem in the bytes review too (it was accepted for any 32-byte value).
 - **`evm_review` reads the move-timelock shape:** a `schedule` on an
   OpenZeppelin TimelockController is decoded with the gate call it schedules,
   and a band that scopes a timelock's `schedule` is read one level down as a

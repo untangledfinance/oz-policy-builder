@@ -112,7 +112,7 @@ describe('readChain reads the accounts the way the programs lay them out', () =>
         throw new Error('shape')
       const r = ruleOf(K[n] as string, bytes(K[n] as string))
       expect(r.settings).toBe(K.settlement as string)
-      // Squads keeps a rule's signers sorted (policy.rs invariant)
+      // Squads stores a rule's signers sorted by key bytes (policy.rs:185); compared here as sets
       const byKey = (x: { key: string }[]) => [...x].sort((p, q) => p.key.localeCompare(q.key))
       expect(byKey(r.signers)).toEqual(byKey(a.signers))
       expect(r.threshold).toBe(a.threshold)
@@ -219,7 +219,7 @@ describe('readChain catches a live mismatch', () => {
     })
     caught(
       onChain(live.potOut, K.r2b, snap),
-      /the destination token account A6bGvb.* is FROZEN: it is not on the mint's thaw list/
+      /the destination token account A6bGvb.* is FROZEN, so nothing can be paid into it .* not on the thaw list/
     )
     caught(
       onChain(live.createR2b, K.settlement, snap),
@@ -266,12 +266,18 @@ describe('readChain catches a live mismatch', () => {
     expect(local.warnings.some((w) => /deployed at slot 491561421/.test(w))).toBe(true)
   })
 
-  it('a live rule looser than the design that a new rule shares a signer with (R4 pays to an open destination)', () => {
+  it('a live rule looser than the design that a new rule shares a signer with (R4 pays to an open destination): told', () => {
+    // R4 is PayFi's earlier choice (a 2-of-2 payout with daily caps) and grants this change
+    // nothing, so it is a warning; the bypass of the change's own pins is the next case
     const r = onChain(live.addDuplicateR3)
-    caught(
-      r,
-      /GtwrJ1…PHZcXd .* also sign\(s\) 2gMqxr…tNxjaK \[live rule 5\] \(seed 5\), a live rule looser than this change: live rule 5, constraint 0: the destination \(account 2\) is not pinned/
-    )
+    expect(r.problems).toEqual([])
+    expect(
+      r.warnings.some((w) =>
+        /GtwrJ1…PHZcXd .* also sign\(s\) 2gMqxr…tNxjaK \[live rule 5\] \(seed 5\), a live rule looser than the design: live rule 5, constraint 0: the destination \(account 2\) is not pinned/.test(
+          w
+        )
+      )
+    ).toBe(true)
     expect(
       r.warnings.some((w) => /duplicates 3rz7tt…B5AM7w \[live rule 4\] \(seed 4\)/.test(w))
     ).toBe(true)
@@ -299,11 +305,40 @@ describe('readChain catches a live mismatch', () => {
     const at = tx.indexOf(Buffer.from(fromBase58(K.r2b as string, 32)))
     tx.set(fromBase58(K.r4 as string, 32), at)
     const r = onChain(tx.toString('base64'), K.r4)
-    caught(
-      r,
-      /the execution runs under 2gMqxr.*, a live rule looser than the design: live rule 5, constraint 0: the destination \(account 2\) is not pinned/
-    )
+    expect(
+      r.warnings.some((w) =>
+        /the execution runs under 2gMqxr.*, a live rule looser than the design: live rule 5, constraint 0: the destination \(account 2\) is not pinned/.test(
+          w
+        )
+      )
+    ).toBe(true)
     expect(r.warnings.some((w) => /does not match the constraint 0 it claims/.test(w))).toBe(true)
+  })
+
+  it("a repay that reads another owner's obligations (the bytes review and the live rule)", () => {
+    // R2's repay reads the obligation's owner @64; point it at the LP gate vault instead of the
+    // Settlement vault
+    const tx = Buffer.from(live.createR2, 'base64')
+    const vault = Buffer.from(fromBase58(K.settlementVault as string, 32))
+    expect(tx.indexOf(vault)).toBeGreaterThan(0)
+    tx.set(fromBase58(K.lpGateVault as string, 32), tx.indexOf(vault))
+    const offline = reviewSolana(custody(tx.toString('base64')))
+    caught(
+      offline,
+      /the repay's obligation-owner read names BJN8X3\w+, not vault 0 of this account \(DYGGFC\w+\)/
+    )
+    expect(reviewSolana(custody(live.createR2)).problems).toEqual([])
+    // the live R2 holds the right owner; the same rule live with the wrong one is caught
+    const r2 = Buffer.from(bytes(K.r2 as string))
+    const live2 = edited(K.r2 as string, (b) =>
+      b.set(fromBase58(K.lpGateVault as string, 32), r2.indexOf(vault))
+    )
+    // a live rule looser than the design is told (the owners' earlier choice), as for R4
+    expect(
+      onChain(live.addTightDeposit, K.settlement, live2).warnings.some((w) =>
+        /live rule 2, constraint 0: the repay's obligation-owner read names BJN8X3/.test(w)
+      )
+    ).toBe(true)
   })
 
   it('a controlled account, and custody that no longer needs every owner', () => {
