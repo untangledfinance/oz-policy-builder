@@ -336,6 +336,13 @@ the Safe and drops the gate's pull, F's approvals and the message risk.
 
 ## What has been run
 
+The configuration check is a test harness. Its one Solidity file,
+`scripts/evm-config-check/test/ConfigOnly.t.sol`, is a Foundry test that runs
+only on a fork and is never deployed. On that fork it creates only instances of
+existing code: Safe proxies of the canonical Safe singletons, ERC-1167 proxies
+of the Zodiac Roles v2.1.1 mastercopy, and OpenZeppelin's TimelockController
+compiled unmodified from the npm package. Prime still adds no contract on EVM.
+
 | Check | Where | Result |
 |---|---|---|
 | The design on this page | [`scripts/evm-config-check`](../scripts/evm-config-check/README.md), on a fork of Base Sepolia against the live Safe, Roles and Aave contracts, OpenZeppelin TimelockController 5.6.0 from npm; CI job `evm-config-check` | 27 October 2026: 2 of 2 tests, Safe 1.4.1 and Safe 1.5.0, 55 checks each ([log](../scripts/evm-config-check/run-2026-10-27.txt)). The agent's batch supplies 10 and custody holds the aUSDC; the band's top, the agent's cap and its refill a day later, and custody's cap, reached by the Prime owners, hold. Refused, each with its Roles status: a supply or withdrawal for a stranger, a plain transfer, an approval to a stranger, an aUSDC transfer, a borrow, a delegatecall, a call to the custody Safe or the gate, the recovery role used by the Prime account, a non-member, another asset, another target, a withdrawal dressed as a supply. Recovery: scheduled, cancelled by custody, run by a stranger after the delay, refused before it and for a stranger's address. Stopping: the kill switch stops the agent and the Prime owners; the full stop stops recovery; two of three custody signers and one Prime owner are refused. Six altered configurations each fail the check |
