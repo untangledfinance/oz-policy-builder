@@ -12,7 +12,7 @@ that writes the Stellar rules.
 | [audit-overview.md](audit-overview.md) | the three components with their size, what is in and out of audit scope, and what each contract enforces |
 | [architecture.md](architecture.md) | the use case, the components, trust boundaries, owners and Prime seats, the main flows and why each part is built the way it is |
 | [stellar.md](stellar.md) | the custody gate, execution adapter, policy interpreter and Prime seat on an OpenZeppelin smart account; the policy builder's checks |
-| [evm.md](evm.md) | the custody design on Safe, Zodiac Roles and OpenZeppelin's timelock, and the EVM seat `PrimeSeat` |
+| [evm.md](evm.md) | Prime on EVM as configuration only: custody's Safe and its Roles gate, the Prime account's bands, the recovery timelock, the policy model, permissioned assets and the limits |
 | [solana.md](solana.md) | Prime on Solana by configuration only: the Squads Smart Account as custody gate and Prime account, Token-2022 for permissioned assets, and the venue's programs |
 
 The contracts' own READMEs hold the interfaces and test detail:
@@ -20,9 +20,9 @@ The contracts' own READMEs hold the interfaces and test detail:
 [policy-interpreter](../contracts/stellar/policy-interpreter/README.md),
 [custody gate](../contracts/stellar/custody-gate/README.md),
 [execution adapter](../contracts/stellar/execution-adapter/README.md),
-[Prime seat](../contracts/stellar/prime-seat/README.md),
-[EVM seat](../contracts/evm/prime-seat/README.md). Prime on Solana has no
-contract of its own; [solana.md](solana.md) holds its whole design.
+[Prime seat](../contracts/stellar/prime-seat/README.md).
+Prime on EVM and Prime on Solana have no contract of their own;
+[evm.md](evm.md) and [solana.md](solana.md) hold their whole designs.
 
 ## Packages
 
@@ -50,12 +50,8 @@ The records are in [`deployments/`](../deployments) and
 [stellar.md](stellar.md#deployments) has the full addresses and how each was
 checked.
 
-The EVM contracts run on test networks only and are outside the audit scope.
-
-| Contract | Network |
-|---|---|
-| EVM seat, `PrimeSeat` | fork-tested against Base Sepolia, no persistent deployment ([evm-testnet.json](../deployments/evm-testnet.json)); an app deploys one per seat owner and Safe from the creation code `4d355864…` |
-
-[evm.md](evm.md#deployed) has the detail. Prime on Solana deploys no
-program: it configures the Squads Smart Account, SPL Token-2022 and Kamino's
-deployed programs ([solana.md](solana.md#deployments)).
+Prime on EVM deploys no contract of ours: each Prime is configuration on
+existing Safe, Zodiac Roles and OpenZeppelin contracts on Base Sepolia
+([evm.md](evm.md#deployments), [evm-testnet.json](../deployments/evm-testnet.json)).
+Prime on Solana deploys no program: it configures the Squads Smart Account, SPL
+Token-2022 and Kamino's deployed programs ([solana.md](solana.md#deployments)).
