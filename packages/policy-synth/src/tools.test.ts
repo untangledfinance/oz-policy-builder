@@ -79,7 +79,7 @@ const transferXdr = (amount = 5_000_000n) =>
     .toXDR('base64')
 
 describe('the table', () => {
-  it('has the nine tools, each with a name, a description and a shape', () => {
+  it('has the eleven tools, each with a name, a description and a shape', () => {
     expect(TOOLS.map((t) => t.name)).toEqual([
       'record_transaction',
       'synthesize_policy',
@@ -90,6 +90,8 @@ describe('the table', () => {
       'bind_policy',
       'get_interpreter_info',
       'review_unsigned',
+      'solana_review',
+      'evm_review',
     ])
     for (const t of TOOLS) expect(t.description.length).toBeGreaterThan(40)
   })

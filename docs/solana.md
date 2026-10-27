@@ -256,7 +256,8 @@ instruction constraints accepts any instruction (`program_interaction.rs:859`);
 a `SpendingLimit` policy with no destinations pays anyone; and any
 `SettingsChange` policy on the custody account would let its signers change
 custody's settings without the full threshold, the trustee included. None
-belongs in a Prime setup, and a pre-sign check should refuse all three.
+belongs in a Prime setup, and the pre-sign check (`solana_review`, below)
+refuses all three.
 
 ### Prime account and the agent's bands
 
@@ -340,7 +341,7 @@ the venue's health and liquidation are only as fair as that feed.
 | Helper | What it does | Trusted for |
 |---|---|---|
 | Prime app and relayer | builds each transaction, adds the lookup tables, pays the fee | nothing over funds. The fee payer signs the outer transaction and is no rule's signer, so its signer flag reaches every inner call; it must hold no token account, delegation or venue permission |
-| Pre-sign check | simulates the transaction and reads the accounts it touches: each rule's constraints, signers and limits, the venue's market and reserve settings, the mint's extensions and authorities | refusing a bad shape before a wallet signs. Not built yet for Solana |
+| Pre-sign check | `solana_review` in `packages/policy-synth` reads the unsigned transaction from its bytes alone: each rule a settings change adds or edits (constraints, signers, threshold, time lock, spending limits) and each call an execution makes, and flags the shapes this page refuses: an empty rule, a `SettingsChange` or `SpendingLimit` policy, an unpinned destination, a withdraw without its `has_debt` read, a liquidation without its marked read, a repay whose obligation is open | refusing a bad shape before a wallet signs. It reads no chain state: an existing rule, the venue's market and reserve settings and the mint's extensions are for a separate read |
 | Co-signer for a dynamic check | a key on a rule, run by the institution or the lender, that simulates a move and signs only when a check no constraint can express passes (a ratio between two fields, a value relative to the clock) | its holder's own decision. Its logic runs off chain; hold its key in a multisig or MPC |
 
 A venue's permission gate can carry the same kind of decision. klend's
@@ -457,7 +458,7 @@ code; **Limit** means it needs new code, out of this design's scope.
 | Per-user risk limits | per-call ceilings, spending limits, the venue's health and borrow limits | Partial: a ratio tighter than the venue's (for example an advance against a varying face value) needs a co-signer |
 | Deposit and redemption mechanics | the issuer's mint key in a Squads batch; a time-locked rule for a notice; outflow limits | Partial: there is no cumulative cap on inflows; a redemption queue belongs to the issuer's own program |
 | Liquidation with notice, by whitelisted liquidators | klend's mark and margin-call period; its per-market `LIQUIDATE` permission; the thaw list | Met for a gated asset; other collateral liquidates at once |
-| Auditable cashflows | one Squads event per execution, naming the rule | Met for the on-chain legs; the pre-sign check that reads the rules is not built yet |
+| Auditable cashflows | one Squads event per execution, naming the rule | Met for the on-chain legs; `solana_review` reads a rule change or an execution from its bytes before signing |
 | New assets with no new contract | a new mint, rules and, if needed, a reserve | Met |
 | No operator in the flow | every key above can be a Squads account of the parties | Partial: it holds only when the market owner, feed admin and issuer keys sit with the parties |
 

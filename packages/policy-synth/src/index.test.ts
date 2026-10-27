@@ -1,7 +1,7 @@
 import { expect, it } from 'bun:test'
 import * as api from './index.ts'
 
-it('the public surface is the tools, the codec, the card, the owner-side review (and readFollowed), the pins, Refusal and ruleArgs, and nothing else', () => {
+it('the public surface is the tools, the codec, the card, the owner-side reviews (and readFollowed), the pins, Refusal and ruleArgs, and nothing else', () => {
   expect(Object.keys(api).sort()).toEqual(
     [
       'CEILINGS',
@@ -26,6 +26,8 @@ it('the public surface is the tools, the codec, the card, the owner-side review 
       'readFollowed',
       'readsOf',
       'referenceOf',
+      'reviewEvm',
+      'reviewSolana',
       'reviewUnsigned',
       'ruleArgs',
       'run',

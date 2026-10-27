@@ -1,11 +1,11 @@
 # @crediolabs/policy-builder-mcp
 
 An [MCP](https://modelcontextprotocol.io) server for the OZ Policy Builder.
-It registers the nine tools of
+It registers the eleven tools of
 [`@crediolabs/policy-synth`](../policy-synth/README.md)
 exactly as that package defines them (`record_transaction`, `synthesize_policy`,
 `simulate_policy`, `verify_policy`, `install_policy`, `revoke_policy`, `bind_policy`,
-`get_interpreter_info`, `review_unsigned`): name, description and input schema come from its table,
+`get_interpreter_info`, `review_unsigned`, `solana_review`, `evm_review`): name, description and input schema come from its table,
 and so does every answer. A result is the tool's data as JSON text and as
 `structuredContent`; a refusal sets `isError` and carries the error envelope
 (`code`, `message`, `retryable`).

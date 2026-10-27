@@ -20,7 +20,7 @@ const CONTRACT = 'CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526'
 describe('the MCP server registers the table as it is', () => {
   it('reports the published version', () => expect(VERSION).toBe(pkg.version))
 
-  it("lists exactly the nine tools, with the table's descriptions and required inputs", async () => {
+  it("lists exactly the eleven tools, with the table's descriptions and required inputs", async () => {
     const { tools } = await (await client()).listTools()
     expect(tools.map((t) => t.name)).toEqual(TOOLS.map((t) => t.name))
     for (const t of tools) {

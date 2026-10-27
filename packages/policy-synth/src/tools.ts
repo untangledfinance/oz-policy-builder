@@ -1,4 +1,4 @@
-// The nine tools, one definition each: a name, a description, an input shape and
+// The eleven tools, one definition each: a name, a description, an input shape and
 // a body. `tool()` is the only place input is validated, errors become the
 // response envelope, and a thrown refusal gets its code; the MCP server and the
 // CLI both register straight from `TOOLS`, so neither holds any logic.
@@ -7,6 +7,7 @@
 
 import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
+import { isSolanaKey } from './bytes.ts'
 import { type Authority, authority, followed, lines, overridden, tree, warned } from './card.ts'
 import {
   codeHash,
@@ -28,6 +29,7 @@ import {
   OZ_ACCOUNT_WASM,
 } from './config.ts'
 import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelope.ts'
+import { reviewEvm } from './evm.ts'
 import {
   buildBind,
   buildInstall,
@@ -46,6 +48,7 @@ import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
 import { reviewUnsigned } from './review.ts'
 import { type Followed, readFollowed, readRule, readRules, selectors } from './rules.ts'
+import { reviewSolana } from './solana.ts'
 import {
   type Answers,
   type ProposedRule,
@@ -186,6 +189,8 @@ const CODE: Record<string, ErrorCode> = {
   bind_policy: 'BIND_BUILD_FAILED',
   get_interpreter_info: 'INTERPRETER_MISMATCH',
   review_unsigned: 'INVALID_INPUT',
+  solana_review: 'INVALID_INPUT',
+  evm_review: 'INVALID_INPUT',
 }
 
 function tool<S extends Record<string, z.ZodType>>(
@@ -835,6 +840,78 @@ async function followedFor(
   }
 }
 
+const solanaKey = z.string().refine(isSolanaKey, 'a base58 Solana public key')
+const base64 = z.string().min(1).max(20_000)
+
+const solana_review = tool(
+  'solana_review',
+  "Review an UNSIGNED Squads Smart Account transaction on Solana (devnet) from its bytes alone, with no RPC: for an account owner to run on the transaction it is about to sign. Give the whole transaction (`transaction`, base64, signature slots included) or its message alone (`message`), `role` (`custody`: the account that holds the funds, whose rules pin venue and token calls; `prime`: the Prime account, whose bands pin Squads' execute_transaction_sync_v2 into a custody rule) and `account` (the Squads account the owner means: the settings account, or for an execution the rule's policy account). It decodes a settings change (execute_settings_transaction_sync or create_settings_transaction: the rules it adds, edits or removes, owners, threshold, time lock) and an execution (execute_transaction_sync_v2: the calls it makes, a nested band-to-custody execution included) and checks them against the configuration-only design. `problems` (each one a reason not to sign) include: a ProgramInteraction rule with no instruction constraints, which admits ANY instruction (STRIDE E-02); a SettingsChange policy (on custody it defeats the 3-of-3 and the trustee, E-03); a SpendingLimit policy or legacy spending limit (with no destinations it pays anyone, E-04); an InternalFundTransfer policy or a hook; a constraint with no discriminator or token tag pinned; a program the role never pins (custody: klend and the token programs; prime: Squads' execute_transaction_sync_v2), klend v1 or an unknown klend instruction, a token Approve, SetAuthority, CloseAccount or freeze; a destination, source or reserve that is not pinned (klend _v2 deposit, borrow, repay, withdraw, liquidate positions; token transfer and mint destinations; a band's account 0), or pinned outside `destinations` when given; a repay whose obligation is not pinned (klend binds a repay to no owner); a collateral withdraw without the has_debt == 0 read (U8 @2287, owner klend) when the change also permits a borrow or `requireNoDebt` is set; a liquidation without the marked read (U64Le @2336 > 0, owner klend); a signer outside `signers` when given; a threshold below 3 on custody or 2 on the Prime account; a settings time lock below `minTimeLock`; and in the envelope a signature already present, a durable nonce, a top-level instruction other than compute budget and Scope or klend refreshes, a lookup-table account where the Squads account should be, or an `account` that is missing or differs. `warnings` (allowed, but to know): a rule edit refills its spending limits, a rule with no expiry, no per-call ceiling, a time lock dropped to 0, a settings-level execution. `signable` means no problem was found; it does NOT mean safe to sign: the owner must read `review`/`reviewTree` (problems first, then the transaction, then each rule's signers, who can act alone, expiry, every constraint and spending limit). Squads `0e51082`, klend `e921c64` (1.26 offsets).",
+  {
+    transaction: base64.optional(),
+    message: base64.optional(),
+    role: z.enum(['custody', 'prime']),
+    account: solanaKey.optional(),
+    destinations: z.array(solanaKey).min(1).max(64).optional(),
+    signers: z.array(solanaKey).min(1).max(64).optional(),
+    requireNoDebt: z.boolean().optional(),
+    minTimeLock: z.number().int().nonnegative().max(0xffffffff).optional(),
+    raw: z.boolean().optional(),
+  },
+  async (i) => {
+    exactlyOne(i, ['transaction', 'message'])
+    return reviewSolana(i)
+  }
+)
+
+const evmAddress = z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'a 0x address')
+const evmUint = z.string().regex(/^\d{1,78}$/, 'a non-negative integer, as a string')
+
+const evm_review = tool(
+  'evm_review',
+  "Review an UNSIGNED Safe transaction (Safe 1.4.1 or 1.5.0, Zodiac Roles v2.1.1) from its bytes alone, with no RPC: for an owner to run on the Safe transaction it is about to sign. Give it as `safeTx` (to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce) or as `calldata` (execTransaction, signatures empty, with `nonce`), with `safe` (the Safe the owner means), `chainId` (default 84532, Base Sepolia) and `role` (`custody`: the custody Safe and its gate; `prime`: the Prime account and its bands). It returns the EIP-712 `safeTxHash` to compare with the wallet, decodes a MultiSend batch, and decodes every Roles call (scopeTarget, scopeFunction with its condition tree, allowTarget, allowFunction, revokeTarget, revokeFunction, setAllowance, assignRoles, setDefaultRole, setTransactionUnwrapper, setUp) and every Safe setting call. `problems` (each one a reason not to sign): an under-read scoping (allowTarget opens every function; allowFunction or a tree that constrains nothing takes any arguments); a wrong layout (a Matches whose children differ in number or type from the function's ABI, so arguments past the last one read pass unchecked; a band's inner call with no Bitmask pinning its four selector bytes); a recipient not pinned to the avatar (supply or deposit onBehalfOf, withdraw to, transfer to, transferFrom to, repay onBehalfOf: EqualToAvatar, or EqualTo one of `recipients`) or an unpinned approval spender, on the custody gate; a band that leaves the gate call's target, value, operation, role key or shouldRevert open, or reaches execTransactionFromModule; a revokeTarget without revoking that target's functions in the same batch (revokeTarget keeps the function scopes, which return on the next scopeTarget); calldata past the last argument of any decoded call; a Custom condition, a DelegateCall execution option, a borrow, credit delegation or Permit2 on the gate; an unwrap adapter other than the Roles MultiSend unwrapper; a Roles module set up, re-owned or re-pointed to anything but the Safe; a delegatecall other than MultiSend 1.4.1 (and CreateCall deploying the exact Roles proxy); a guard or fallback handler; a threshold below 3 on custody or 2 on the Prime account; the Safe itself calling a venue; a gas refund, value sent, or signatures already present; `safe` missing. `warnings`: every scopeTarget (stored function scopes come back), a band leaving a recipient for the gate to pin, no ceiling on a band's amount, a function with no known ABI, owner changes. `signable` means no problem was found; it does NOT mean safe to sign: read `review`/`reviewTree` (the transaction and its hash, then each call and its condition tree). Roles v2.1.1 `218a5164`, Safe `v1.4.1`.",
+  {
+    safeTx: z
+      .object({
+        to: evmAddress,
+        value: evmUint.optional(),
+        data: z
+          .string()
+          .regex(/^0x([0-9a-fA-F]{2})*$/)
+          .max(400_000)
+          .optional(),
+        operation: z.union([z.literal(0), z.literal(1)]).optional(),
+        safeTxGas: evmUint.optional(),
+        baseGas: evmUint.optional(),
+        gasPrice: evmUint.optional(),
+        gasToken: evmAddress.optional(),
+        refundReceiver: evmAddress.optional(),
+        nonce: evmUint.optional(),
+      })
+      .strict()
+      .optional(),
+    calldata: z
+      .string()
+      .regex(/^0x([0-9a-fA-F]{2})*$/)
+      .max(400_000)
+      .optional(),
+    nonce: evmUint.optional(),
+    safe: evmAddress.optional(),
+    chainId: z
+      .number()
+      .int()
+      .positive()
+      .max(2 ** 48)
+      .optional(),
+    role: z.enum(['custody', 'prime']),
+    recipients: z.array(evmAddress).min(1).max(64).optional(),
+    raw: z.boolean().optional(),
+  },
+  async (i) => {
+    exactlyOne(i, ['safeTx', 'calldata'])
+    return reviewEvm(i)
+  }
+)
+
 export const TOOLS: Tool[] = [
   record_transaction,
   synthesize_policy,
@@ -845,6 +922,8 @@ export const TOOLS: Tool[] = [
   bind_policy,
   get_interpreter_info,
   review_unsigned,
+  solana_review,
+  evm_review,
 ]
 
 export const run = (
