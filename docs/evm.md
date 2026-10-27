@@ -233,8 +233,17 @@ in it, and flags an open target, a condition that constrains nothing, a
 parameter layout that differs from the function's ABI, a recipient not pinned
 to the custody Safe, an unwrap adapter other than the Roles one and calldata
 past the last argument. A `revokeTarget` without its functions comes back as a
-warning. It reads no
-chain state, so a module's stored scopes stay out of its view.
+warning. With `readChain` it also reads the Safe on a test network: its
+owners, threshold, modules, guard and fallback handler after the batch, each
+Roles module's owner and avatar, the scopes already stored for the roles,
+targets and functions the batch names (an open target or an under-read scope
+left live is a problem), each timelock's delay and roles, and an ERC-3643
+token's identity and freeze state for the Safe. Roles keeps no index of a
+role's targets, so a stored scope on a target the batch does not name stays
+out of its view. It decodes a move the Prime owners schedule on the move
+timelock with the gate call it schedules, and reads the agent's band on the
+timelock's `schedule` one level down, as a band of the gate's
+`execTransactionWithRole`.
 
 ### Permissioned assets
 
@@ -513,7 +522,8 @@ contract of ours.
 - **Unwrap adapters are owner settings:** the owner of a Roles module can
   register an adapter that splits calls before they are checked
   (`Periphery.sol:21-28`). On the gate only custody can, and a reader of the
-  gate's rules must count them.
+  gate's rules must count them; `evm_review` with `readChain` reads the
+  adapters for MultiSend batches.
 - **Extra calldata after the last checked argument passes Roles:** a venue that
   reads `msg.data.length` or the last 20 bytes of calldata (an ERC-2771 trusted
   forwarder does) sees a different call, so rules should target venues that
