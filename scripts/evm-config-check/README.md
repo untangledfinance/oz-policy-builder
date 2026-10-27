@@ -9,7 +9,7 @@ TimelockController 5.6.0 compiled from the npm package. Prime has no contract
 of its own on EVM, and this folder adds none: the `.sol` files are tests and a
 forge script.
 
-Two tests, each run once per Safe version:
+Three tests, each run once per Safe version:
 
 - `test/RefLine.t.sol` builds the design of docs/evm.md, where every move waits
   in a move timelock, and runs it phase by phase with the clock moved past each
@@ -19,6 +19,13 @@ Two tests, each run once per Safe version:
 - `test/ConfigOnly.t.sol` holds the base checks of the Safe and Roles parts,
   with the Prime account as the gate's trading member and no move delay, and
   the STRIDE attack cases.
+- `test/StrideTimelock.t.sol` extends `RefLineBase` with the move-timelock
+  STRIDE proof-of-concept cases for
+  [evidence/stride-evm.md](../../evidence/stride-evm.md) section 11: the open
+  executor and the missing run-window, the agent's cap spent at scheduling, a
+  scheduled move that outlives its band, the proposer's reach into the
+  timelock's own delay, and salt replay. 71 checks per Safe version, in
+  [run-stride-timelock-2026-10-27.txt](run-stride-timelock-2026-10-27.txt).
 
 `ConfigOnly.t.sol` makes 55 checks each time:
 
