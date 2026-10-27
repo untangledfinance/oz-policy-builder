@@ -19,8 +19,7 @@ klend at `e921c64`, the commit Kamino's mainnet build is verified against
 the 1.0.0 crate gives the same order of checks), SPL Token at `57bd873`, the
 associated token account program at `8efacd6` and Kamino Scope at `b789326`.
 The deployed Squads and klend builds were compared with these sources by
-behaviour, with no hash check, and the deployed Token-2022 build not yet (see
-[Limits](#limits)).
+behaviour, with no hash check (see [Limits](#limits)).
 
 ## The use case and the setup
 
@@ -216,8 +215,11 @@ a change made by an earlier top-level instruction of the same transaction
 counts, and a change made inside the batch does not.
 
 **Spending limits:** a limit names a mint, a period (one-time, daily, weekly,
-monthly or a number of seconds), a ceiling per period, and whether unused
-amounts carry over (`state/policies/utils/spending_limit_v2.rs:6-75`). In a
+monthly or a number of seconds) and a ceiling per period
+(`state/policies/utils/spending_limit_v2.rs:6-75`). Inside a
+`ProgramInteraction` rule, unused amounts never carry over and there is no
+per-use ceiling, and creating or changing the rule starts every limit at a
+full period (`program_interaction.rs:638-654`). In a
 rule with at least one limit, Squads records each token account the vault owns
 that the batch passes writable, and after the batch it charges every decrease
 against the limit for that mint (`program_interaction.rs:1095-1120`;
@@ -423,8 +425,9 @@ margin-call period above 0 (`individual_autodeleverage_margin_call_period_secs`,
 The borrower can repay during the period. After it, on a market with
 autodeleverage enabled, liquidators can reduce the position to the target LTV,
 with a bonus that grows over time (`state/liquidation_operations.rs:469-506`);
-with `LIQUIDATE` flagged they still need the permission authority. A mark sent
-from a Squads account is still to run on devnet. A plain
+with `LIQUIDATE` flagged they still need the permission authority. A Squads
+account as market owner marked and unmarked positions on devnet (see
+[What has been run](#what-has-been-run)). A plain
 liquidation of other collateral in an unhealthy position is immediate, with no
 notice.
 
@@ -558,15 +561,15 @@ the sources cited on this page and on these runs:
 | A rule whose signer is another account's vault | devnet simulation, 27 October 2026, nothing sent (the PayFi team's run) | a 2-of-2 rule with a key and a foreign vault as signers, no constraints or limits, passed when that account's settings-level execution called it; with the key alone it refused (`InvalidSignerCount`, 6047) |
 | A Squads vault as klend's permission authority | the same simulation, on Kamino's devnet klend | the nested borrow passed the permission check (then failed later on an empty position); without the lender's execution it failed with 3010, with the old authority with 6183 |
 | The `has_debt` byte | devnet read, 27 October 2026 | 1 on a position owing 700 USDC, 0 on one owing nothing |
+| The same design, as a PayFi line | Solana devnet, 27 October 2026; `evidence/solana-v2/e2e.md` in the payfi repository, branch `feat/solana-v2` at `04b8747` (in review) | sent: a market owner that is a Squads account (2 of 3) marked and unmarked positions; an issuer Squads account (2 of 2) minted the Token-2022 asset; seizures ran after a 90 s notice. Simulated refusals: a withdraw while `has_debt` read 1 (`ProgramInteractionInvalidNumericValue`); a payment over a daily spending limit (`ProgramInteractionInsufficientTokenAllowance`); a liquidation into a frozen account (Token `AccountFrozen`, 0x11) |
 | A borrow through nested Squads executions | Solana devnet, 27 October 2026, the PayFi team's line, transaction `3Gh7kss5zZxdV8kWSATV2s5ewu7S7mYticSs6iw2SWU64EbXzpQARESLJGgh4bRovKpYD9obaSmuCYnPfNZYpAhg` (slot 515,680,593) | succeeded: Scope and klend refreshes at the top level, then a lender's Squads execution (height 1) calling a borrower's rule (2), which deposited and borrowed at klend (3) with the lender's vault as permission authority; token calls at 4. 872 bytes with a lookup table, 358,214 compute units |
 
 The PayFi transaction proves two nested Squads executions reaching klend
 within the depth and size limits, through the pass-through mechanism. This
 design's own shape, a Prime rule calling a custody rule whose only signer is a
 Prime vault, with constraints and a spending limit, needs a devnet run of its
-own. Also still to run: a mark and unmark from a Squads account, the
-Token-2022 frozen-account checks on the deployed build, and a mint and thaw by
-an issuer's Squads account; the PayFi devnet line is running those.
+own. The PayFi line covers the mark, the issuer account and the frozen
+account above on the deployed builds.
 
 ## Deployments
 
@@ -598,7 +601,8 @@ and are unused ([contracts/solana](../contracts/solana/README-architecture.md)).
   instruction does not pass. Such a check needs a co-signer off chain, or new
   code.
 - **Spending limits are per rule:** the account-wide daily outflow is the sum
-  over every rule that moves a mint.
+  over every rule that moves a mint. Changing a rule refills its limits, so a
+  change in the middle of a day allows up to a second day's amount.
 - **Spending limits count outflows only:** a borrow or a subscription has no
   cumulative cap; a per-call ceiling and the venue's own limits bound it.
 - **A tighter risk shape than the venue's needs a co-signer:** the venue
@@ -617,7 +621,7 @@ and are unused ([contracts/solana](../contracts/solana/README-architecture.md)).
   and Token-2022 can be upgraded. Re-read the rule semantics, the venue's
   instructions and the offsets a rule reads after each upgrade. The deployed
   Squads and klend builds were compared with the sources here by behaviour
-  only, and Token-2022's checks are still to run on the deployed build.
+  only; Token-2022's frozen-account refusal was seen on devnet.
 - **The fee payer reaches every inner call as a signer:** it must hold nothing
   and no permission.
 - **Call depth:** two Squads executions and the venue reach stack height 4 of

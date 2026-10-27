@@ -11,7 +11,7 @@ the Stellar contracts.
 |---|---|---|---|
 | Stellar | OpenZeppelin smart account | policy interpreter, custody gate, execution adapter, Prime seat | Stellar testnet |
 | EVM | Safe with Zodiac Roles | `PrimeSeat` | Base Sepolia fork tests; no persistent deployment |
-| Solana | Squads Smart Account | none: a second Squads Smart Account is the custody gate | design only; parts ran on devnet (a foreign vault as a rule's signer, in simulation; a borrow through nested Squads executions); a full move has not run |
+| Solana | Squads Smart Account | none: a second Squads Smart Account is the custody gate | design only; its parts ran on devnet in the PayFi line on the same programs (nested Squads executions into klend, Squads-held market and issuer roles, frozen-account refusals); a full custody move has not run |
 
 Detail: [stellar.md](stellar.md), [evm.md](evm.md), [solana.md](solana.md).
 
