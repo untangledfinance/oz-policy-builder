@@ -95,6 +95,7 @@ to `prime3`, `agent`, `trustee` and `stranger`; only the deployer needs test
 ETH, and it sends the agent and the stranger theirs. `MOVE_DELAY` and `DELAY`
 set the two timelock delays (120 and 300 seconds by default). The run's record
 goes to `refline/<mode>-run.json`;
-[`refline/anvil-run.json`](refline/anvil-run.json) is the run of 27 October
-2026 on an anvil fork, described in
+[`refline/live-run.json`](refline/live-run.json) is the run of 27 October 2026
+on Base Sepolia and [`refline/anvil-run.json`](refline/anvil-run.json) its dry
+run on an anvil fork, both described in
 [evidence/evm-reference-line.md](../../evidence/evm-reference-line.md).

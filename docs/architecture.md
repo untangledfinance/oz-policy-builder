@@ -10,7 +10,7 @@ the Stellar contracts.
 | Chain | Prime account | Our contracts | Where it runs |
 |---|---|---|---|
 | Stellar | OpenZeppelin smart account | policy interpreter, custody gate, execution adapter, Prime seat | Stellar testnet |
-| EVM | Safe with Zodiac Roles | none: configuration on Safe, Zodiac Roles and OpenZeppelin's timelock | Base Sepolia (fork checks of the configuration; the reference line ran on an anvil fork and waits for test ETH to run on chain) |
+| EVM | Safe with Zodiac Roles | none: configuration on Safe, Zodiac Roles and OpenZeppelin's timelock | Base Sepolia (fork checks of the configuration, and a reference line run on chain) |
 | Solana | Squads Smart Account | none: a second Squads Smart Account is the custody gate | design only; its parts ran on devnet in the PayFi line on the same programs (nested Squads executions into klend, Squads-held market and issuer roles, frozen-account refusals); a full custody move has not run |
 
 Detail: [stellar.md](stellar.md), [evm.md](evm.md), [solana.md](solana.md).

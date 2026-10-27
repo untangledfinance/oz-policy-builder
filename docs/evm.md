@@ -344,8 +344,8 @@ sequenceDiagram
 ```
 
 The pool must hold custody's approval first, which the Prime owners schedule
-the same way. On the reference line the agent's `schedule` used 252,903
-gas and its `execute` 302,177. The custody Safe paid 10 USDC and held the
+the same way. On the reference line the agent's `schedule` used 252,927
+gas and its `execute` 302,201. The custody Safe paid 10 USDC and held the
 aUSDC, and the Prime account, the move timelock and the agent held nothing
 afterwards.
 
@@ -429,7 +429,7 @@ Prime still adds no contract on EVM.
 | Check | Where | Result |
 |---|---|---|
 | The design on this page | `test/RefLine.t.sol` in [`scripts/evm-config-check`](../scripts/evm-config-check/README.md), on a fork of Base Sepolia against the live Safe, Roles and Aave contracts; CI job `evm-config-check` | 27 October 2026: 2 of 2 tests, Safe 1.4.1 and Safe 1.5.0, 128 checks each. The agent schedules four supplies of 10 through its band and the first runs after the delay; custody holds the aUSDC and the Prime account, the move timelock and the agent hold nothing. Refused at scheduling, each with its Roles status: over the band, over the agent's cap, another asset, a withdrawal, a transfer, another target, the custody Safe as target, the recovery role, a delegatecall, `execute` through the band; the agent on the timelock or the gate directly, a stranger on the band, a run before the delay. Refused when it runs, with the gate's status: over custody's cap, a supply or withdrawal for a stranger, a transfer, an approval to a stranger, an aUSDC transfer, a borrow, a delegatecall, a call to the custody Safe or the gate, the recovery role, a gate rule written by the timelock, a cancelled move. Kill switch: moves already scheduled fail. Recovery pays the trustee while trading is off; a cancelled one and one to a stranger are refused; the full stop stops it. Two of three custody signers and one Prime owner are refused. After the restore, a move scheduled before the kill switch runs |
-| The reference line | `script/RefLine.s.sol` and `refline.ts`, on an anvil fork of Base Sepolia at block 50,996,017, move delay 120 seconds, recovery delay 300 seconds | 27 October 2026: the same flow as 64 transactions, 26 that succeed and 38 refused, each refusal with the revert data its simulation gave; 12,588,408 gas. Not yet on Base Sepolia itself: it waits for test ETH. [evm-reference-line.md](../evidence/evm-reference-line.md) has every transaction |
+| The reference line | `script/RefLine.s.sol` and `refline.ts`, on Base Sepolia, blocks 51,007,854 to 51,009,931, move delay 120 seconds, recovery delay 300 seconds | 27 October 2026: the same flow as 64 transactions on chain, 26 that succeed and 38 refused, each refusal with the revert data its simulation gave and the status the fork test asserts; 12,583,811 gas, 0.000477 ETH. A dry run on an anvil fork had the same outcome for every transaction. [evm-reference-line.md](../evidence/evm-reference-line.md) links every transaction on Basescan |
 | The base checks | `test/ConfigOnly.t.sol`, same fork and CI job | 27 October 2026: 2 of 2 tests, Safe 1.4.1 and Safe 1.5.0, 55 checks each ([log](../scripts/evm-config-check/run-2026-10-27.txt)), with the Prime account as the gate's trading member and no move delay. Six altered configurations each fail the check |
 | Custody at a plain address | Base Sepolia, 29 September 2026, the real Aave v3 pool, Uniswap v3 router, Safe, Roles and OpenZeppelin contracts | State read back 43 of 43 at first deployment and 20 of 20 after recovery moved to the timelock. Moves: agent supply 10, swap 10, withdraw 5, a shared-account supply of 150; every result reached F and the gate and Prime account held nothing. The agent's and F's daily caps refused moves over them. 48 refused attempts, from a pull to the Prime account to a batch with `shouldRevert = false`. Recovery ran after the delay, a cancelled one never ran, and a full stop blocked it. Addresses in [evm-testnet.json](../deployments/evm-testnet.json) |
 
@@ -465,8 +465,8 @@ Roles proxies and two timelocks, made by its own setup transactions on Base
 Sepolia. [deployments/evm-testnet.json](../deployments/evm-testnet.json)
 records the existing contracts that setup uses on Base Sepolia (read back on
 27 October 2026), the Aave test market, the fork checks, the reference line
-and the custody run of 29 September 2026. The reference line's addresses there
-are from its anvil fork run until it runs on Base Sepolia itself.
+that ran on Base Sepolia on 27 October 2026, and the custody run of 29
+September 2026.
 
 | | Address |
 |---|---|

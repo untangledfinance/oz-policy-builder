@@ -3,7 +3,7 @@
   "chainId": 84532,
   "recorded": "2026-10-27",
   "status": "configuration only; no contract of ours",
-  "note": "Prime on EVM, test network only. It deploys no contract of ours: a Prime is configuration on the existing contracts below (Safe proxies, Zodiac Roles proxies, two OpenZeppelin TimelockController instances per gate, one for moves and one for recovery). Each address was read back on Base Sepolia on 27 October 2026 (code present). The fork checks in scripts/evm-config-check run the design of docs/evm.md against these contracts on a fork; they deploy nothing on the network. The reference line runs the same design one transaction at a time; its record below is from an anvil fork of Base Sepolia until it runs on Base Sepolia itself. The custody run of 29 September 2026 (custody at a plain address) is kept as a record of that run. No mainnet deployment exists.",
+  "note": "Prime on EVM, test network only. It deploys no contract of ours: a Prime is configuration on the existing contracts below (Safe proxies, Zodiac Roles proxies, two OpenZeppelin TimelockController instances per gate, one for moves and one for recovery). Each address was read back on Base Sepolia on 27 October 2026 (code present). The fork checks in scripts/evm-config-check run the design of docs/evm.md against these contracts on a fork; they deploy nothing on the network. The reference line runs the same design one transaction at a time; its record below is the run on Base Sepolia of 27 October 2026. The custody run of 29 September 2026 (custody at a plain address) is kept as a record of that run. No mainnet deployment exists.",
   "existingContracts": {
     "safe-1.4.1": {
       "safeL2": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
@@ -44,17 +44,19 @@
     "log": "scripts/evm-config-check/run-2026-10-27.txt"
   },
   "referenceLine": {
-    "status": "anvil fork of Base Sepolia, not on chain: the run on Base Sepolia waits for test ETH for the deployer. These addresses exist only on that fork.",
+    "status": "on chain: Base Sepolia, 27 October 2026; every transaction read back from a second RPC (status and block)",
     "date": "2026-10-27",
-    "network": "anvil 1.8.4 fork of Base Sepolia (84532) via https://sepolia.base.org at block 50996017",
+    "network": "Base Sepolia (84532) via https://sepolia.base.org, blocks 51007854 to 51009931",
+    "explorer": "https://sepolia.basescan.org",
     "script": "scripts/evm-config-check/script/RefLine.s.sol with scripts/evm-config-check/refline.ts",
     "evidence": "evidence/evm-reference-line.md",
-    "run": "scripts/evm-config-check/refline/anvil-run.json",
+    "run": "scripts/evm-config-check/refline/live-run.json",
+    "forkRun": "scripts/evm-config-check/refline/anvil-run.json (the dry run on an anvil fork at block 50996017, same outcomes)",
     "safe": "1.4.1",
-    "custody": "0x1a5b68Ad9802189d3960eb970004F5c3Bc5b8550",
-    "gate": "0x160f9c7b55a01Cc9F39fCa01B60Dc42d9f003CD1",
-    "primeAccount": "0x5DCc413D025F28C29eFECCC5d410B133eD3baad6",
-    "bandModule": "0x4a448501A08C7529D112370EF304c7bB2C1e31B1",
+    "custody": "0x56b90A323dFFf645DB579E0b0E11D4fEbe115550",
+    "gate": "0x24038e34749556773F201aAA5Dd043f5f00f35F6",
+    "primeAccount": "0xaaC536a742f82c9db0c8CD758EDbeBD3E7369F56",
+    "bandModule": "0xa61392F4E26505A3FdE1A2804E15f974Cf22110c",
     "moveTimelock": "0x75Cb7Cb7281192b59e9aC550f0D91177F44b7100",
     "recoveryTimelock": "0x17BEFE1Bb2a4Cae942Ef0746Dac1E86DC99FaF0f",
     "moveDelaySeconds": 120,
@@ -66,18 +68,19 @@
       "total": 64,
       "succeeded": 26,
       "refused": 38,
-      "gasUsed": 12588408
+      "gasUsed": 12583811,
+      "feeWei": "476834097352071"
     },
     "setupTransactions": {
-      "T1a": "0x1fa2be5800a32e74c0cc8e490e6fbe66b6e93c85f581946331b5b15295ad13d0",
-      "T1b": "0xba0cf7751ef52863f667527caa5afebf8c2a95810f08a0b391d8b162e3350d6b",
-      "moveTimelock": "0xd3c645524ab9a1d7e427852c25d43c7c35d97789ed09cb5acba037bbd89c2a01",
-      "recoveryTimelock": "0x6ed89f113bdc1bb4301038ddb24cdba9b5af49914e0ad999702ac5fae7afa304",
-      "T2": "0x1fd358cf7303a8823375a6bb191a1332d9efaa06622cd46a0b7e6af5b80fb0db",
-      "T3": "0xb3c0cbf09c1f0fd83b46a3cb09979d4f5c0c5d9300e8df89913c99fa76b20664",
-      "usdcMint": "0x977fe8b5f4e257178a245dfb33ff0a7c230473c291c80909605b89c0dd6ab166",
-      "agentGas": "0x844ea5470a1e9573f92fa18144c709653f34f3ec08dc961224d30ed351b29070",
-      "strangerGas": "0x0385fa0a81f3af16185abee798511023c345c309869874155a7408b7ca3b7e7a"
+      "T1a": "0x7be18b15bf12457699ae6c333fc2a652e5030f4d2d5a552b8f6f3fbbca6983fe",
+      "T1b": "0x6d9ae53ef2ecc75334ca058bfb986580b967108ea127997eda8a4b2664fe14bd",
+      "moveTimelock": "0x1e59711c94e8cc566f71b6b695f10614ed5d8b1223b0c0bec5092d5586933a71",
+      "recoveryTimelock": "0x03ea882136a57269425437af24dbf95ca7a9e0ef9c08f4a691e4d90bedd31b58",
+      "T2": "0xbeb810e1896f7bb61284b0ef2a9556f88782b85e7e8cd9b46ea81f452d139db4",
+      "T3": "0x89eaeb4a10c01be8aab7de5d696d574bb8d5a3a1eb818809affafe3db928c743",
+      "usdcMint": "0xe3d78f1d6af9f96c1a6e886c1e85aad03f08c535e808fc1688e2f89fb6f105c3",
+      "agentGas": "0x382215db22f20c4a4e718d41374aeb16eb62ecbbd6405b052d9e843b0f6b63b9",
+      "strangerGas": "0x24b92035631a384c780587df63bee2d342cdd7c66e3dcf55116a680340fee0b0"
     }
   },
   "custodyRun": {
