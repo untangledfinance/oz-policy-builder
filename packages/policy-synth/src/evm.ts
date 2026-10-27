@@ -23,7 +23,7 @@ export const EVM = {
   rolesMastercopy: '0xf2964ce6161ce0e75964fe7927ce114cb0b283d5',
   unwrapper: '0x93b7fcbc63ed8a3a24b59e1c3e6649d50b7427c0',
 } as const
-const ZERO = `0x${'0'.repeat(40)}`
+export const ZERO = `0x${'0'.repeat(40)}`
 const CHAINS: Record<number, string> = {
   84532: 'Base Sepolia',
   11155111: 'Sepolia',
@@ -58,6 +58,9 @@ export interface ConditionFlat {
   paramType: number
   operator: number
   compValue: string
+  /** Read off the chain: Roles stores an EqualTo value as its keccak-256, and this one matched no
+   *  value the review knows, so `compValue` is the hash. */
+  hashed?: boolean
 }
 
 const enc = new TextEncoder()
@@ -78,7 +81,7 @@ const fn = (sig: string, params: string[]): [string, Fn] => {
   ) as T[]
   return [selectorOf(sig), { name, types, params }]
 }
-const ABI: Record<string, Fn> = Object.fromEntries([
+export const ABI: Record<string, Fn> = Object.fromEntries([
   // Safe
   fn('execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)', [
     'to',
@@ -158,6 +161,23 @@ const ABI: Record<string, Fn> = Object.fromEntries([
   fn('grantRole(bytes32,address)', ['role', 'account']),
   fn('revokeRole(bytes32,address)', ['role', 'account']),
   fn('renounceRole(bytes32,address)', ['role', 'callerConfirmation']),
+  fn('schedule(address,uint256,bytes,bytes32,bytes32,uint256)', [
+    'target',
+    'value',
+    'data',
+    'predecessor',
+    'salt',
+    'delay',
+  ]),
+  fn('cancel(bytes32)', ['id']),
+  fn('execute(address,uint256,bytes,bytes32,bytes32)', [
+    'target',
+    'value',
+    'payload',
+    'predecessor',
+    'salt',
+  ]),
+  fn('updateDelay(uint256)', ['newDelay']),
 ])
 
 /** The venue calls a scoping may allow, with the argument that names who receives (a recipient,
@@ -228,13 +248,13 @@ export const VENUE: Record<string, Venue> = Object.fromEntries([
     }
   ),
 ])
-const EXEC_WITH_ROLE = new Set([
+export const EXEC_WITH_ROLE = new Set([
   selectorOf('execTransactionWithRole(address,uint256,bytes,uint8,bytes32,bool)'),
   selectorOf('execTransactionWithRoleReturnData(address,uint256,bytes,uint8,bytes32,bool)'),
 ])
 const MULTISEND = selectorOf('multiSend(bytes)')
 /** The gate's plain module entry points: they act with the caller's default role, not a pinned one. */
-const EXEC_DEFAULT = new Set([
+export const EXEC_DEFAULT = new Set([
   selectorOf('execTransactionFromModule(address,uint256,bytes,uint8)'),
   selectorOf('execTransactionFromModuleReturnData(address,uint256,bytes,uint8)'),
 ])
@@ -250,7 +270,7 @@ const BITS: Partial<Record<T, number>> = {
 }
 
 /** ABI-decode `data` (the arguments, after the selector) as `types`. */
-function decodeArgs(data: Uint8Array, types: T[]): V[] {
+export function decodeArgs(data: Uint8Array, types: T[]): V[] {
   const word = (at: number) => {
     if (at < 0 || at + 32 > data.length)
       throw new DecodeError(`the calldata is cut short at byte ${at}`)
@@ -428,6 +448,7 @@ interface Cond {
   paramType: number
   operator: number
   compValue: string
+  hashed?: boolean
   children: Cond[]
 }
 
@@ -463,6 +484,7 @@ const AVATAR = 'avatar'
 /** The values a Static argument may take under `c`: `null` when any value passes. */
 function allowed(c: Cond): Set<string> | null {
   if (c.operator === 15) return new Set([AVATAR])
+  if (c.operator === 16 && c.hashed) return new Set([`the value hashed 0x${c.compValue}`])
   if (c.operator === 16 && c.compValue.length === 64) return new Set([`0x${c.compValue.slice(24)}`])
   if (c.operator === 1) {
     const sets = c.children.map(allowed).filter((s): s is Set<string> => s !== null)
@@ -523,6 +545,8 @@ function describe(c: Cond, names: string[] = []): Node {
   const v = c.compValue
   let value = v ? `0x${v}` : ''
   if (c.operator === 15) value = 'the avatar (the Safe the module acts for)'
+  else if (c.hashed)
+    value = `a value whose keccak-256 is 0x${v} (stored hashed; it matches no address the review knows)`
   else if (c.operator >= 28 && c.operator <= 30 && v.length === 64)
     value = `allowance ${roleName(`0x${v}`)}`
   else if (c.operator === 21 && v.length === 64)
@@ -643,21 +667,46 @@ export function safeTxHash(
 
 const bad = (why: string) => new Refusal('INVALID_INPUT', why)
 
+/** What an on-chain read sees of the review in progress (`readEvmChain` supplies it). */
+export interface EvmContext {
+  i: EvmInput
+  safe: string | null
+  chainId: number
+  tx: EvmReview['tx']
+  /** The calls, each decoded (`fn`, `args`) when the review reads it. */
+  calls: Call[]
+  /** Roles proxies this transaction deploys. */
+  created: { address: string }[]
+  flag: (p: string) => void
+  warn: (w: string) => void
+  show: (a: string) => string
+}
+export type EvmInput = Parameters<typeof reviewEvm>[0]
+
 /** Review an unsigned Safe transaction from its bytes alone. */
-export function reviewEvm(i: {
-  safeTx?: SafeTxInput | undefined
-  /** `execTransaction` calldata, as a relayer would send it; its signatures must be empty. */
-  calldata?: string | undefined
-  /** The nonce, for the hash, when `calldata` is given. */
-  nonce?: string | undefined
-  /** The Safe the owner means to act through. */
-  safe?: string | undefined
-  chainId?: number | undefined
-  role: EvmRole
-  /** Addresses other than the avatar a recipient may be pinned to (a trustee). */
-  recipients?: string[] | undefined
-  raw?: boolean | undefined
-}): EvmReview {
+export function reviewEvm(
+  i: {
+    safeTx?: SafeTxInput | undefined
+    /** `execTransaction` calldata, as a relayer would send it; its signatures must be empty. */
+    calldata?: string | undefined
+    /** The nonce, for the hash, when `calldata` is given. */
+    nonce?: string | undefined
+    /** The Safe the owner means to act through. */
+    safe?: string | undefined
+    chainId?: number | undefined
+    role: EvmRole
+    /** Addresses other than the avatar a recipient may be pinned to (a trustee). */
+    recipients?: string[] | undefined
+    raw?: boolean | undefined
+    /** With `readChain`: more targets to read the stored scopes of. */
+    targets?: string[] | undefined
+    /** With `readChain`: a TimelockController to read (the gate's move or recovery timelock). */
+    timelock?: string | undefined
+    /** With `readChain`: ERC-3643 tokens to read the Safe's identity and freeze state on. */
+    tokens?: string[] | undefined
+  },
+  onChain?: (c: EvmContext) => Node | null
+): EvmReview {
   const problems: string[] = []
   const warnings: string[] = []
   const flag = (p: string) => problems.push(p)
@@ -1050,6 +1099,83 @@ export function reviewEvm(i: {
         )
         kids.push(fact(f.params[0] as string, show(arg(0) as string)))
         break
+      case 'schedule': {
+        // A move or a recovery proposed to an OpenZeppelin TimelockController: it runs, as the
+        // timelock, once the delay is over, by anyone who executes it.
+        const [target, value, data, , , delay] = a as [
+          string,
+          bigint,
+          string,
+          string,
+          string,
+          bigint,
+        ]
+        const sel = data.slice(0, 8)
+        const g = ABI[sel] ?? VENUE[sel]
+        if (value > 0n) flag(`${where} schedules a call that sends ${value} wei`)
+        kids.push(
+          fact('timelock', show(c.to)),
+          fact('calls', `${show(target)} ${g?.name ?? `0x${sel}`}`),
+          fact('after', `${delay} s`)
+        )
+        if (EXEC_WITH_ROLE.has(sel)) {
+          try {
+            const [to, v, d, op, rk, sr] = decodeArgs(
+              Buffer.from(data.slice(8), 'hex'),
+              (ABI[sel] as Fn).types
+            ) as [string, bigint, string, bigint, string, boolean]
+            const venue = VENUE[d.slice(0, 8)]
+            if (op !== 0n)
+              flag(`${where}: the scheduled gate call asks for a delegatecall (operation ${op})`)
+            if (v > 0n) flag(`${where}: the scheduled gate call sends ${v} wei`)
+            if (!sr)
+              warn(
+                `${where}: the scheduled gate call does not set shouldRevert, so a failing step would not revert`
+              )
+            kids.push(
+              fact('role', roleName(rk)),
+              fact('move', `${venue?.name ?? `0x${d.slice(0, 8)}`} on ${show(to)}`),
+              ...(venue && d.length >= 8 + 64 * venue.types.length
+                ? (() => {
+                    try {
+                      const va = decodeArgs(Buffer.from(d.slice(8), 'hex'), venue.types)
+                      return venue.params.map((p, k) =>
+                        fact(
+                          p,
+                          typeof va[k] === 'string' && address.test(va[k] as string)
+                            ? show(va[k] as string)
+                            : String(plain(va[k] as V))
+                        )
+                      )
+                    } catch {
+                      return [fact('arguments', 'do not decode')]
+                    }
+                  })()
+                : [])
+            )
+          } catch (e) {
+            flag(`${where}: the scheduled gate call does not decode: ${messageOf(e)}`)
+          }
+        } else
+          warn(
+            `${where} schedules ${g?.name ?? `0x${sel}`} on ${target}: once the delay is over anyone may make the timelock call it`
+          )
+        break
+      }
+      case 'cancel':
+        kids.push(fact('timelock', show(c.to)), fact('operation', String(arg(0))))
+        break
+      case 'execute':
+        warn(
+          `${where} runs a call scheduled on timelock ${c.to}: what it does was fixed when it was scheduled`
+        )
+        kids.push(fact('timelock', show(c.to)), fact('calls', show(arg(0) as string)))
+        break
+      case 'updateDelay':
+        warn(
+          `${where} calls updateDelay on ${c.to} directly: only the timelock itself may change its delay, so this reverts unless it is scheduled`
+        )
+        break
       case 'renounceOwnership':
         flag(
           `${where} renounces ownership of a Roles module: no one could change or stop its rules again`
@@ -1089,6 +1215,11 @@ export function reviewEvm(i: {
     )
   })
 
+  // The chain, when a reader supplies it.
+  const chainNode = onChain
+    ? onChain({ i, safe, chainId, tx, calls, created, flag, warn, show })
+    : null
+
   const head = group('Safe transaction', 'transaction', [
     fact('safe', safe ? show(safe) : 'not given'),
     fact('chain', `${chainId}${CHAINS[chainId] ? ` (${CHAINS[chainId]})` : ''}`),
@@ -1111,6 +1242,7 @@ export function reviewEvm(i: {
       : []),
     ...(warnings.length ? [warned(warnings)] : []),
     head,
+    ...(chainNode ? [chainNode] : []),
     ...body,
   ]
   return {
@@ -1134,7 +1266,7 @@ function hexBytes(s: string, what: string): Uint8Array {
 }
 
 /** A role key: its text when it is a short ASCII name (`TRADE`), else the hex. */
-function roleName(k: string): string {
+export function roleName(k: string): string {
   const b = Buffer.from(k.slice(2), 'hex')
   const end = b.indexOf(0)
   const text = b.subarray(0, end < 0 ? b.length : end)
@@ -1210,7 +1342,7 @@ function optionsCheck(
 }
 
 /** `scopeFunction(roleKey, target, selector, conditions, options)`: the tree, read and checked. */
-function scoping(
+export function scoping(
   a: V[],
   where: string,
   role: EvmRole,
@@ -1228,7 +1360,8 @@ function scoping(
   ]
   const sel = selector.slice(2)
   const band = EXEC_WITH_ROLE.has(sel)
-  const f: Venue | Fn | undefined = VENUE[sel] ?? (band ? ABI[sel] : undefined)
+  const viaTimelock = sel === SCHEDULE
+  const f: Venue | Fn | undefined = VENUE[sel] ?? (band || viaTimelock ? ABI[sel] : undefined)
   const name = f?.name ?? selector
   const what = `${where} (${name} on ${target}, role ${roleName(roleKey)})`
   optionsCheck(options, what, flag, warn)
@@ -1273,6 +1406,7 @@ function scoping(
       `${what}: the borrow's onBehalfOf (the debtor) is open: the Safe could borrow against anyone who delegated credit to it`
     )
   if (band) bandCheck(root, what, recipients, flag, warn)
+  if (viaTimelock) timelockBand(root, what, recipients, flag, warn)
 
   const allowances = collect(root, [28, 29, 30]).map((c) => roleName(`0x${c.compValue}`))
   return [
@@ -1344,6 +1478,55 @@ function recipient(
       flag(
         `${what}: ${p} may be ${v}, which is neither the avatar (EqualToAvatar) nor one of the given recipients`
       )
+}
+
+const SCHEDULE = selectorOf('schedule(address,uint256,bytes,bytes32,bytes32,uint256)')
+
+/** A band through a move timelock: a scoping of the timelock's `schedule` whose call is the gate's
+ *  execTransactionWithRole, read as a band one level down. The timelock then makes the gate call
+ *  itself (it is the gate role's member), after its delay. */
+function timelockBand(
+  root: Cond,
+  what: string,
+  recipients: Set<string>,
+  flag: (p: string) => void,
+  warn: (w: string) => void
+) {
+  const zero = `0x${'0'.repeat(40)}`
+  if (argAllowed(root, 0) === null)
+    flag(`${what}: the band does not pin the scheduled call's target (the gate)`)
+  const value = argAllowed(root, 1)
+  if (value === null || [...value].some((v) => v !== zero))
+    flag(`${what}: the band does not hold the scheduled call's value to 0`)
+  for (const m of argumentSets(root).sets) {
+    const data = m.children[2]
+    if (!data) continue
+    const parts = data.operator === 1 ? data.children : [data]
+    const inner = parts.find((c) => c.operator === 5 && c.paramType === 5)
+    const mask = parts.find((c) => c.operator === 21 && c.paramType === 2)
+    if (!inner || !mask) {
+      flag(
+        `${what}: the band does not read the scheduled call (${inner ? 'no Bitmask on its selector' : 'no Calldata Matches on data'}), so the agent could schedule any call the timelock may make`
+      )
+      continue
+    }
+    const v = mask.compValue
+    const e4 = v.slice(34, 42)
+    if (
+      v.length !== 64 ||
+      v.slice(0, 4) !== '0000' ||
+      v.slice(4, 34) !== `ffffffff${'0'.repeat(22)}` ||
+      !EXEC_WITH_ROLE.has(e4)
+    ) {
+      flag(
+        `${what}: the scheduled call's Bitmask does not pin it to the gate's execTransactionWithRole`
+      )
+      continue
+    }
+    const f = ABI[e4] as Fn
+    layout({ ...inner, operator: 5 }, f, `${what}, scheduled ${f.name}`, flag)
+    bandCheck({ ...inner, operator: 5 }, `${what}, scheduled ${f.name}`, recipients, flag, warn)
+  }
 }
 
 /** A band: a scoping of the gate's execTransactionWithRole. Everything the agent could vary is pinned. */
