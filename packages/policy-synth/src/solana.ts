@@ -32,7 +32,7 @@ export const PROGRAM = {
   loader4: 'LoaderV411111111111111111111111111111111111',
 } as const
 
-const PROGRAM_NAME: Record<string, string> = {
+export const PROGRAM_NAME: Record<string, string> = {
   [PROGRAM.smartAccount]: 'Squads Smart Account',
   [PROGRAM.klend]: 'Kamino klend',
   [PROGRAM.token]: 'SPL Token',
@@ -46,7 +46,7 @@ const PROGRAM_NAME: Record<string, string> = {
   [PROGRAM.loader4]: 'Loader v4',
 }
 const LOADERS = new Set<string>([PROGRAM.loaderUpgradeable, PROGRAM.loader2, PROGRAM.loader4])
-const TOKENS = new Set<string>([PROGRAM.token, PROGRAM.token2022])
+export const TOKENS = new Set<string>([PROGRAM.token, PROGRAM.token2022])
 
 /** Anchor discriminators: sha256("global:<name>")[0..8], as hex. Checked against node's sha256 in the tests. */
 export const SQUADS_DISC = {
@@ -156,7 +156,7 @@ export const OBLIGATION = { hasDebt: 2287, owner: 64, markedAt: 2336 } as const
 
 /** SPL Token / Token-2022 instructions by tag: the ones a rule may pin, with the destination's
  *  position; any other tag is one the design never pins. */
-const TOKEN_IX: Record<number, { name: string; destination?: number }> = {
+export const TOKEN_IX: Record<number, { name: string; destination?: number }> = {
   3: { name: 'Transfer', destination: 1 },
   12: { name: 'TransferChecked', destination: 2 },
   7: { name: 'MintTo', destination: 1 },
@@ -290,7 +290,7 @@ function tagOf<T>(r: Reader, what: string, names: readonly T[]): T {
   return v
 }
 
-function dataConstraint(r: Reader): DataConstraint {
+export function dataConstraint(r: Reader): DataConstraint {
   const offset = r.u64().toString()
   const t = r.u8()
   let value: DataValue
@@ -304,7 +304,7 @@ function dataConstraint(r: Reader): DataConstraint {
   return { offset, value, operator: tagOf(r, 'a data operator', OPERATORS) }
 }
 
-function accountConstraint(r: Reader): AccountConstraint {
+export function accountConstraint(r: Reader): AccountConstraint {
   const index = r.u8()
   const t = r.u8()
   const c: AccountConstraint =
@@ -319,7 +319,7 @@ function accountConstraint(r: Reader): AccountConstraint {
   return c
 }
 
-function hook(r: Reader): Hook {
+export function hook(r: Reader): Hook {
   return {
     numExtraAccounts: r.u8(),
     accounts: r.vec(() => accountConstraint(r), 3),
@@ -329,7 +329,7 @@ function hook(r: Reader): Hook {
   }
 }
 
-function periodV2(r: Reader): Period {
+export function periodV2(r: Reader): Period {
   const t = r.u8()
   if (t === 4) return { customSeconds: r.i64().toString() }
   const v = (['OneTime', 'Daily', 'Weekly', 'Monthly'] as const)[t]
@@ -337,7 +337,24 @@ function periodV2(r: Reader): Period {
   return v
 }
 
-function policyPayload(r: Reader): PolicyPayload {
+/** One `AllowedSettingsChange` (implementations/settings_change.rs), as words. */
+export function allowedChange(r: Reader): string {
+  const a = r.u8()
+  if (a === 0) {
+    const who = r.option(() => r.key())
+    const perms = r.option(() => r.u8())
+    return `add ${who ?? 'any signer'}${perms === null ? ' with any permissions' : ` with permissions ${perms}`}`
+  }
+  if (a === 1) return `remove ${r.option(() => r.key()) ?? 'any signer'}`
+  if (a === 2) return 'change the threshold to any value'
+  if (a === 3) {
+    const v = r.option(() => r.u32())
+    return `change the time lock to ${v === null ? 'any value' : `${v} s`}`
+  }
+  throw new DecodeError(`an allowed settings change: unknown variant ${a}`)
+}
+
+export function policyPayload(r: Reader): PolicyPayload {
   const t = r.u8()
   if (t === 0)
     return {
@@ -366,24 +383,7 @@ function policyPayload(r: Reader): PolicyPayload {
       destinations: r.vec(() => r.key(), 32),
     }
   }
-  if (t === 2) {
-    const allowed = r.vec(() => {
-      const a = r.u8()
-      if (a === 0) {
-        const who = r.option(() => r.key())
-        const perms = r.option(() => r.u8())
-        return `add ${who ?? 'any signer'}${perms === null ? ' with any permissions' : ` with permissions ${perms}`}`
-      }
-      if (a === 1) return `remove ${r.option(() => r.key()) ?? 'any signer'}`
-      if (a === 2) return 'change the threshold to any value'
-      if (a === 3) {
-        const v = r.option(() => r.u32())
-        return `change the time lock to ${v === null ? 'any value' : `${v} s`}`
-      }
-      throw new DecodeError(`an allowed settings change: unknown variant ${a}`)
-    })
-    return { kind: 'SettingsChange', allowed }
-  }
+  if (t === 2) return { kind: 'SettingsChange', allowed: r.vec(() => allowedChange(r)) }
   if (t === 3)
     return {
       kind: 'ProgramInteraction',
@@ -409,7 +409,7 @@ function policyPayload(r: Reader): PolicyPayload {
   throw new DecodeError(`a policy payload: unknown variant ${t}`)
 }
 
-const signer = (r: Reader): Signer => ({ key: r.key(), permissions: r.u8() })
+export const signer = (r: Reader): Signer => ({ key: r.key(), permissions: r.u8() })
 function expiration(r: Reader): Expiration | null {
   return r.option(() => {
     const t = r.u8()
@@ -483,7 +483,7 @@ export function settingsAction(r: Reader): SettingsAction {
 
 /** An account of the message: a static key, or a lookup-table entry the bytes do not resolve. */
 const lut = (table: string, i: number) => `lookup table ${table} #${i}`
-const isLut = (k: string) => k.startsWith('lookup table ')
+export const isLut = (k: string) => k.startsWith('lookup table ')
 
 interface Ix {
   program: string
@@ -713,7 +713,7 @@ export interface SolanaReview {
 const notOurs = (why: string) =>
   new Refusal('INVALID_INPUT', `not a Squads Smart Account transaction this review reads: ${why}`)
 
-const short = (k: string, raw?: boolean) =>
+export const short = (k: string, raw?: boolean) =>
   raw || isLut(k) || k.length < 16 ? k : `${k.slice(0, 6)}…${k.slice(-6)}`
 
 /** Decode the bytes: a whole transaction (signature slots first) or its message alone. */
@@ -738,25 +738,49 @@ function parse(i: { transaction?: string | undefined; message?: string | undefin
 }
 
 /** Review an unsigned Squads Smart Account transaction from its bytes alone. */
-export function reviewSolana(i: {
-  transaction?: string | undefined
-  message?: string | undefined
-  role: SolanaRole
-  /** The Squads account the owner means to act on (settings, or a rule's policy account). */
-  account?: string | undefined
-  /** The only keys a pinned destination may be: custody's token accounts, the recovery address,
-   *  for a band the custody rules. Without it each pin is shown for the owner to read. */
-  destinations?: string[] | undefined
-  /** The only keys a rule may list as its signers (for custody: the Prime vaults). */
-  signers?: string[] | undefined
-  /** Every collateral withdraw must carry the `has_debt == 0` read, borrow or not. */
-  requireNoDebt?: boolean | undefined
-  /** The least settings time lock (seconds) the account must keep. */
-  minTimeLock?: number | undefined
-  /** The vault custody's funds and position sit in (default 0): every custody rule acts for it. */
-  vaultIndex?: number | undefined
-  raw?: boolean | undefined
-}): SolanaReview {
+/** What an on-chain read sees of the review in progress (`readSolanaChain` supplies it). */
+export interface SolanaContext {
+  i: SolanaInput
+  account: string
+  /** The Squads instruction, by name. */
+  instruction: string
+  owners: string[]
+  actions: SettingsAction[] | undefined
+  execution: Execution | undefined
+  flag: (p: string) => void
+  warn: (w: string) => void
+  tag: (k: string) => string
+  name: (k: string) => string
+  /** Name an address for the review (a vault, a live rule), unless it already has a name. */
+  label: (k: string, n: string) => void
+}
+
+export type SolanaInput = Parameters<typeof reviewSolana>[0]
+
+export function reviewSolana(
+  i: {
+    transaction?: string | undefined
+    message?: string | undefined
+    role: SolanaRole
+    /** The Squads account the owner means to act on (settings, or a rule's policy account). */
+    account?: string | undefined
+    /** The only keys a pinned destination may be: custody's token accounts, the recovery address,
+     *  for a band the custody rules. Without it each pin is shown for the owner to read. */
+    destinations?: string[] | undefined
+    /** The only keys a rule may list as its signers (for custody: the Prime vaults). */
+    signers?: string[] | undefined
+    /** Every collateral withdraw must carry the `has_debt == 0` read, borrow or not. */
+    requireNoDebt?: boolean | undefined
+    /** The least settings time lock (seconds) the account must keep. */
+    minTimeLock?: number | undefined
+    /** The vault custody's funds and position sit in (default 0): every custody rule acts for it. */
+    vaultIndex?: number | undefined
+    raw?: boolean | undefined
+    /** With `readChain`: the klend market every reserve must belong to. */
+    market?: string | undefined
+  },
+  onChain?: (c: SolanaContext) => Node | null
+): SolanaReview {
   const { m, filled } = parse(i)
   const problems: string[] = []
   const warnings: string[] = []
@@ -875,6 +899,25 @@ export function reviewSolana(i: {
     flag(`its ${ixName} arguments do not decode: ${messageOf(e)}`)
   }
 
+  // The chain, when a reader supplies it: what the bytes meet on the account as it stands.
+  const chainNode = onChain
+    ? onChain({
+        i,
+        account,
+        instruction: ixName,
+        owners,
+        actions,
+        execution: exec,
+        flag,
+        warn,
+        tag,
+        name,
+        label: (k, n) => {
+          roles[k] ??= n
+        },
+      })
+    : null
+
   const head = group('Transaction', 'transaction', [
     fact(
       'fee payer',
@@ -901,6 +944,7 @@ export function reviewSolana(i: {
       : []),
     ...(warnings.length ? [warned(warnings)] : []),
     head,
+    ...(chainNode ? [chainNode] : []),
     ...body,
   ]
   return {
@@ -924,11 +968,11 @@ export function reviewSolana(i: {
 
 // ---- the checks on a settings change ----
 
-const PERMS = (p: number) =>
+export const PERMS = (p: number) =>
   [p & 1 ? 'initiate' : '', p & 2 ? 'vote' : '', p & 4 ? 'execute' : '']
     .filter(Boolean)
     .join('+') || 'none'
-const periodName = (p: Period) => (typeof p === 'string' ? p : `every ${p.customSeconds} s`)
+export const periodName = (p: Period) => (typeof p === 'string' ? p : `every ${p.customSeconds} s`)
 /** A pin on the first `len` bytes of the data (a longer slice from offset 0 pins them too). */
 const isDisc = (d: DataConstraint, len: number) =>
   d.offset === '0' &&
@@ -936,7 +980,7 @@ const isDisc = (d: DataConstraint, len: number) =>
   ((d.value.type === 'U8Slice' && d.value.value.length >= len * 2) ||
     (len === 1 && d.value.type === 'U8'))
 /** The pinned discriminator (8 bytes) or token tag (1 byte), as hex. */
-const discOf = (c: InstructionConstraint, len: number) => {
+export const discOf = (c: InstructionConstraint, len: number) => {
   const d = c.data.find((x) => isDisc(x, len))
   if (!d) return undefined
   return d.value.type === 'U8'
@@ -944,7 +988,7 @@ const discOf = (c: InstructionConstraint, len: number) => {
     : d.value.value.slice(0, len * 2)
 }
 
-function describeData(d: DataConstraint): string {
+export function describeData(d: DataConstraint): string {
   const op = {
     Equals: '=',
     NotEquals: '≠',
@@ -957,13 +1001,13 @@ function describeData(d: DataConstraint): string {
 }
 
 /** The pins a constraint holds on one account position. */
-function pinsAt(c: InstructionConstraint, index: number) {
+export function pinsAt(c: InstructionConstraint, index: number) {
   const at = c.accounts.filter((a) => a.index === index)
   const keys = at.flatMap((a) => a.keys ?? [])
   const data = at.flatMap((a) => (a.data ?? []).map((d) => ({ d, owner: a.owner })))
   return { keys, data, pinned: at.some((a) => a.keys !== undefined && a.keys.length > 0) }
 }
-const reads = (
+export const reads = (
   c: InstructionConstraint,
   index: number,
   offset: number,
@@ -1060,7 +1104,7 @@ function checkActions(
   })
 }
 
-function checkPolicy(
+export function checkPolicy(
   a: Extract<SettingsAction, { action: 'PolicyCreate' | 'PolicyUpdate' }>,
   where: string,
   i: Parameters<typeof reviewSolana>[0],

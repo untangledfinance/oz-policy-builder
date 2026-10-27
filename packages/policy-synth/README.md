@@ -145,8 +145,8 @@ http on loopback. No tool input takes an endpoint.
 | `bind_policy` | Unsigned `bind_executor((smartAccount, ruleId), executor)` on the interpreter: the rule then needs that executor's grant for every call (its own `run` excepted), and a keyless rule permits only what the executor vouches for. The rule is read first; see "Keyless rules and the executor binding". |
 | `get_interpreter_info` | The pin, its `limits` and the `ceilings`. `verifyLive` adds what is deployed now. |
 | `review_unsigned` | The owner's side: an unsigned install, removal or binding read from its bytes alone, with no RPC. `problems` lists what is wrong in the bytes; the review follows, and the owner must read it (see "The owner's review"). Also `reviewUnsigned` from the package root. |
-| `solana_review` | The owner's side on Solana: an unsigned Squads Smart Account transaction (a settings change that adds, edits or removes rules, or an execution) read from its bytes alone, with no RPC, and checked against the configuration-only design of `docs/solana.md`. Also `reviewSolana` from the package root. See "The Solana and EVM reviews". |
-| `evm_review` | The owner's side on EVM: an unsigned Safe transaction (Zodiac Roles v2.1.1 scopings, allowances, members, a band) read from its bytes alone, with no RPC, with the EIP-712 hash the owners sign, and checked against the configuration-only design of `docs/evm.md`. Also `reviewEvm` from the package root. See "The Solana and EVM reviews". |
+| `solana_review` | The owner's side on Solana: an unsigned Squads Smart Account transaction (a settings change that adds, edits or removes rules, or an execution) read from its bytes alone, with no RPC, and checked against the configuration-only design of `docs/solana.md`; with `readChain`, also against the accounts it meets on devnet. Also `reviewSolana` (and `readSolanaChain`/`reviewSolanaOnChain`) from the package root. See "The Solana and EVM reviews". |
+| `evm_review` | The owner's side on EVM: an unsigned Safe transaction (Zodiac Roles v2.1.1 scopings, allowances, members, a band) read from its bytes alone, with no RPC, with the EIP-712 hash the owners sign, and checked against the configuration-only design of `docs/evm.md`; with `readChain`, also against the Safe, its modules, roles, timelocks and permissioned tokens on a test network. Also `reviewEvm` (and `readEvmChain`/`reviewEvmOnChain`) from the package root. See "The Solana and EVM reviews". |
 
 `TOOLS` (also `@crediolabs/policy-synth/run`) is the table the MCP server and the
 CLI register from. Each tool validates its input strictly, never throws, and
@@ -504,7 +504,8 @@ signing a configuration the design never makes. `solana_review` and
 `evm_review` are the owner's check before signing, in the shape of
 `review_unsigned`: they read the unsigned bytes and nothing else (no RPC, no
 key), and return `problems`, `warnings`, `signable`, `review` and
-`reviewTree`. A problem is a reason not to sign; a warning is allowed and must
+`reviewTree`. With `readChain: true` each also reads the chain the
+transaction meets (see "Reading the chain" below); without it nothing is read. A problem is a reason not to sign; a warning is allowed and must
 be known. Both refuse (`INVALID_INPUT`) bytes that do not decode as their
 transaction.
 
@@ -595,6 +596,13 @@ problems:
   calling a venue; a gas refund, value sent, signatures already present, or
   `safe` absent.
 
+It decodes a `schedule` on an OpenZeppelin TimelockController (a move the
+Prime owners propose to the move timelock, which is the gate's trading-role
+member) with the gate call it schedules (a scheduled delegatecall or value is
+a problem), and reads a band that scopes a timelock's `schedule` one level
+down: the scheduled call's target and value pinned, a `Bitmask` pinning it to
+the gate's `execTransactionWithRole`, and then the band's own pins.
+
 Its warnings: a `revokeTarget` with no `revokeFunction` for that target in
 the same batch (the target closes at once, but `revokeTarget` keeps its
 function scopes, which come back on a later `scopeTarget`,
@@ -611,9 +619,112 @@ they read signable, so the owner reads the review (each rule's signers, who
 can act alone, expiry, every constraint and limit; each scoping's tree) against
 what they meant. What sits on chain stays out of view: an existing rule's
 constraints, a Roles module's stored function scopes, a proposal's actions.
+`readChain` brings some of it into view (below).
 The fixtures are PayFi's own rule bytes (`fixtures/solana/payfi-golden.json`)
 and the fork check's two configuration batches with the hashes the live Safe
 computed (`fixtures/evm/configonly-golden.json`).
+
+### Reading the chain (`readChain`)
+
+`readChain: true` is the one exception to no RPC, as `readContracts` is for
+`review_unsigned`. The endpoint is the operator's, from the environment, never
+an input: `POLICY_BUILDER_SOLANA_RPC_URL` (default the public devnet endpoint)
+and `POLICY_BUILDER_EVM_RPC_URL` (default `https://sepolia.base.org`); https,
+or http to a loopback host (a local validator or fork). It reads test
+networks only: Solana devnet (a loopback validator is accepted, and a deploy
+slot there is a warning), and on EVM Base Sepolia, Sepolia or a local node; a
+mainnet is refused. The bytes-only review runs first, unchanged; the read adds
+an On chain node to the review and more `problems` and `warnings`, and
+`chain` says what was read. A read that fails refuses the review
+(`SIMULATION_ERROR`, retryable); an account or call the checks need that does
+not come back is a problem. A library caller passes its own `Rpc` to
+`readSolanaChain` or `readEvmChain`, and checks a snapshot (a recorded one
+replays offline) with `reviewSolanaOnChain` or `reviewEvmOnChain`.
+
+**Solana**, after PayFi's Solana v2 verifier (payfi `solana/v2/verify.ts`: a
+read into a snapshot, then pure checks):
+
+- the account's owners, threshold, time lock and settings authority, now and
+  after the change: a controlled account (a settings authority), custody
+  needing fewer than all its voting owners, a Prime threshold of 1, or a time
+  lock below `minTimeLock` is a problem;
+- every rule on the account (seeds 1 to `policy_seed`, each at its program
+  address), decoded from its account: a live rule that fails the design's
+  checks and shares a signer with a rule the change adds or edits is a
+  problem (that signer keeps the looser path); a live rule that admits the
+  same instruction to a shared signer with fewer pins (a position open, an
+  account read or a data pin left out, or a higher ceiling) is a problem; a new collateral
+  withdraw without its `has_debt` read while a live rule borrows is a
+  problem; a duplicate, an overlap, an edit that loosens its rule, or a live
+  rule with problems that shares no signer is a warning; an edit or removal of
+  a rule the account does not hold is a problem;
+- for an execution, the rule it runs under: looser than the design is a
+  problem; a signer, threshold, vault, time lock or claimed constraint it
+  would fail on is a warning;
+- each pinned destination and each inner call's destination: an absent
+  account, an account of another program, an uninitialised one or a FROZEN one
+  (on a frozen-by-default Token-2022 mint, one the issuer has not thawed) is a
+  problem; a delegate or close
+  authority is a warning; its mint's authorities and Token-2022 extensions are
+  shown, with a permanent delegate, a transfer hook, pausable, a transfer fee,
+  non-transferable, or no frozen default (so the thaw list is no whitelist) a
+  warning;
+- each pinned reserve: not klend's, or of another market than `market`, is a
+  problem, and so is a pinned token account of a mint the reserve does not
+  lend; its LTV, liquidation threshold, limits, permissioned ops, price feed
+  and status, and its market's owner and permissioning authority, are shown;
+- for a band, the custody rule it calls: looser than the design is a problem,
+  and a rule that does not list the band's vault is a warning;
+- the Squads and klend ProgramData deploy slots against the builds this
+  review was checked against (`DEPLOYED`, from payfi `PINNED_PROGRAMS`): a
+  redeploy is a problem, since the offsets the rules read (obligation owner at
+  64, `has_debt` at 2287, marked at 2336) must be checked again.
+
+It does not walk the mint's whole history for thaws (PayFi's `verifyLine`
+does): it reads the state of each account the transaction names.
+
+**EVM**, every read at one block:
+
+- the Safe's version and nonce (a used or later nonce is a warning), owners
+  and threshold after the batch (custody needing fewer than all its owners, or
+  a Prime threshold of 1, is a problem), its modules after the batch (an
+  enabled module that is not a Zodiac Roles v2.1.1 proxy is a problem), guard
+  and module guard (set is a problem) and fallback handler (anything but a
+  canonical Safe handler is a warning);
+- each Roles module the batch writes to or the Safe enables: an owner, avatar
+  or target other than the Safe is a problem; a module the Safe has not
+  enabled is a warning;
+- for each role the batch touches, the clearance and the function scopes
+  stored for the targets it names, the addresses its conditions pin and
+  `targets` (Roles keeps no index of a role's targets, so others are not
+  seen): an open target, an `allowFunction` or a stored condition tree that
+  fails the same checks as a new one, left live beside the batch, is a
+  problem, and the scopes a `revokeTarget` leaves stored are listed. Roles
+  stores an `EqualTo` value as its keccak-256; the review matches it against
+  the addresses and words it knows (name more with `targets`), and shows an
+  unmatched one as a hash, which a recipient check treats as unknown. The
+  role's members are read for the addresses the review knows;
+- each OpenZeppelin TimelockController the batch calls, its roles name, or
+  `timelock` names: its delay (0 is a problem) and who holds admin (anyone but
+  the timelock itself, after the batch, is a problem), proposer, canceller
+  (custody unable to cancel is a warning) and executor, among the addresses
+  the review knows; a scheduled gate call with a delay under the minimum, or
+  for a role the timelock is not a member of, is a warning;
+- each ERC-3643 token the batch scopes for a transfer or approval, or
+  `tokens` names: the Safe not verified in its identity registry or frozen is a
+  problem, a recipient's the same a warning, partly frozen tokens and a pause
+  a warning.
+
+Layouts: Squads `0e51082` (Settings, Policy and the stored policy states),
+klend `e921c64` with SDK 13.0.5 offsets (Reserve, LendingMarket), SPL Token
+and Token-2022; Safe 1.4.1 storage slots; Roles v2.1.1 `218a5164` (`roles` at
+slot 4 of a proxy, the packed header and WriteOnce data); OpenZeppelin
+TimelockController 5.6.0. The tests replay recorded chains: PayFi's live
+sol-devnet line (`fixtures/solana/devnet-chain.json`, its transactions built by
+PayFi's own encoders in `fixtures/solana/payfi-live.json`) and the
+move-timelock setup on a local Base Sepolia fork in nine states
+(`scripts/evm-chain/Setup.s.sol`, `test/evm-cases.ts`,
+`fixtures/evm/chain-*.json`), recorded with `scripts/record-chain.ts`.
 
 ## Security model
 
