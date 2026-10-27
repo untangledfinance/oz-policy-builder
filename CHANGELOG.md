@@ -11,23 +11,29 @@ Stellar contract, record or build hash changed.
 
 ### Added
 
-- **EVM and Solana contracts:** `contracts/evm/prime-seat` (`PrimeSeat`) and
-  `contracts/solana` (the custody gate and `prime-seat`) were brought into
-  `feat/primex`, with `docs/evm.md`, `docs/solana.md`, the three-chain
-  `docs/architecture.md` and their five entries in
-  `contracts/build-hashes.json`. They run on test networks only and are outside
+- **EVM contracts:** `contracts/evm/prime-seat` (`PrimeSeat`) was brought into
+  `feat/primex`, with `docs/evm.md`, the three-chain `docs/architecture.md`
+  and its two entries in
+  `contracts/build-hashes.json`. It runs on test networks only and is outside
   the external audit. `PrimeSeat` is fork-tested against Base Sepolia and has no
-  persistent deployment (`deployments/evm-testnet.json`); the two Solana
-  programs are deployed final on devnet (`deployments/solana-devnet.json`).
-- **Host tests for the Solana custody gate:** `tests/gate.rs`, 46 tests that run
-  the program's entrypoint with stubbed syscalls. The gate's build is
-  unchanged (`a5d19edb…`).
+  persistent deployment (`deployments/evm-testnet.json`).
 - **CI:** runs on pushes to `feat/primex`; a contract test step fails when it
   runs no test or skips one; the EVM job runs the real-Safe tests on a Base
-  Sepolia fork, and a second job runs the mutation pass; the Solana jobs add
-  clippy on Rust 1.97.1, `cargo audit` and a check of the devnet record; the
-  `app-checks` job adds `bun audit`. `SECURITY.md` records the advisories it
-  accepts.
+  Sepolia fork, and a second job runs the mutation pass.
+
+### Removed
+
+- **The Solana programs:** Prime on Solana is now configuration of existing
+  third-party programs only: the Squads Smart Account, SPL Token-2022 and the
+  venue's programs (Kamino klend and Scope), with off-chain helpers.
+  `contracts/solana/custody-gate` (with `app-checks/`), `contracts/solana/prime-seat`,
+  `contracts/solana/SETUP-AND-RECOVERY.md`, `deployments/solana-devnet.json`,
+  the three `solana/*` entries in `contracts/build-hashes.json`, and the Solana
+  and `app-checks` CI jobs are gone. A Squads account owns custody's token
+  accounts in place of the gate program, and Prime owners sign as Squads
+  signers, with no seat. `docs/solana.md` is rewritten for this design. The two
+  programs stay deployed final on devnet, unused; their source is at commit
+  `89f7839` of `feat/primex`.
 
 ## [5.2.0] - 2026-10-26
 

@@ -1,14 +1,11 @@
 {
-  "note": "Reproducible build hashes that CI compares against: Stellar from each crate's build-wasm.sh with its path remaps, EVM from forge build (runtime and creation code), Solana from cargo-build-sbf with PRIME_CLUSTER=localnet. Update an entry together with the source it covers. The recorded date is the latest entry's: the Stellar entries were recorded on 25 October 2026; the EVM and Solana entries were recorded from these sources on 20 October 2026, added to this file on 24 October 2026, and rebuilt to the same values on 24 and 25 October 2026.",
+  "note": "Reproducible build hashes that CI compares against: Stellar from each crate's build-wasm.sh with its path remaps, EVM from forge build (runtime and creation code). Prime on Solana runs on existing third-party programs only, so it has no entry. Update an entry together with the source it covers. The recorded date is the latest entry's: the Stellar entries were recorded on 25 October 2026; the EVM entries were recorded from these sources on 20 October 2026, added to this file on 24 October 2026, and rebuilt to the same values on 24 and 25 October 2026.",
   "recorded": "2026-10-25",
   "sha256": {
     "stellar/policy-interpreter": "6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4",
     "stellar/execution-adapter": "bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0",
     "stellar/prime-seat": "393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87",
     "evm/prime-seat:runtime": "3b4402d54f28ef3eb23bc14e9ac1e44c4aa946da42c4c3cea46cd76970c438d6",
-    "evm/prime-seat:creation": "4d3558643131eebbbb8087fc65ed8c52581e0c48619adcf60cdc756cb83a0de7",
-    "solana/custody-gate": "a5d19edb879e75d054f1025d710753ce5150726130c3dd74887236fbdbdc94e2",
-    "solana/prime-seat": "4428191fcb70aeb9230ff1706edaa0cdee853c75ee99aae0fa1c347d25177e3e",
-    "solana/prime-seat:devnet": "a389f4a1cbf67bee9be5170e2199e3fc4c02e596fe4fbab0406ecdeb8f5e9bb2"
+    "evm/prime-seat:creation": "4d3558643131eebbbb8087fc65ed8c52581e0c48619adcf60cdc756cb83a0de7"
   }
 }

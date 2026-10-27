@@ -35,14 +35,13 @@ It is built as two halves:
 | CLI | `packages/policy-builder-cli` | 76 |
 | MCP server | `packages/policy-builder-mcp` | 133 |
 | EVM seat, `PrimeSeat` | `contracts/evm/prime-seat` | 72 |
-| Solana custody gate | `contracts/solana/custody-gate` | 126 |
-| Solana seat, `prime-seat` | `contracts/solana/prime-seat` | 75 |
 
-The EVM and Solana contracts are on test networks only and outside the
-external audit. The EVM seat is fork-tested against Base Sepolia and has no
-persistent deployment ([deployments/evm-testnet.json](./deployments/evm-testnet.json));
-the Solana programs are deployed on devnet
-([deployments/solana-devnet.json](./deployments/solana-devnet.json)).
+The EVM contracts are on test networks only and outside the external audit.
+The EVM seat is fork-tested against Base Sepolia and has no persistent
+deployment ([deployments/evm-testnet.json](./deployments/evm-testnet.json)).
+Prime on Solana has no program of its own: it is configuration of the Squads
+Smart Account, SPL Token-2022 and the venue's programs, all deployed by third
+parties ([docs/solana.md](./docs/solana.md)).
 [SECURITY.md](./SECURITY.md#scope) lists the scope for reports, all three
 chains included.
 
@@ -209,8 +208,6 @@ measurements behind the limits.
 | `contracts/stellar/test-blend-pool` | A Blend-`submit`-shaped stub, for testnet verification only. |
 | `contracts/stellar/prime-seat` | The Prime seat: an owner's seat on a Prime account, held by an ed25519 owner key, and the session keys that owner grants. |
 | `contracts/evm/prime-seat` | `PrimeSeat`, the EVM seat: a Safe owner for one seat owner, held by a secp256k1 owner key (Foundry). |
-| `contracts/solana/custody-gate` | The Solana custody gate: owns custody's dedicated token account and pays only listed destinations or the recovery address. |
-| `contracts/solana/prime-seat` | The Solana seat program: a seat PDA in a Squads Smart Account, held by an ed25519 owner key. |
 | `deployments/` | Deployment records that CI and the scripts read. |
 | `evidence/` | Logs and receipts behind the claims in the docs. |
 
@@ -245,13 +242,10 @@ The interpreter's `tests/worst_case.rs` and the `oz08/` suite load the wasm that
 in a soroban-sdk 28 host, and its `tests/nogate.rs` also loads the wasm the
 execution adapter's `build-wasm.sh` writes.
 
-The EVM seat builds with Foundry 1.8.4 and the Solana programs with the Solana
-CLI 4.3.0 (`cargo-build-sbf`):
+The EVM seat builds with Foundry 1.8.4:
 
 ```sh
 ( cd contracts/evm/prime-seat && forge build && FORK_URL=https://sepolia.base.org forge test )   # after unpacking OpenZeppelin 5.4.0 into lib/oz
-( cd contracts/solana/prime-seat && PRIME_CLUSTER=devnet cargo test && PRIME_CLUSTER=localnet cargo-build-sbf -- --locked )
-( cd contracts/solana/custody-gate && cargo test --locked && PRIME_CLUSTER=localnet cargo-build-sbf -- --locked )
 ```
 
 [contracts/README.md](./contracts/README.md) has the tool versions and the
