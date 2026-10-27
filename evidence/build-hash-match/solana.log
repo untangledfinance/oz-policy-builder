@@ -1,0 +1,21 @@
+date 2026-10-27T17:05:44Z  solana-verify 0.5.2  solana-cli 4.3.0 (src:825efd18; feat:c9ad34d2, client:Agave)
+devnet KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD programData 9uSbGW1y9H5Av6H5TKxQ1wnFApSq2t3oEpfF2YfjDQGA deploySlot 491561420 authority ELgAxEgaGCBxNcfLMqNSbBaYDWmHeirf6k439zrM2wmx
+devnet KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD program hash 4157037dbf1cae345f6aaee42edfb0b33cd919b4893cd129961ca08c5652679e
+devnet SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG programData 2g3u9qgz4adKQVN1TUoh7bbBKqaSsjXtz1yX2ptagW5T deploySlot 425429201 authority J496LGUhsKvBE6yRvet4FtMgxxox82fMiDKb3qtScUh2
+devnet SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG program hash e88ffe8d6f0a69bf94efbfd57404f54c713bf2ba744f438c9e096efe7b420ebd
+Preparing worktree (detached HEAD e921c64)
+build klend e921c648765fc2343c87614a00f4b39b640f0510 kamino_lending.so 2474424 B executable hash 976f1c8c163ae34e0e13e524e0225b465bad2587b9e3bbc86e41b193ed401922
+Preparing worktree (detached HEAD 77e8185)
+build klend 77e81854909ab7ffea3a2e898b2554d96e07daac kamino_lending.so 2468560 B executable hash 1a71bd2229fecb87daef1a4d7fda373bf17253af0c0bc2f19093aff881700702
+Preparing worktree (detached HEAD 0e51082)
+build sa 0e510821e00bf2a02716e3933b8659fa36ab2bee squads_smart_account_program.so 1648680 B executable hash 1cacfe2080faabf33a02ea285b6f8c8182358d3c6e40e3e7375ad0d7baa58cd4
+Preparing worktree (detached HEAD 6650c42)
+build sa 6650c4275d944b1737d0d38ca16ebc316a11b44b squads_smart_account_program.so 1095696 B executable hash e1d0ef7e3fb7db1872f240d175147668281780925a05979650ed0a082c46df5b
+
+# freeze instructions (run separately, 2026-10-27T17:28:45Z): count in the devnet klend binary, and public klend commits that add or remove them
+FreezeObligation devnet-binary 1
+ThawObligation devnet-binary 1
+AbortFreeze devnet-binary 1
+ApproveFrozenObligationOwnershipTransfer devnet-binary 1
+public commits touching freeze_obligation (all branches): 0
+klend origin/master at fetch: 77e81854909ab7ffea3a2e898b2554d96e07daac
