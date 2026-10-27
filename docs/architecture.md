@@ -10,7 +10,7 @@ the Stellar contracts.
 | Chain | Prime account | Our contracts | Where it runs |
 |---|---|---|---|
 | Stellar | OpenZeppelin smart account | policy interpreter, custody gate, execution adapter, Prime seat | Stellar testnet |
-| EVM | Safe with Zodiac Roles | none: configuration on Safe, Zodiac Roles and OpenZeppelin's timelock | Base Sepolia (fork check of the configuration) |
+| EVM | Safe with Zodiac Roles | none: configuration on Safe, Zodiac Roles and OpenZeppelin's timelock | Base Sepolia (fork checks of the configuration; the reference line ran on an anvil fork and waits for test ETH to run on chain) |
 | Solana | Squads Smart Account | none: a second Squads Smart Account is the custody gate | design only; its parts ran on devnet in the PayFi line on the same programs (nested Squads executions into klend, Squads-held market and issuer roles, frozen-account refusals); a full custody move has not run |
 
 Detail: [stellar.md](stellar.md), [evm.md](evm.md), [solana.md](solana.md).
@@ -75,7 +75,9 @@ to the adapter, whose predicate permits the adapter's `run` alone, so running
 it needs no key. On Solana a nested call cannot reach a time-locked rule, so
 the wait sits on the Prime side: the Prime account's or a Prime rule's time
 lock stores the whole batch.
-On EVM, moves run at once and recovery waits on a timelock.
+On EVM every move waits: the Prime account schedules it on a move timelock,
+anyone runs it once the delay is over, and custody or the Prime account can
+cancel it until then. Recovery waits on a second timelock with a longer delay.
 
 ```mermaid
 flowchart LR
@@ -108,10 +110,10 @@ flowchart LR
 |---|---|---|---|
 | Custody | A classic Stellar account; the weights and threshold are enforced by the network | A Safe whose owners are custody's signers, at a threshold that needs all of them; custody at a plain address, such as a Fordefi vault, keeps that rule in its own policy | A Squads Smart Account of custody's signers and a trustee, all of whom approve; its vault owns custody's token accounts |
 | What custody approves | A token allowance to the gate, per asset, with an amount and an expiry of up to 180 days | A trading role on its own gate, with a budget that refills each period; the funds stay in custody's Safe | The hand-over of its token accounts, then rules with per-call ceilings, per-period spending limits and an expiry |
-| The custody gate | Our contract, deployed by custody; no admin, no settings | A Zodiac Roles module on custody's Safe, owned by that Safe, whose roles list the only calls and pin every recipient to custody | The custody account itself: its rules pin the only calls, and each lists one Prime vault as its signer |
+| The custody gate | Our contract, deployed by custody; no admin, no settings | A Zodiac Roles module on custody's Safe, owned by that Safe, whose roles list the only calls and pin every recipient to custody; its trading member is the move timelock | The custody account itself: its rules pin the only calls, and each lists one Prime vault as its signer |
 | Where results go | Straight to custody; a Blend position is held in the Prime account's name, and every withdrawal is pinned to custody | Every result, the lending position included, stays in custody's Safe | The lending position belongs to the custody vault, and every withdrawal is pinned to custody's token account |
 | Per-move limits | Amount bands in policy-interpreter predicates | Roles bands on the Prime account, a daily cap for the agent and a daily cap on everything the gate moves | Per-call ceilings and per-period spending limits in custody's rules; the Prime's bands choose which rule the agent may use |
-| Stopping it | Custody sets the allowance to zero or lets it expire, and can cancel any stored move | Custody revokes the Prime account's trading role; recovery keeps working unless custody turns the gate off | Custody's signers remove the rules, or let them expire |
+| Stopping it | Custody sets the allowance to zero or lets it expire, and can cancel any stored move | Custody cancels a scheduled move, or revokes the move timelock's trading role; recovery keeps working unless custody turns the gate off | Custody's signers remove the rules, or let them expire |
 | Recovery | The Prime owners pull to the recovery address; the pull waits the adapter's minimum wait, and custody or the Prime account can cancel it until it runs | The Prime owners schedule it on an OpenZeppelin timelock; custody can cancel during the delay | The Prime owners run custody's recovery rule, which pays only the recovery address; the wait is the Prime account's own time lock, and custody stops it by removing the rule |
 
 ## Components
@@ -133,6 +135,7 @@ flowchart TB
   end
   subgraph EVM["EVM"]
     SAFE["Prime account<br/>Safe + Zodiac Roles"]
+    MT["move timelock<br/>OpenZeppelin"]
     G3["custody gate<br/>Roles on custody's Safe"]
   end
   subgraph SOL["Solana"]
@@ -144,7 +147,7 @@ flowchart TB
   PH == "own signature" ==> SQ
   OK -. "signs a grant" .-> SS
   SS --> OZ
-  SAFE --> G3
+  SAFE --> MT --> G3
   OZ --> INT
   OZ --> AD --> G1
   SQ --> G2
@@ -168,7 +171,7 @@ flowchart TB
 
 | Party | Can | Cannot |
 |---|---|---|
-| Custody's signers at their threshold | grant, lower and revoke the limit; cancel stored moves (Stellar) and recoveries (Stellar, EVM); rewrite the gate's roles (EVM); remove a rule, which stops the moves and the recoveries that call it (Solana) | move funds past the gate without the Prime account; change a gate's list on Stellar (a new gate is needed) |
+| Custody's signers at their threshold | grant, lower and revoke the limit; cancel stored moves (Stellar), scheduled moves (EVM) and recoveries (Stellar, EVM); rewrite the gate's roles (EVM); remove a rule, which stops the moves and the recoveries that call it (Solana) | move funds past the gate without the Prime account; change a gate's list on Stellar (a new gate is needed) |
 | The Prime owners at their threshold | install and remove rules, add and remove owners, recover to the recovery address; on Stellar, also draw within the limit to any address on the gate's list; on Solana, run the custody rules their vaults are listed on | pay an address the gate does not list; exceed custody's limit (except a Solana recovery rule set with no cap) |
 | The agent | move funds inside the rules that list it | act outside a rule, recover, cancel (Stellar), change a rule |
 | Anyone | run a stored Stellar batch once its wait is over and before its window closes; run an immediate Stellar batch through a no-gate adapter when the Prime's keyless rules bound to that adapter permit it (a liquidation) | change what the batch does, or run it twice; pass a keyless rule with a batch its predicate does not permit |
@@ -293,8 +296,8 @@ contract called in the operation, error 3017).
 
 **EVM is configuration only:** Safe, Zodiac Roles and OpenZeppelin's
 TimelockController, existing code deployed unmodified, express the custody
-account, the gate, the bands and the recovery delay. Prime adds no contract on
-EVM, so the EVM side brings no code of ours into an audit. The price is that a
+account, the gate, the bands and the move and recovery delays. Prime adds no
+contract on EVM, so the EVM side brings no code of ours into an audit. The price is that a
 rule compares call data with constants and reads no other state
 ([evm.md](evm.md#limits)).
 

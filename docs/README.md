@@ -12,7 +12,7 @@ that writes the Stellar rules.
 | [audit-overview.md](audit-overview.md) | the three components with their size, what is in and out of audit scope, and what each contract enforces |
 | [architecture.md](architecture.md) | the use case, the components, trust boundaries, owners and Prime seats, the main flows and why each part is built the way it is |
 | [stellar.md](stellar.md) | the custody gate, execution adapter, policy interpreter and Prime seat on an OpenZeppelin smart account; the policy builder's checks |
-| [evm.md](evm.md) | Prime on EVM as configuration only: custody's Safe and its Roles gate, the Prime account's bands, the recovery timelock, the policy model, permissioned assets and the limits |
+| [evm.md](evm.md) | Prime on EVM as configuration only: custody's Safe and its Roles gate, the Prime account's bands, the move and recovery timelocks, the policy model, permissioned assets and the limits |
 | [solana.md](solana.md) | Prime on Solana by configuration only: the Squads Smart Account as custody gate and Prime account, Token-2022 for permissioned assets, and the venue's programs |
 
 The contracts' own READMEs hold the interfaces and test detail:
