@@ -28,9 +28,9 @@ Commands: [`build-hash-match/solana-check.sh`](build-hash-match/solana-check.sh)
 | Upgrade authority (devnet) | `ELgAxEgaGCBxNcfLMqNSbBaYDWmHeirf6k439zrM2wmx` | `J496LGUhsKvBE6yRvet4FtMgxxox82fMiDKb3qtScUh2` |
 | Devnet program hash | `4157037dbf1cae345f6aaee42edfb0b33cd919b4893cd129961ca08c5652679e` (4,296,560 bytes stored) | `e88ffe8d6f0a69bf94efbfd57404f54c713bf2ba744f438c9e096efe7b420ebd` (1,714,227 bytes stored) |
 | Build image | the one `solana-verify` picks from the lockfile (Solana 1.17.18), as Kamino's CI runs it | `solana-verifiable-build@sha256:1388b6e4…` (Solana 1.18.16), the image Squads' README pins |
-| Cited commit, its build | `e921c64`: `976f1c8c163ae34e0e13e524e0225b465bad2587b9e3bbc86e41b193ed401922` (2,474,424 bytes) | `0e51082`: `1cacfe2080faabf33a02ea285b6f8c8182358d3c6e40e3e7375ad0d7baa58cd4` |
+| Cited commit, its build | `e921c64`: `976f1c8c163ae34e0e13e524e0225b465bad2587b9e3bbc86e41b193ed401922` (2,474,424 bytes) | `0e51082`: `1cacfe2080faabf33a02ea285b6f8c8182358d3c6e40e3e7375ad0d7baa58cd4` (1,648,680 bytes) |
 | Check of the build method | `77e8185` (1.27.0) builds to `1a71bd2229fecb87daef1a4d7fda373bf17253af0c0bc2f19093aff881700702`, the hash OtterSec's registry holds for Kamino's verified mainnet build | `0e51082` gives the hash Squads publishes for its mainnet deploy at slot 443,245,754 (README on branch `docs/verified-build-alt-resolution`, `7e282a9`) |
-| Other commits tried | none: no public commit has the devnet build's instruction set (below) | `6650c42`, the head of `main` when devnet was deployed: `e1d0ef7e3fb7db1872f240d175147668281780925a05979650ed0a082c46df5b`, no match |
+| Other commits tried | none: no public commit has the devnet build's instruction set (below) | `6650c42`, the head of `main` when devnet was deployed: `e1d0ef7e3fb7db1872f240d175147668281780925a05979650ed0a082c46df5b` (1,095,696 bytes), no match |
 | Devnet equals the cited build | **no** | **no** |
 
 **Why no public klend commit matches devnet:** the devnet binary logs `Instruction: FreezeObligation`, `ThawObligation`, `AbortFreeze` and `ApproveFrozenObligationOwnershipTransfer`. No commit on any branch of the public klend repository, fetched on 27 October 2026, has a handler of those names (`git log --all -S freeze_obligation` is empty). Devnet runs a Kamino build of source that is not published.
