@@ -166,8 +166,12 @@ measurements behind the limits.
   makes: a rule with no constraints, a `SettingsChange` policy on custody, an
   unpinned destination or recipient, a withdraw without its `has_debt` read, an
   under-read Roles scoping, trailing calldata. They warn on what is allowed but
-  must be known, such as a `revokeTarget` whose function scopes stay stored. They
-  read no chain state, so `signable` again means no problem in the bytes.
+  must be known, such as a `revokeTarget` whose function scopes stay stored.
+  Without `readChain` they read no chain state, so `signable` again means no
+  problem in the bytes; with it (the operator's devnet or test-network RPC,
+  never mainnet) they also check the transaction against what is live: rules
+  and scopes already stored, owners and thresholds, a destination's thaw state,
+  a reserve, a timelock's roles, the deploy slots of the programs.
 - **Contract signers:** the install reads each contract signer off the ledger
   and refuses an execution adapter bound to no gate, an execution adapter
   signing a rule scoped to itself that does not pin `call_fn = run`, or a

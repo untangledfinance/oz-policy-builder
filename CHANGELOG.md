@@ -60,6 +60,31 @@ Stellar contract, record or build hash changed.
   unpublished source and devnet's Squads build predates the cited commit.
   `docs/solana.md` and `docs/evm.md` state the match, and `docs/solana.md`
   cites the PayFi devnet line by its evidence files.
+- **Pre-sign checks against the chain (`readChain`):** `solana_review` and
+  `evm_review` take `readChain: true`, off by default, to read what the
+  transaction meets through the operator's RPC (`POLICY_BUILDER_SOLANA_RPC_URL`,
+  `POLICY_BUILDER_EVM_RPC_URL`; devnet and test networks only, a mainnet is
+  refused), as `readContracts` does for `review_unsigned`. On Solana, after
+  PayFi's v2 verifier: the rules already on the account (a looser live rule a
+  new rule's signer shares, a live rule with fewer pins or a higher ceiling for
+  the same instruction, a duplicate), the owners and threshold after the
+  change, the rule an execution runs under, each pinned destination's thaw
+  state and its mint's extensions, the reserves and their market, and the
+  Squads and klend deploy slots against the build the review was checked
+  against. On EVM: the Safe's owners, threshold, modules and guard after the
+  batch, each Roles module's owner, avatar and unwrap adapters, the scopes
+  already stored for the roles and targets the batch names (an open target or
+  an under-read scope left live), allowances, members, each timelock's delay
+  and roles, and an ERC-3643 token's identity and freeze state. The bytes-only
+  review is unchanged without the flag. New from the package root:
+  `readSolanaChain`, `reviewSolanaOnChain`, `readEvmChain`, `reviewEvmOnChain`,
+  `httpRpc`, `RpcError`. The tests replay PayFi's live sol-devnet line and the
+  move-timelock setup on a Base Sepolia fork in ten states, recorded by
+  `packages/policy-synth/scripts/record-chain.ts`.
+- **`evm_review` reads the move-timelock shape:** a `schedule` on an
+  OpenZeppelin TimelockController is decoded with the gate call it schedules,
+  and a band that scopes a timelock's `schedule` is read one level down as a
+  band of the gate's `execTransactionWithRole`.
 - **CI:** runs on pushes to `feat/primex`; a contract test step fails when it
   runs no test or skips one; the EVM job runs the configuration check on a
   Base Sepolia fork.
