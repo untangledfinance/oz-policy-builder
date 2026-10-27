@@ -1,0 +1,10 @@
+[profile.default]
+src = "test"
+test = "test"
+libs = ["lib"]
+out = "out"
+solc_version = "0.8.28"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+remappings = ["@openzeppelin/contracts/=lib/oz/"]

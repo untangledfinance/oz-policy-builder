@@ -205,23 +205,20 @@ jobs:
           cargo install cargo-audit --locked --version ^0.22
           cargo audit
 
-  # PrimeSeat, the EVM seat: a Safe owner for one seat owner on one Prime
-  # Account (Safe + Zodiac Roles). Built with the Foundry release and the
-  # OpenZeppelin Contracts package the hashes were recorded with. Its runtime and
-  # creation code are pinned in contracts/build-hashes.json, so a source change
-  # that is not re-recorded turns this red. The contract's metadata hash covers
-  # its source, comments included. The real-Safe tests run only with FORK_URL
-  # set: this job forks Base Sepolia through the public RPC (read-only, no
-  # secret), and the test step fails if any test skips, so the 7 tests on real
-  # Safe 1.4.1 and 1.5.0 always run. There is no persistent deployment;
-  # deployments/evm-testnet.json records that and the hashes below.
-  evm-prime-seat:
-    name: Contracts (evm/prime-seat)
+  # Prime on EVM is configuration on existing contracts: Safe, Zodiac Roles
+  # v2.1.1 and OpenZeppelin's TimelockController, with no contract of ours.
+  # This job runs the configuration check of docs/evm.md on a fork of Base
+  # Sepolia through the public RPC (read-only, no secret): it builds the custody
+  # Safe, its gate, the Prime account and its bands, the recovery timelock, and
+  # checks every move and refusal against the live contracts, on Safe 1.4.1 and
+  # 1.5.0. The test step fails if a test skips, so the fork run always happens.
+  evm-config-check:
+    name: EVM configuration check (Base Sepolia fork)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: contracts/evm/prime-seat
+        working-directory: scripts/evm-config-check
     steps:
       - uses: actions/checkout@v4
 
@@ -229,95 +226,16 @@ jobs:
         with:
           version: v1.8.4
 
-      - name: Fetch OpenZeppelin Contracts 5.4.0
+      - name: Fetch OpenZeppelin Contracts 5.6.0
         run: |
-          npm pack @openzeppelin/contracts@5.4.0
-          tar xzf openzeppelin-contracts-5.4.0.tgz
-          mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
+          npm pack @openzeppelin/contracts@5.6.0
+          tar xzf openzeppelin-contracts-5.6.0.tgz
+          mkdir -p lib/oz && cp -r package/* lib/oz/
 
-      # The test files are not formatted, so the check covers the contract.
       - name: Format check
-        run: forge fmt --check src
+        run: forge fmt --check test
 
-      - name: Build
-        run: forge build
-
-      - name: Test (unit, and the real-Safe suite on a Base Sepolia fork)
+      - name: Configuration check on a Base Sepolia fork
         env:
           FORK_URL: https://sepolia.base.org
-        run: ../../assert-tests.sh 1 forge test
-
-      - name: Build hash parity
-        run: |
-          ../../check-build-hash.sh evm/prime-seat:runtime out/PrimeSeat.sol/PrimeSeat.json
-          ../../check-build-hash.sh evm/prime-seat:creation out/PrimeSeat.sol/PrimeSeat.json
-
-      # The record must state the pinned hashes, and its template hash must be
-      # the keccak-256 of this build's runtime with every immutable zeroed: the
-      # value an app compares a deployed seat against.
-      - name: Deployment record parity (deployments/evm-testnet.json)
-        run: |
-          record=../../../deployments/evm-testnet.json
-          hashes=../../build-hashes.json
-          out=out/PrimeSeat.sol/PrimeSeat.json
-          fail=0
-          for kind in runtime creation; do
-            want=$(jq -r --arg k "evm/prime-seat:$kind" '.sha256[$k]' "$hashes")
-            got=$(jq -r --arg k "${kind}Sha256" '.contracts["prime-seat"][$k]' "$record")
-            echo "$kind: record $got, build-hashes $want"
-            [ "$got" = "$want" ] || fail=1
-          done
-          zeroed=$(jq -r '.deployedBytecode as $d
-            | reduce ($d.immutableReferences | [.[][]] | .[]) as $r ($d.object;
-                .[0:(2 + 2 * $r.start)] + ("0" * (2 * $r.length)) + .[(2 + 2 * ($r.start + $r.length)):])' "$out")
-          template=$(cast keccak "$zeroed")
-          slots=$(jq '.deployedBytecode.immutableReferences | [.[][]] | length' "$out")
-          recorded=$(jq -r '.contracts["prime-seat"].template.zeroedRuntimeKeccak256' "$record")
-          rslots=$(jq -r '.contracts["prime-seat"].template.immutableSlots' "$record")
-          echo "template: built $template ($slots slots), record $recorded ($rslots slots)"
-          [ "$template" = "$recorded" ] && [ "$slots" = "$rslots" ] || fail=1
-          if [ "$fail" != 0 ]; then
-            echo "deployments/evm-testnet.json does not match this build."
-            exit 1
-          fi
-
-  # The mutation pass of contracts/evm/prime-seat/mutate.py: 128 mutants of
-  # PrimeSeat.sol, each run against the whole suite on the Base Sepolia fork
-  # (about ten minutes). A mutant counts as killed when the suite fails or the
-  # build breaks. Exactly three survive, each with no effect on behaviour (the
-  # contract's README says why); any other survivor, or a missing survivor
-  # (the suite changed), fails the job.
-  evm-prime-seat-mutants:
-    name: Contracts (evm/prime-seat mutation pass)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: contracts/evm/prime-seat
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: v1.8.4
-
-      - name: Fetch OpenZeppelin Contracts 5.4.0
-        run: |
-          npm pack @openzeppelin/contracts@5.4.0
-          tar xzf openzeppelin-contracts-5.4.0.tgz
-          mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
-
-      - name: Mutation pass
-        env:
-          FORK_URL: https://sepolia.base.org
-        run: |
-          # mutate.py exits 1 while any mutant survives; the survivors are checked below.
-          python3 mutate.py mutants.json || true
-          jq -r '.[] | .[1]' mutants.json | sort | uniq -c
-          survivors=$(jq -c '[.[] | select(.[1] | startswith("KILLED") | not) | .[0]] | sort' mutants.json)
-          expected='["exec digest drops op","exec: op dropped","grant: revert text"]'
-          echo "mutants: $(jq length mutants.json), not killed: $survivors"
-          if [ "$(jq length mutants.json)" -lt 128 ] || [ "$survivors" != "$expected" ]; then
-            echo "Expected 128 or more mutants and exactly these survivors: $expected"
-            exit 1
-          fi
+        run: ../../contracts/assert-tests.sh 2 forge test
