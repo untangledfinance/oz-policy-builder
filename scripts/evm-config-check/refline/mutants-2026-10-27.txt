@@ -1,0 +1,8 @@
+# test/RefLine.t.sol mutants, 2026-10-27, forge 1.8.4, fork of Base Sepolia via https://sepolia.base.org
+# each change applied alone to script/RefLine.s.sol, then: forge test --match-test test_refLine_safe141; each must fail
+M1 gate trading member is the Prime account: [FAIL: a keeper runs o-approve: custody approves the pool for 1,000] test_refLine_safe141() (block: 50999111) (gas: 11809119)
+M2 band target left open: [FAIL: refused: agent schedules a call to the custody Safe instead of the gate] test_refLine_safe141() (block: 50999250) (gas: 9464141)
+M3 band role left open: [FAIL: refused: agent schedules a supply under the recovery role] test_refLine_safe141() (block: 50999407) (gas: 9629270)
+M4 custody not a canceller of the move timelock: [FAIL: custody cancels] test_refLine_safe141() (block: 50999572) (gas: 6843744)
+M5 agent cap raised to 500: [FAIL: refused: agent schedules a supply of 20 with 10 left of its daily 50] test_refLine_safe141() (block: 50999753) (gas: 8627359)
+M6 band operation left open: [FAIL: refused: agent schedules a delegatecall from custody] test_refLine_safe141() (block: 51000051) (gas: 9811005)
