@@ -356,7 +356,7 @@ describe('solana_review reads the bytes it is given', () => {
     expect(r.signable).toBe(true)
   })
 
-  it("passes PayFi's rules that pin every destination, and flags the two that do not", () => {
+  it("passes PayFi's rules that pin every destination, and flags R4's open payout", () => {
     const at = {
       settlement: K.settlement,
       lp: K.lp,
@@ -366,13 +366,33 @@ describe('solana_review reads the bytes it is given', () => {
     }
     const ok = (n: keyof typeof g, account: string, role: 'custody' | 'prime' = 'custody') =>
       reviewSolana({ transaction: g[n] as string, role, account })
-    for (const n of ['r1', 'r2b', 'r3', 'r5', 's1', 'm1'] as const)
+    for (const n of ['r1', 'r2', 'r2b', 'r3', 'r5', 's1', 'm1'] as const)
       expect(ok(n, at.settlement).problems.filter((p) => !/acts on/.test(p))).toEqual([])
     expect(ok('g1', at.lp, 'prime').signable).toBe(true)
-    // R2 repays an obligation it does not pin (klend binds a repay to no owner)
-    caught(ok('r2', at.settlement), /the repay's obligation \(account 1\) is not pinned/)
     // R4 pays USDC out to a destination it leaves open (PayFi's receiver allowlist is optional)
     caught(ok('r4', at.settlement), /constraint 0: the destination \(account 2\) is not pinned/)
+  })
+
+  it("reads R2's repay pin as PayFi wrote it: the obligation's owner at byte 64, owner klend", () => {
+    const r = reviewSolana({ transaction: g.r2, role: 'custody', account: K.settlement })
+    const a = r.actions?.[0]
+    if (a?.action !== 'PolicyCreate' || a.policy.kind !== 'ProgramInteraction')
+      throw new Error('shape')
+    const owner = a.policy.constraints[0]?.accounts.find((x) => x.index === 1)
+    expect(owner).toEqual({
+      index: 1,
+      data: [
+        {
+          offset: String(OBLIGATION.owner),
+          value: {
+            type: 'U8Slice',
+            value: Buffer.from(fromBase58(K.settlementVault as string, 32)).toString('hex'),
+          },
+          operator: 'Equals',
+        },
+      ],
+      owner: PROGRAM.klend,
+    })
   })
 
   it("reads PayFi's execution through R2b: the withdraw, its amount and where it pays", () => {
@@ -508,8 +528,22 @@ describe('solana_review catches each footgun (problem, signable false)', () => {
     caught(one([unowned]), /has_debt read names no klend owner/)
   })
 
-  it('one rule that admits a borrow and a has_debt-pinned withdraw (read before the batch runs)', () => {
+  it('one rule that admits a borrow and a has_debt-pinned withdraw, or a seize (read before the batch runs)', () => {
     caught(one([borrow(), withdraw()]), /admits both a borrow and a collateral withdraw/)
+    const seize: Ic = {
+      program: PROGRAM.klend,
+      accounts: [
+        pin(2, key(50)),
+        pin(15, CUSTODY_TA),
+        {
+          index: 1,
+          data: [{ offset: OBLIGATION.markedAt, type: 'U64Le', value: 0n, op: GT }],
+          owner: PROGRAM.klend,
+        },
+      ],
+      data: [discData('liquidate_obligation_and_redeem_reserve_collateral_v2')],
+    }
+    caught(one([borrow(), seize]), /admits both a borrow and a collateral withdraw or seize/)
   })
 
   it('a liquidation without the marked read, and a repay with an unpinned obligation', () => {

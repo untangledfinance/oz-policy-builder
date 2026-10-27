@@ -540,9 +540,9 @@ It lists as problems:
   down another obligation's debt;
 - a collateral withdraw without the `has_debt == 0` read (U8 at 2287, owner
   klend) when the same change permits a borrow or `requireNoDebt` is set, and
-  one rule that admits both a borrow and a withdraw (Squads reads every
-  constraint before any inner instruction runs, so the read cannot stop both
-  in one execution); a liquidation without the marked read (U64 at 2336 above
+  one rule that admits both a borrow and a withdraw or seize (Squads reads
+  every constraint before any inner instruction runs, so the read cannot stop
+  both in one execution); a liquidation without the marked read (U64 at 2336 above
   0, owner klend);
 - a rule for another vault than custody's, a signer outside `signers`, a
   threshold below 3 on custody or 2 on the Prime account, a settings time lock
