@@ -11,7 +11,7 @@ the Stellar contracts.
 |---|---|---|---|
 | Stellar | OpenZeppelin smart account | policy interpreter, custody gate, execution adapter, Prime seat | Stellar testnet |
 | EVM | Safe with Zodiac Roles | `PrimeSeat` | Base Sepolia fork tests; no persistent deployment |
-| Solana | Squads Smart Account | none: a second Squads Smart Account is the custody gate | design only; its key steps passed devnet simulations |
+| Solana | Squads Smart Account | none: a second Squads Smart Account is the custody gate | design only; parts ran on devnet (a foreign vault as a rule's signer, in simulation; a borrow through nested Squads executions); a full move has not run |
 
 Detail: [stellar.md](stellar.md), [evm.md](evm.md), [solana.md](solana.md).
 
@@ -72,7 +72,9 @@ A move can also wait. On Stellar the execution adapter stores the batch,
 anyone can run it once the wait is over, and custody or the Prime account can
 cancel it until then. The stored batch runs under a rule with no signer, bound
 to the adapter, whose predicate permits the adapter's `run` alone, so running
-it needs no key. On Solana the Squads rule's time lock stores the whole batch.
+it needs no key. On Solana a nested call cannot reach a time-locked rule, so
+the wait sits on the Prime side: the Prime account's or a Prime rule's time
+lock stores the whole batch.
 On EVM, moves run at once and recovery waits on a timelock.
 
 ```mermaid
