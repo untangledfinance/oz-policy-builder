@@ -1167,9 +1167,9 @@ function checkPolicy(
       c.programId === PROGRAM.klend ? KLEND[discOf(c, 8) ?? '']?.kind : undefined
     )
   )
-  if (kinds.has('borrow') && kinds.has('withdraw'))
+  if (kinds.has('borrow') && (kinds.has('withdraw') || kinds.has('liquidate')))
     flag(
-      `${where}: one rule admits both a borrow and a collateral withdraw; Squads reads every constraint before any inner instruction runs (program_interaction.rs:1071-1114), so a has_debt == 0 read cannot stop [borrow, withdraw] in one execution: give them separate rules`
+      `${where}: one rule admits both a borrow and a collateral withdraw or seize; Squads reads every constraint before any inner instruction runs (program_interaction.rs:1071-1114), so a has_debt == 0 or marked read cannot stop both in one execution: give them separate rules`
     )
   if (p.limits.length > 0)
     warn(
