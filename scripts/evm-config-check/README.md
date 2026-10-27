@@ -27,14 +27,28 @@ The test runs once per Safe version and makes 55 checks each time:
   address but the trustee; custody revoking the trading role and then turning
   the gate off; two of three custody signers and one Prime owner refused.
 
+The same file adds the STRIDE attack cases (`test_stride_safe141`,
+`test_stride_safe150`), 26 checks per Safe version, built for
+[evidence/stride-evm.md](../../evidence/stride-evm.md). They either refuse an
+attack with the exact Safe or Roles status (a stranger on the custody module
+path `GS104`, a stranger adding an owner `GS031`, a stranger or the Prime
+account writing a gate rule `OwnableUnauthorizedAccount`, a stranger cancelling
+a recovery `AccessControlUnauthorizedAccount`, a supply once the budget is zero,
+one agent signature against the 2-of-3) or show a documented gap (calldata
+after the last pinned argument still passes; a function scope returns after
+`revokeTarget` then `scopeTarget`). They also read back that custody renounced
+the timelock admin role and that each module is a minimal proxy to the Roles
+mastercopy. The run is in
+[run-stride-2026-10-27.txt](run-stride-2026-10-27.txt).
+
 ```sh
 cd scripts/evm-config-check
 npm pack @openzeppelin/contracts@5.6.0 && tar xzf openzeppelin-contracts-5.6.0.tgz
 mkdir -p lib/oz && cp -r package/* lib/oz/ && rm -r package openzeppelin-contracts-5.6.0.tgz
-FORK_URL=https://sepolia.base.org ../../contracts/assert-tests.sh 2 forge test
+FORK_URL=https://sepolia.base.org ../../contracts/assert-tests.sh 4 forge test
 ```
 
-Foundry 1.8.4, solc 0.8.28 with `via_ir`. Without `FORK_URL` both tests skip,
+Foundry 1.8.4, solc 0.8.28 with `via_ir`. Without `FORK_URL` all four tests skip,
 and `assert-tests.sh` then fails. CI runs the same command (job
 `evm-config-check`). [run-2026-10-27.txt](run-2026-10-27.txt) is the run
 of 27 October 2026, with six altered configurations that each make the test

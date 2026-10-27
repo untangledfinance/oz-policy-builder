@@ -52,6 +52,7 @@ interface ISafe {
     function enableModule(address) external;
     function disableModule(address, address) external;
     function isModuleEnabled(address) external view returns (bool);
+    function execTransactionFromModule(address, uint256, bytes calldata, uint8) external returns (bool);
     function addOwnerWithThreshold(address, uint256) external;
     function getThreshold() external view returns (uint256);
     function VERSION() external view returns (string memory);
@@ -83,6 +84,7 @@ interface IRoles {
     function target() external view returns (address);
     function assignRoles(address, bytes32[] calldata, bool[] calldata) external;
     function scopeTarget(bytes32, address) external;
+    function revokeTarget(bytes32, address) external;
     function revokeFunction(bytes32, address, bytes4) external;
     function scopeFunction(bytes32, address, bytes4, ConditionFlat[] memory, uint8) external;
     function setAllowance(bytes32, uint128, uint128, uint128, uint64, uint64) external;
@@ -710,6 +712,167 @@ contract ConfigOnlyTest {
         execSafe(safe, to, data, 0, keys);
     }
 
+    // ------------------------------------------------------- STRIDE attack cases
+    // These extend the configuration check with STRIDE proof-of-concept attacks.
+    // Each either shows a control holding (an attack refused with the exact Safe or
+    // Roles status) or flags a documented gap (an attack that passes), called out in
+    // evidence/stride-evm.md. They reuse the setup build() and the same helpers.
+
+    bytes4 constant OWNABLE = bytes4(keccak256("OwnableUnauthorizedAccount(address)"));
+    bytes4 constant ACCESS = bytes4(keccak256("AccessControlUnauthorizedAccount(address,bytes32)"));
+    bytes4 constant ERROR_STRING = 0x08c379a0; // Error(string)
+
+    function oneKey(uint256 k) internal pure returns (uint256[] memory a) {
+        a = new uint256[](1);
+        a[0] = k;
+    }
+
+    function sliceAfterSelector(bytes memory err) internal pure returns (bytes memory out) {
+        out = new bytes(err.length - 4);
+        for (uint256 i; i < out.length; i++) {
+            out[i] = err[i + 4];
+        }
+    }
+
+    /// A string revert, Error(string): Safe uses it for GS031, GS104.
+    function reasoned(bool ok, bytes memory err, string memory reason, string memory what) internal {
+        require(!ok, what);
+        require(err.length >= 68 && bytes4(err) == ERROR_STRING, what);
+        string memory got = abi.decode(sliceAfterSelector(err), (string));
+        require(keccak256(bytes(got)) == keccak256(bytes(reason)), what);
+        passed++;
+    }
+
+    /// An owner-only refusal: the Roles mastercopy's Ownable, either as the custom
+    /// error or, on an older build, the legacy string.
+    function refusedByOwner(bool ok, bytes memory err, string memory what) internal {
+        require(!ok, what);
+        bool custom = err.length >= 4 && bytes4(err) == OWNABLE;
+        bool legacy = err.length >= 68 && bytes4(err) == ERROR_STRING;
+        require(custom || legacy, what);
+        passed++;
+    }
+
+    /// The implementation an ERC-1167 minimal proxy hard-codes in its 45-byte runtime.
+    function proxyImpl(bytes memory code) internal pure returns (address a) {
+        require(code.length == 45, "not a 1167 proxy");
+        assembly {
+            a := shr(96, mload(add(code, 42)))
+        }
+    }
+
+    function strideAttacks(address singleton, address factory) internal {
+        build(singleton, factory);
+
+        bytes memory sup10 = abi.encodeCall(IPool.supply, (USDC, 10e6, custody, 0));
+        bool ok;
+        bytes memory err;
+
+        // === Custody Safe and the gate: GS104, GS031, onlyOwner ===
+        // GS104: only an enabled module drives the Safe; a stranger on the module path is refused.
+        vm.prank(stranger);
+        (ok, err) = custody.call(abi.encodeCall(ISafe.execTransactionFromModule, (POOL, 0, sup10, 0)));
+        reasoned(ok, err, "GS104", "stranger on the custody module path (GS104)");
+        // GS031: owner management is a self-call only; a stranger calling it directly is refused.
+        vm.prank(stranger);
+        (ok, err) = custody.call(abi.encodeCall(ISafe.addOwnerWithThreshold, (stranger, 1)));
+        reasoned(ok, err, "GS031", "stranger adding a custody owner directly (GS031)");
+        // onlyOwner on the gate: only custody writes rules; a stranger cannot scope, cap or unwrap.
+        vm.prank(stranger);
+        (ok, err) = gate.call(abi.encodeCall(IRoles.scopeTarget, (TRADE, stranger)));
+        refusedByOwner(ok, err, "stranger scoping a gate target");
+        vm.prank(stranger);
+        (ok, err) = gate.call(abi.encodeCall(IRoles.setAllowance, (CUSTODY_BUDGET, 1e12, 1e12, 1e12, 1 days, 0)));
+        refusedByOwner(ok, err, "stranger raising custody's cap");
+        // the unwrap-adapter footgun is an owner setting; a stranger cannot register one.
+        vm.prank(stranger);
+        (ok, err) = gate.call(abi.encodeCall(IRoles.setTransactionUnwrapper, (POOL, IPool.supply.selector, stranger)));
+        refusedByOwner(ok, err, "stranger registering an unwrap adapter");
+        // nor can the Prime account, the trading member, register one.
+        vm.prank(prime);
+        (ok, err) = gate.call(abi.encodeCall(IRoles.setTransactionUnwrapper, (POOL, IPool.supply.selector, prime)));
+        refusedByOwner(ok, err, "the Prime account registering an unwrap adapter");
+
+        // === Trading-role scoping gaps (honest weaknesses) ===
+        (ok, err) = viaGate(prime, USDC, abi.encodeCall(IERC20.approve, (POOL, 100e6)), 0, TRADE);
+        check(ok, "Prime owners approve the pool for the gap checks");
+        // GAP 1: calldata after the last checked argument is not seen by Roles; the venue's ABI decoder drops it.
+        bytes memory supPlus = abi.encodePacked(sup10, bytes32(uint256(0xdead)));
+        (ok, err) = viaGate(prime, POOL, supPlus, 0, TRADE);
+        check(ok, "GAP: a supply with trailing calldata still passes the gate");
+        // GAP 2: revokeTarget keeps the function scopes; re-scoping the target brings them back.
+        uint256 snap = vm.snapshotState();
+        check(
+            execSafe(custody, gate, abi.encodeCall(IRoles.revokeTarget, (TRADE, POOL)), 0, all(custodyKeys)),
+            "custody revokes the pool target"
+        );
+        (ok, err) = viaGate(prime, POOL, sup10, 0, TRADE);
+        refusedWith(ok, err, S_TARGET, "supply refused once the target is revoked");
+        check(
+            execSafe(custody, gate, abi.encodeCall(IRoles.scopeTarget, (TRADE, POOL)), 0, all(custodyKeys)),
+            "custody re-scopes the pool target, no functions re-added"
+        );
+        (ok, err) = viaGate(prime, POOL, sup10, 0, TRADE);
+        check(ok, "GAP: the old supply scope returns after revokeTarget then scopeTarget");
+        vm.revertToState(snap);
+
+        // === Recovery role and the timelock: proposer, canceller, executor, admin renounced ===
+        check(!timelock.hasRole(timelock.DEFAULT_ADMIN_ROLE(), custody), "custody renounced the timelock admin role");
+        check(timelock.hasRole(timelock.DEFAULT_ADMIN_ROLE(), address(timelock)), "the timelock administers itself");
+        check(timelock.hasRole(timelock.CANCELLER_ROLE(), custody), "custody holds the canceller role");
+        check(timelock.hasRole(timelock.CANCELLER_ROLE(), prime), "the Prime account holds the canceller role");
+        check(timelock.hasRole(timelock.PROPOSER_ROLE(), prime), "the Prime account is the proposer");
+        check(timelock.hasRole(timelock.EXECUTOR_ROLE(), address(0)), "the executor role is open to anyone");
+        check(!timelock.hasRole(timelock.PROPOSER_ROLE(), custody), "custody cannot propose a recovery");
+        // The Prime account can cancel its own scheduled recovery; a stranger cannot.
+        bytes memory recoverCall = abi.encodeCall(
+            IRoles.execTransactionWithRole,
+            (AUSDC, 0, abi.encodeCall(IERC20.transfer, (trustee, 5e6)), 0, RECOVER, true)
+        );
+        bytes memory sched =
+            abi.encodeCall(timelock.schedule, (gate, 0, recoverCall, bytes32(0), bytes32("s1"), 2 days));
+        check(execSafe(prime, address(timelock), sched, 0, some(primeKeys, 2)), "Prime schedules a recovery");
+        bytes32 id = timelock.hashOperation(gate, 0, recoverCall, bytes32(0), bytes32("s1"));
+        vm.prank(stranger);
+        (ok, err) = address(timelock).call(abi.encodeCall(timelock.cancel, (id)));
+        refusedWithError(ok, err, ACCESS, "a stranger cannot cancel a scheduled recovery");
+        check(
+            execSafe(prime, address(timelock), abi.encodeCall(timelock.cancel, (id)), 0, some(primeKeys, 2)),
+            "the Prime account cancels its own recovery"
+        );
+
+        // === Prime 2/3 Safe and the bands ===
+        // The agent is not a Prime owner; a Safe transaction signed by the agent key alone is refused.
+        bool rv;
+        try this.execExternal(prime, prime, abi.encodeCall(ISafe.enableModule, (stranger)), oneKey(AGENT_KEY)) {}
+        catch {
+            rv = true;
+        }
+        check(rv, "the agent has no vote on the Prime account");
+
+        // === Upgrade authority: each Roles module is a minimal proxy to the fixed mastercopy ===
+        check(gate.code.length == 45, "the gate is a 45-byte minimal proxy");
+        check(primeRoles.code.length == 45, "the bands module is a 45-byte minimal proxy");
+        check(proxyImpl(gate.code) == ROLES, "the gate proxy points at the Roles v2.1.1 mastercopy");
+        check(proxyImpl(primeRoles.code) == ROLES, "the bands proxy points at the same mastercopy");
+
+        // === Kill switch: lower the budget to zero ===
+        snap = vm.snapshotState();
+        check(
+            execSafe(
+                custody,
+                gate,
+                abi.encodeCall(IRoles.setAllowance, (CUSTODY_BUDGET, 0, 0, 0, 1 days, 0)),
+                0,
+                all(custodyKeys)
+            ),
+            "custody drops its daily cap to zero"
+        );
+        (ok, err) = viaGate(prime, POOL, sup10, 0, TRADE);
+        refusedWith(ok, err, S_ALLOWANCE, "no supply once the budget is zero");
+        vm.revertToState(snap);
+    }
+
     function test_configOnly_safe141() public {
         if (!forked) {
             vm.skip(true);
@@ -728,6 +891,26 @@ contract ConfigOnlyTest {
         run_(SAFE_150, FACTORY_150);
         require(passed > 50, "count");
         emit log_count(passed);
+    }
+
+    function test_stride_safe141() public {
+        if (!forked) {
+            vm.skip(true);
+            return;
+        }
+        strideAttacks(SAFE_141, FACTORY_141);
+        emit log_count(passed);
+        require(passed > 25, "count");
+    }
+
+    function test_stride_safe150() public {
+        if (!forked) {
+            vm.skip(true);
+            return;
+        }
+        strideAttacks(SAFE_150, FACTORY_150);
+        emit log_count(passed);
+        require(passed > 25, "count");
     }
 
     event log_count(uint256);
