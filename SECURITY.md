@@ -19,11 +19,12 @@ There is currently no bug bounty programme.
 | Prime seat, `prime-seat` (Stellar) | Soroban contract on Stellar testnet, one instance per seat owner and account (code hash in `contracts/build-hashes.json`) |
 | `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` | Off-chain packages in `packages/`, published to npm at version 5.2.0 from this repository at tag `v5.2.0` |
 | `PrimeSeat` (EVM) | Solidity contract, fork-tested against Base Sepolia with real Safe 1.4.1 and 1.5.0 and not deployed from this repository; an integrating app deploys one instance per seat owner and Safe (code hashes in `contracts/build-hashes.json`, status in `deployments/evm-testnet.json`) |
-| `custody-gate`, `prime-seat` (Solana) | Solana programs on devnet, deployed final (program ids in `deployments/solana-devnet.json` and [docs/solana.md](./docs/solana.md#deployed)) |
 
-`test-blend-pool` is a testnet-only fixture and is out of scope. The EVM and
-Solana contracts are in scope for reports and outside the external audit
-below.
+`test-blend-pool` is a testnet-only fixture and is out of scope. The EVM
+contracts are in scope for reports and outside the external audit below.
+Prime on Solana adds no program of its own: it is configuration of existing
+third-party programs ([docs/solana.md](./docs/solana.md)), so this repository
+holds no Solana code to report against.
 
 ## Audit status
 
@@ -64,27 +65,3 @@ which the MCP server reaches through `@modelcontextprotocol/sdk` and
 both for this workspace, and npm applies them to this workspace only, so they
 do not reach a consumer's install. Pin `toml` `^5.0.1` and `ip-address`
 `^10.7.4` in your own `overrides` to clear the report.
-
-**Accepted advisories in the EVM and Solana tooling:** CI audits the two
-Solana `Cargo.lock` files with `cargo audit` and the lockfile of
-`contracts/solana/custody-gate/app-checks` with `bun audit`. Recorded on 25
-October 2026:
-
-- **Solana `Cargo.lock` files:** `ctutils` was moved to 0.4.4, which fixes
-  RUSTSEC-2026-0385; the `.so` hashes did not change, since the crate enters
-  only through host builds of `solana-program`. Three warnings remain and do
-  not fail the audit: `bincode` 1.3.3 and `libsecp256k1` 0.6.0 unmaintained
-  (RUSTSEC-2025-0141, RUSTSEC-2025-0161) and `rand` 0.7.3 unsound with a
-  custom logger (RUSTSEC-2026-0097). All three sit in `solana-program`'s host
-  dependencies; none of their code is in `gate.so` or `prime_seat.so`.
-- **`app-checks/bun.lock`:** five advisories have no patched release inside the
-  ranges `@solana/web3.js` 1.99 and `@solana/spl-token` 0.4 accept, and CI
-  ignores them by id. `bigint-buffer` up to 1.1.5 (GHSA-3gc7-fjrx-p6mg, high,
-  no patched release): an overflow in `toBigIntLE`; the checks decode account
-  bytes themselves and use `spl-token` only to build instructions.
-  `stream-json` (GHSA-hqr4-qq8f-hg3x, GHSA-mjw6-4jj6-33hc,
-  GHSA-528h-pc64-c93x, moderate): loaded only by `jayson`'s server-side stream
-  parser, while `web3.js` uses `jayson`'s browser client. `uuid` before
-  11.1.1 (GHSA-w5hq-g745-h8pq, moderate): the bug is in v3, v5 and v6 with a
-  caller's buffer, and `jayson` calls only v4. The package is a private test
-  package and is not published.

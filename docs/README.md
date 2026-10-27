@@ -13,7 +13,7 @@ that writes the Stellar rules.
 | [architecture.md](architecture.md) | the use case, the components, trust boundaries, owners and Prime seats, the main flows and why each part is built the way it is |
 | [stellar.md](stellar.md) | the custody gate, execution adapter, policy interpreter and Prime seat on an OpenZeppelin smart account; the policy builder's checks |
 | [evm.md](evm.md) | the custody design on Safe, Zodiac Roles and OpenZeppelin's timelock, and the EVM seat `PrimeSeat` |
-| [solana.md](solana.md) | the custody gate and the seat program beside a Squads Smart Account |
+| [solana.md](solana.md) | Prime on Solana by configuration only: the Squads Smart Account as custody gate and Prime account, Token-2022 for permissioned assets, and the venue's programs |
 
 The contracts' own READMEs hold the interfaces and test detail:
 [contracts/README.md](../contracts/README.md) (sizes, hashes, CI),
@@ -21,11 +21,8 @@ The contracts' own READMEs hold the interfaces and test detail:
 [custody gate](../contracts/stellar/custody-gate/README.md),
 [execution adapter](../contracts/stellar/execution-adapter/README.md),
 [Prime seat](../contracts/stellar/prime-seat/README.md),
-[EVM seat](../contracts/evm/prime-seat/README.md),
-[Solana seat](../contracts/solana/prime-seat/README.md). The Solana design
-record and the setup guide are
-[README-architecture.md](../contracts/solana/README-architecture.md) and
-[SETUP-AND-RECOVERY.md](../contracts/solana/SETUP-AND-RECOVERY.md).
+[EVM seat](../contracts/evm/prime-seat/README.md). Prime on Solana has no
+contract of its own; [solana.md](solana.md) holds its whole design.
 
 ## Packages
 
@@ -53,13 +50,12 @@ The records are in [`deployments/`](../deployments) and
 [stellar.md](stellar.md#deployments) has the full addresses and how each was
 checked.
 
-The EVM and Solana contracts run on test networks only and are outside the
-audit scope.
+The EVM contracts run on test networks only and are outside the audit scope.
 
 | Contract | Network |
 |---|---|
 | EVM seat, `PrimeSeat` | fork-tested against Base Sepolia, no persistent deployment ([evm-testnet.json](../deployments/evm-testnet.json)); an app deploys one per seat owner and Safe from the creation code `4d355864…` |
-| Solana custody gate | Solana devnet, program `6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz` (`a5d19edb…`), final ([solana-devnet.json](../deployments/solana-devnet.json)) |
-| Solana seat, `prime-seat` | Solana devnet, program `7ygNrKpK3GYoNLMCkAa4e3mznGPF2KVGbKZsJcq8wSCb` (devnet build `a389f4a1…`), final |
 
-[evm.md](evm.md#deployed) and [solana.md](solana.md#deployed) have the detail.
+[evm.md](evm.md#deployed) has the detail. Prime on Solana deploys no
+program: it configures the Squads Smart Account, SPL Token-2022 and Kamino's
+deployed programs ([solana.md](solana.md#deployments)).
