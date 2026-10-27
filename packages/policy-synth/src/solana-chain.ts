@@ -14,7 +14,7 @@
 // snapshot replays offline. A read that fails refuses the review; an account the checks needed and
 // the read did not return is a problem. Layouts: Squads `0e51082` (state/settings.rs,
 // state/policies/), klend 1.26.0 (`e921c64`, the SDK 13.0.5 layout; 1.27.0 changes LendingMarket only
-// past byte 3440, and the devnet build was checked against live bytes) (Reserve, LendingMarket), SPL Token and
+// from byte 3440, and the devnet build was checked against live bytes) (Reserve, LendingMarket), SPL Token and
 // Token-2022 (state.rs, extension/mod.rs).
 
 import { base58, DecodeError, fromBase58, hex, Reader } from './bytes.ts'
