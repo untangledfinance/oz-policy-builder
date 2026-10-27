@@ -39,6 +39,18 @@ Stellar contract, record or build hash changed.
   functions (its scopes stay stored and come back on a re-scope). The tests
   read PayFi's own rule bytes and the fork check's two configuration batches,
   with the hashes the live Safe computed. No new dependency.
+- **EVM move timelock and reference line:** every EVM move now waits. A
+  second OpenZeppelin TimelockController 5.6.0 is the gate's trading member in
+  place of the Prime account: the Prime account schedules a move (the agent's
+  band scopes the timelock's `schedule`), anyone runs it after the delay, and
+  custody or the Prime account can cancel it during the wait. `docs/evm.md`
+  describes this design. `scripts/evm-config-check/test/RefLine.t.sol` checks
+  it on a Base Sepolia fork, 128 checks on Safe 1.4.1 and on Safe 1.5.0, and
+  `script/RefLine.s.sol` with `refline.ts` runs it as a reference line, one
+  transaction at a time, checking each refusal's revert data. Its run on an
+  anvil fork of Base Sepolia (64 transactions) is in
+  `evidence/evm-reference-line.md`; the run on Base Sepolia itself waits for
+  test ETH.
 - **CI:** runs on pushes to `feat/primex`; a contract test step fails when it
   runs no test or skips one; the EVM job runs the configuration check on a
   Base Sepolia fork.

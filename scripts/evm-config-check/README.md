@@ -1,14 +1,26 @@
 # EVM configuration check
 
-A Foundry test that builds Prime on EVM, as [docs/evm.md](../../docs/evm.md)
-describes it, on a fork of Base Sepolia and checks it against the live
-contracts. It deploys only existing code: Safe proxies of the canonical Safe
-1.4.1 and 1.5.0 singletons, ERC-1167 proxies of the Zodiac Roles v2.1.1
-mastercopy, and OpenZeppelin's TimelockController 5.6.0 compiled from the npm
-package. Prime has no contract of its own on EVM, and this folder adds none:
-the `.sol` file is the test.
+Foundry tests that build Prime on EVM, as [docs/evm.md](../../docs/evm.md)
+describes it, on a fork of Base Sepolia and check it against the live
+contracts, and a script that runs the same line on a chain. They deploy only
+existing code: Safe proxies of the canonical Safe 1.4.1 and 1.5.0 singletons,
+ERC-1167 proxies of the Zodiac Roles v2.1.1 mastercopy, and OpenZeppelin's
+TimelockController 5.6.0 compiled from the npm package. Prime has no contract
+of its own on EVM, and this folder adds none: the `.sol` files are tests and a
+forge script.
 
-The test runs once per Safe version and makes 55 checks each time:
+Two tests, each run once per Safe version:
+
+- `test/RefLine.t.sol` builds the design of docs/evm.md, where every move waits
+  in a move timelock, and runs it phase by phase with the clock moved past each
+  delay: 128 checks per Safe version. Its phases live in
+  `script/RefLine.s.sol`, which also runs them on a chain (see
+  [The reference line](#the-reference-line)).
+- `test/ConfigOnly.t.sol` holds the base checks of the Safe and Roles parts,
+  with the Prime account as the gate's trading member and no move delay, and
+  the STRIDE attack cases.
+
+`ConfigOnly.t.sol` makes 55 checks each time:
 
 - **Setup:** the custody Safe (3 of 3), the Prime account (2 of 3), each
   Safe's Roles modifier deployed through `CreateCall` and enabled in one
@@ -48,8 +60,34 @@ mkdir -p lib/oz && cp -r package/* lib/oz/ && rm -r package openzeppelin-contrac
 FORK_URL=https://sepolia.base.org ../../contracts/assert-tests.sh 4 forge test
 ```
 
-Foundry 1.8.4, solc 0.8.28 with `via_ir`. Without `FORK_URL` all four tests skip,
+Foundry 1.8.4, solc 0.8.28 with `via_ir`. Without `FORK_URL` all six tests skip,
 and `assert-tests.sh` then fails. CI runs the same command (job
 `evm-config-check`). [run-2026-10-27.txt](run-2026-10-27.txt) is the run
 of 27 October 2026, with six altered configurations that each make the test
 fail.
+
+## The reference line
+
+`script/RefLine.s.sol` and `refline.ts` run the same phases as
+`test/RefLine.t.sol` on a chain, one transaction at a time: setup, schedule,
+move and recover. Each phase runs first as a forge simulation that makes the
+test's checks and writes the phase's transactions to a plan in `refline/`; the
+driver sends them from throwaway keys, waits out each timelock delay, and
+checks that every move succeeds and every refusal fails with the revert data
+the simulation gave. It refuses any chain but Base Sepolia (84532).
+
+```sh
+anvil --fork-url https://sepolia.base.org --port 8547 --chain-id 84532   # for a fork run
+KEYS=/path/to/keys.json bun refline.ts                                   # MODE=anvil
+KEYS=/path/to/keys.json MODE=live RPC=https://sepolia.base.org bun refline.ts
+```
+
+`KEYS` names a JSON file, kept outside the repository, of
+`{ address, privateKey }` for `deployer`, `custody1` to `custody3`, `prime1`
+to `prime3`, `agent`, `trustee` and `stranger`; only the deployer needs test
+ETH, and it sends the agent and the stranger theirs. `MOVE_DELAY` and `DELAY`
+set the two timelock delays (120 and 300 seconds by default). The run's record
+goes to `refline/<mode>-run.json`;
+[`refline/anvil-run.json`](refline/anvil-run.json) is the run of 27 October
+2026 on an anvil fork, described in
+[evidence/evm-reference-line.md](../../evidence/evm-reference-line.md).

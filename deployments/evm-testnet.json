@@ -3,7 +3,7 @@
   "chainId": 84532,
   "recorded": "2026-10-27",
   "status": "configuration only; no contract of ours",
-  "note": "Prime on EVM, test network only. It deploys no contract of ours: a Prime is configuration on the existing contracts below (Safe proxies, Zodiac Roles proxies, one OpenZeppelin TimelockController per gate). Each address was read back on Base Sepolia on 27 October 2026 (code present). The configuration check in scripts/evm-config-check runs the design of docs/evm.md against these contracts on a fork; it deploys nothing on the network. The custody run of 29 September 2026 (custody at a plain address) is kept as a record of that run. No mainnet deployment exists.",
+  "note": "Prime on EVM, test network only. It deploys no contract of ours: a Prime is configuration on the existing contracts below (Safe proxies, Zodiac Roles proxies, two OpenZeppelin TimelockController instances per gate, one for moves and one for recovery). Each address was read back on Base Sepolia on 27 October 2026 (code present). The fork checks in scripts/evm-config-check run the design of docs/evm.md against these contracts on a fork; they deploy nothing on the network. The reference line runs the same design one transaction at a time; its record below is from an anvil fork of Base Sepolia until it runs on Base Sepolia itself. The custody run of 29 September 2026 (custody at a plain address) is kept as a record of that run. No mainnet deployment exists.",
   "existingContracts": {
     "safe-1.4.1": {
       "safeL2": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
@@ -27,7 +27,7 @@
     },
     "openzeppelin-timelock": {
       "version": "5.6.0",
-      "note": "TimelockController from @openzeppelin/contracts 5.6.0, unmodified; one instance per custody gate, deployed by its setup"
+      "note": "TimelockController from @openzeppelin/contracts 5.6.0, unmodified; two instances per custody gate (moves and recovery), deployed by its setup. Built by forge 1.8.4 with solc 0.8.28 (via_ir, 200 runs) its runtime code hash is 0x56cf178aa468616747f0004ba4824beebff6a93c9c6780026ee0686db8e8507f"
     }
   },
   "venues": {
@@ -37,12 +37,48 @@
     "note": "the Aave v3 test market on Base Sepolia; USDC here is Aave's test token"
   },
   "configCheck": {
-    "suite": "scripts/evm-config-check/test/ConfigOnly.t.sol",
+    "suite": "scripts/evm-config-check/test/RefLine.t.sol and test/ConfigOnly.t.sol",
     "date": "2026-10-27",
     "forkUrl": "https://sepolia.base.org",
-    "blockAtRun": 50898225,
-    "result": "2 of 2 tests (Safe 1.4.1 and Safe 1.5.0), 55 checks each; six altered configurations each fail it",
+    "result": "RefLine.t.sol (the design of docs/evm.md, with the move timelock): 2 of 2 tests, Safe 1.4.1 and Safe 1.5.0, 128 checks each. ConfigOnly.t.sol (the base checks, the Prime account as the gate trading member): 2 of 2 tests, 55 checks each, at block 50898225; six altered configurations each fail it",
     "log": "scripts/evm-config-check/run-2026-10-27.txt"
+  },
+  "referenceLine": {
+    "status": "anvil fork of Base Sepolia, not on chain: the run on Base Sepolia waits for test ETH for the deployer. These addresses exist only on that fork.",
+    "date": "2026-10-27",
+    "network": "anvil 1.8.4 fork of Base Sepolia (84532) via https://sepolia.base.org at block 50996017",
+    "script": "scripts/evm-config-check/script/RefLine.s.sol with scripts/evm-config-check/refline.ts",
+    "evidence": "evidence/evm-reference-line.md",
+    "run": "scripts/evm-config-check/refline/anvil-run.json",
+    "safe": "1.4.1",
+    "custody": "0x1a5b68Ad9802189d3960eb970004F5c3Bc5b8550",
+    "gate": "0x160f9c7b55a01Cc9F39fCa01B60Dc42d9f003CD1",
+    "primeAccount": "0x5DCc413D025F28C29eFECCC5d410B133eD3baad6",
+    "bandModule": "0x4a448501A08C7529D112370EF304c7bB2C1e31B1",
+    "moveTimelock": "0x75Cb7Cb7281192b59e9aC550f0D91177F44b7100",
+    "recoveryTimelock": "0x17BEFE1Bb2a4Cae942Ef0746Dac1E86DC99FaF0f",
+    "moveDelaySeconds": 120,
+    "recoveryDelaySeconds": 300,
+    "agent": "0xBA70a9A88205d23cBf83332a98134882E965C2E6",
+    "trustee": "0x0559025737F5AE1cd53084D28dfdA02033367558",
+    "deployer": "0x00ccd1A17fD215d8104e712a220AbA6aA6D5F901",
+    "transactions": {
+      "total": 64,
+      "succeeded": 26,
+      "refused": 38,
+      "gasUsed": 12588408
+    },
+    "setupTransactions": {
+      "T1a": "0x1fa2be5800a32e74c0cc8e490e6fbe66b6e93c85f581946331b5b15295ad13d0",
+      "T1b": "0xba0cf7751ef52863f667527caa5afebf8c2a95810f08a0b391d8b162e3350d6b",
+      "moveTimelock": "0xd3c645524ab9a1d7e427852c25d43c7c35d97789ed09cb5acba037bbd89c2a01",
+      "recoveryTimelock": "0x6ed89f113bdc1bb4301038ddb24cdba9b5af49914e0ad999702ac5fae7afa304",
+      "T2": "0x1fd358cf7303a8823375a6bb191a1332d9efaa06622cd46a0b7e6af5b80fb0db",
+      "T3": "0xb3c0cbf09c1f0fd83b46a3cb09979d4f5c0c5d9300e8df89913c99fa76b20664",
+      "usdcMint": "0x977fe8b5f4e257178a245dfb33ff0a7c230473c291c80909605b89c0dd6ab166",
+      "agentGas": "0x844ea5470a1e9573f92fa18144c709653f34f3ec08dc961224d30ed351b29070",
+      "strangerGas": "0x0385fa0a81f3af16185abee798511023c345c309869874155a7408b7ca3b7e7a"
+    }
   },
   "custodyRun": {
     "date": "2026-09-29",

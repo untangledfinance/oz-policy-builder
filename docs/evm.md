@@ -3,8 +3,9 @@
 On EVM, Prime is configuration on existing contracts. It deploys no contract of
 its own: a Safe holds custody's funds, a Zodiac Roles v2.1.1 module on that Safe
 is the custody gate, a second Safe with its own Roles module is the Prime
-account and holds the agent's bands, and an OpenZeppelin TimelockController
-delays recovery. Off-chain helpers build the configuration and collect the
+account and holds the agent's bands, and two OpenZeppelin TimelockController
+instances hold every move for a delay before it runs and delay recovery
+longer. Off-chain helpers build the configuration and collect the
 owners' signatures. Every part runs on Base Sepolia, a test network; there is
 no mainnet version. [architecture.md](architecture.md) covers the use case and
 how EVM fits with the other chains, and [audit-overview.md](audit-overview.md)
@@ -30,18 +31,27 @@ it without moving custody. The two guarantees, and what keeps each on EVM:
   nor the gate as a target; custody's owners at their threshold are then the
   only route to either.
 - **Only the custody gate's listed destinations can receive funds:** the
-  Prime account reaches custody's funds only as a member of the gate's trading
-  role. The role lists the calls custody allows, and pins every recipient of
-  funds or positions to the custody Safe. The gate refuses every other call.
+  Prime account reaches custody's funds only through the move timelock, the one
+  member of the gate's trading role. The role lists the calls custody allows,
+  and pins every recipient of funds or positions to the custody Safe. The gate
+  refuses every other call.
 
-The setup this page describes; the fork check builds all of it except the optional shared account:
+Every move also waits. The Prime account schedules it on the move timelock,
+nothing moves while it waits, and custody's signers or the Prime owners can
+cancel it during the delay. Once the delay is over anyone can run it, and the
+gate checks it then.
+
+The setup this page describes. The fork test `test/RefLine.t.sol` and the
+reference line on Base Sepolia (see [What has been run](#what-has-been-run))
+build all of it except the optional shared account:
 
 | | |
 |---|---|
 | Custody Safe | A Safe 1.4.1 or 1.5.0 with custody's three signers as owners (the MPC key, a second signer and a trusted third party), threshold **3**, no fallback handler and no other module. Holds every asset and every position. |
-| Custody gate | A Zodiac Roles v2.1.1 module on the custody Safe, whose owner, avatar and target are the custody Safe. Its trading role has one member, the Prime account; its recovery role has one member, the recovery timelock. |
-| Recovery timelock | OpenZeppelin TimelockController 5.6.0, one per gate. The Prime account proposes; the Prime account and the custody Safe can cancel; anyone executes after the delay. It has no admin once set up. |
-| Prime account | A Safe with **3 owners, any 2 of which approve**. Holds no funds. Its own Roles module holds the agent's bands. |
+| Custody gate | A Zodiac Roles v2.1.1 module on the custody Safe, whose owner, avatar and target are the custody Safe. Its trading role has one member, the move timelock; its recovery role has one member, the recovery timelock. |
+| Move timelock | OpenZeppelin TimelockController 5.6.0, one per gate. The Prime account proposes moves; the Prime account and the custody Safe can cancel; anyone executes a move once its delay is over. It has no admin once set up. |
+| Recovery timelock | A second TimelockController 5.6.0 with the same roles and a longer delay, for recovery only. |
+| Prime account | A Safe with **3 owners, any 2 of which approve**. Holds no funds. Its own Roles module holds the agent's bands, which let the agent schedule moves. |
 | Agent | A key that is a member of the Prime account's band role. It acts alone inside its band. |
 | Shared account (optional) | A Safe with 2 owners, the agent and an admin, both of whom approve. A member of high bands, so the admin co-signs large moves. |
 
@@ -52,6 +62,7 @@ flowchart TB
     subgraph INST["Institution"]
         CS["Custody Safe<br/>3 of 3<br/>holds every asset"]
         GATE["Custody gate<br/>Roles module on the custody Safe"]
+        MTL["Move timelock<br/>OpenZeppelin"]
         TL["Recovery timelock<br/>OpenZeppelin"]
     end
     subgraph PRIMESIDE["Prime"]
@@ -64,8 +75,10 @@ flowchart TB
 
     AGENT --> BANDS
     BANDS -->|"execTransactionFromModule"| PRIME
-    PRIME -->|"trading role"| GATE
-    PRIME -->|"schedules"| TL
+    PRIME -->|"schedules moves"| MTL
+    MTL -->|"trading role, after the delay"| GATE
+    PRIME -->|"schedules recovery"| TL
+    CS -.->|"cancels"| MTL
     CS -.->|"cancels"| TL
     TL -->|"recovery role, after the delay"| GATE
     GATE -->|"execTransactionFromModule"| CS
@@ -98,7 +111,7 @@ a call the role allows:
    budget is refused (`AllowanceExceeded`, `PermissionChecker.sol:689-715`), and
    a call that fails gives its budget back (`AllowanceTracker.sol:90-112`).
 
-The trading role of the checked setup lets the Prime account make the custody
+The trading role of the checked setup lets the move timelock make the custody
 Safe do exactly this:
 
 - `approve(spender, amount)` on USDC, with the spender equal to the Aave pool
@@ -111,49 +124,83 @@ Safe do exactly this:
 
 Everything else, a plain transfer, an approval to anyone but the pool, a borrow
 against custody's position, any call to aUSDC, to the custody Safe or to the
-gate itself, is refused. The recovery role lets the timelock make the custody
-Safe transfer USDC or aUSDC, or withdraw from the pool, **to the trustee
-address** and nowhere else.
+gate itself, is refused. The recovery role lets the recovery timelock make the
+custody Safe transfer USDC or aUSDC, or withdraw from the pool, **to the
+trustee address** and nowhere else.
 
 Custody's daily cap counts everything the trading role supplies, whoever
-started it: the agent through its band and the Prime account's own owners
-alike. The cap is an allowance with a balance, a refill per period and a
-ceiling (`Types.sol:132-138`), set by the custody Safe with `setAllowance`
+scheduled it: the agent through its band and the Prime account's own owners
+alike. The gate spends it when a move runs, so a move scheduled within the cap
+can still be refused when it runs if other moves used the cap first. The cap is
+an allowance with a balance, a refill per period and a ceiling
+(`Types.sol:132-138`), set by the custody Safe with `setAllowance`
 (`PermissionBuilder.sol:158-177`).
 
 ### Prime account and the bands
 
 The Prime account is a Safe with its own Roles module, which holds the agent's
 bands. A band is a role whose member is the agent and whose one scoped target
-is the custody gate. It pins every gate call the agent may make: the venue, the
-value (0), the inner call and its arguments, the operation (a plain call), the
-trading role and `shouldRevert = true`, so a failing step reverts the whole
-batch.
+is the move timelock. It lets the agent make the Prime account schedule a move,
+and it pins the whole of that move: the timelock's `schedule` call with the
+gate as its target and a value of 0, and inside it the gate call with the
+venue, the value (0), the inner call and its arguments, the operation (a plain
+call), the trading role and `shouldRevert = true`. The predecessor, the salt
+and the delay are left open; the timelock holds the delay to its minimum.
 
-The checked band lets the agent supply USDC under 100 per move and approve the
-pool for under 100, within the agent's own cap of 50 a day. The inner call's
-selector is pinned with a `Bitmask` beside a `Matches` over its arguments, the
-shape `zodiac-roles-sdk` builds for `calldataMatches` with a selector. An
-agent's batch is one `multiSend` through `MultiSendCallOnly`; the Prime
-account's Roles module splits it with the Roles MultiSend unwrapper
-(`Periphery.sol:21-28`, `PermissionChecker.sol:72-105`) and checks each call on
-its own.
+The checked band lets the agent schedule a supply of USDC under 100 per move,
+within the agent's own cap of 50 a day. Each nested call's selector is pinned
+with a `Bitmask` beside a `Matches` over its arguments, the shape
+`zodiac-roles-sdk` builds for `calldataMatches` with a selector. The agent's
+cap is spent when the move is scheduled, so a move that custody later cancels
+still counts against it for that day.
+
+Approvals are the Prime owners' moves. Roles needs every branch of an `Or` to
+share one parameter layout (see [Limits](#limits)), and the timelock has one
+`schedule` function, so one band cannot hold both an approval and a supply.
+The owners schedule an approval of the pool, capped by the gate at 1,000, and
+the agent's supplies draw on it.
 
 A larger band can list the shared account as its member, so a move above the
 low band needs the admin's signature too. The Prime account's owners at their
-threshold can use the trading role directly, within custody's cap and the
-trading role's pins, and they cannot reach the recovery role except through the
-timelock.
+threshold can schedule any move on the move timelock; it waits the same delay,
+and the gate checks it against the trading role and custody's cap when it
+runs. They reach the recovery role only through the recovery timelock.
+
+### Move timelock
+
+The move timelock is OpenZeppelin's TimelockController, unmodified, and the
+gate's only trading member. Its proposer is the Prime account, its cancellers
+the Prime account and the custody Safe, and its executor role is open. A move
+is two transactions: the Prime account schedules it (through a band, or by its
+owners at their threshold), and once the delay is over anyone runs it with
+`execute`. The timelock then calls the gate with the trading role, and the gate
+checks the call. A refusal comes back from `execute` with the gate's Roles
+status. The timelock itself checks nothing but the delay and its roles, so an
+off-list move can be scheduled and fails only when it runs.
+
+During the delay the custody Safe or the Prime account can cancel a move with
+`cancel` and its operation id, in one transaction. Three things follow from the
+shape, and the owners should plan for them:
+
+- **The agent's cap is spent at scheduling:** a cancelled move still counts
+  against the agent's daily cap. Custody's cap is spent when a move runs.
+- **Revoking a band leaves its scheduled moves:** taking the band away from an
+  agent stops new moves, and moves it has already scheduled still run once
+  their delay is over. Cancel each of them, or use custody's kill switch.
+- **Anyone can run a ready move:** the executor role is open, so a move runs
+  when anyone sends `execute`, the agent, a keeper or a stranger. Cancelling is
+  the only way to keep it from running.
 
 ### Recovery timelock
 
-The timelock is OpenZeppelin's TimelockController, unmodified. Its proposer is
-the Prime account, its cancellers the Prime account and the custody Safe, and
-its executor role is open, so anyone runs a scheduled recovery once the delay is
-over. The custody Safe receives the timelock's admin role at deployment, gives
-itself the canceller role and renounces the admin role in its own setup
-transaction. The timelock then administers itself, so a change to its delay or
-roles also waits the delay, and custody can cancel it.
+The recovery timelock is a second TimelockController with the same roles: the
+Prime account proposes, the Prime account and the custody Safe cancel, and its
+executor role is open, so anyone runs a scheduled recovery once the delay is
+over. Its delay is longer than the move timelock's, and its only role on the
+gate is recovery. The custody Safe receives the admin role of both timelocks at
+deployment, gives itself the canceller role on each and renounces both admin
+roles in its own setup transaction. Each timelock then administers itself, so a
+change to its delay or roles also waits its delay, and custody can cancel it.
 
 ### Policies: Roles scopings
 
@@ -201,13 +248,13 @@ token. ERC-1400 tokens, proposed in ethereum/EIPs issue 1411 and never
 finalised, carry similar controller operations. Prime adds no contract to the
 token: the issuer registers the custody Safe, and each venue and liquidator
 address that may receive the token, in its own registry, and Prime's scopings
-decide which of the issuer's functions the Prime account may call. How far that
+decide which of the issuer's functions custody's moves may call. How far that
 configuration reaches, against the permissioned-asset requirements:
 
 | # | Requirement | By configuration on EVM | Reach |
 |---|---|---|---|
 | 1 | Regulatory and KYC: segregated accounts, token whitelists and transfer rules enforced natively, no wrappers | The issuer's identity registry and compliance contract on the token itself; the custody Safe is a registered holder | Met for the whitelist and for the rules the issuer's compliance contract already has |
-| 2 | Custom deposit and redemption mechanics | A band pins the issuer's subscribe and redeem functions and their arguments; `WithinAllowance` caps the amount per period in either direction; a redemption can wait on the timelock | Partial: a redemption queue across holders is the issuer's |
+| 2 | Custom deposit and redemption mechanics | A band pins the issuer's subscribe and redeem functions and their arguments; `WithinAllowance` caps the amount per period in either direction; every redemption waits the move timelock's delay | Partial: a redemption queue across holders is the issuer's |
 | 3 | Off-chain financial logic from issuers (lifecycle, NAV, lock-up) | The token's pause and freeze stop moves outright | Limit: a scoping cannot read the issuer's state; that needs `Custom`, a new contract |
 | 4 | Legal enforcement: freeze, forced transfer, compliance actions | The issuer's own freeze, forced transfer, recovery and pause | Met, with no change on Prime's side |
 | 5 | Segregated accounts, per-account allowlists and roles | One custody Safe and gate per client; roles and targets per gate | Met |
@@ -240,63 +287,68 @@ inside its band and has no vote on the Prime account.
 
 ## Setting it up
 
-Three transactions. The second and third are Safe transactions, each signed by its own Safe's owners:
+Five transactions. The last two are Safe transactions, each signed by its own Safe's owners:
 
 | # | Signed by | What |
 |---|---|---|
 | T1 | anyone | Creates the custody Safe and the Prime account through the Safe proxy factory. |
-| T2 | the Prime account's owners (2 of 3) | One `multiSend`: deploys the Prime account's Roles module through `CreateCall` (so the Safe is the deployer and the address follows from it), sets it up with the Prime account as owner, avatar and target, enables it, registers the MultiSend unwrapper, and writes the bands, the agent's daily cap and the agent's membership. |
-| T3 | custody's owners (3 of 3) | One `multiSend`: deploys and sets up the gate the same way, enables it, writes the trading role, custody's daily cap and the recovery role, makes the Prime account and the timelock members, and takes the timelock's canceller role while renouncing its admin role. |
+| TL | anyone | Deploys the move timelock and the recovery timelock, each with the Prime account as proposer, an open executor role and the custody Safe as its temporary admin. |
+| T2 | the Prime account's owners (2 of 3) | One `multiSend`: deploys the Prime account's Roles module through `CreateCall` (so the Safe is the deployer and the address follows from it), sets it up with the Prime account as owner, avatar and target, enables it, and writes the band on the move timelock, the agent's daily cap and the agent's membership. |
+| T3 | custody's owners (3 of 3) | One `multiSend`: deploys and sets up the gate the same way, enables it, writes the trading role, custody's daily cap and the recovery role, makes the move timelock and the recovery timelock their members, and on each timelock takes the canceller role and renounces the admin role. |
 
-The timelock is deployed with the Prime account as proposer, an open executor
-role and the custody Safe as its temporary admin, either inside T3 through
-`CreateCall` or before it; in the second case custody reads its roles back
-before signing T3. The check deploys it before T3.
+The timelocks can also be deployed inside T3 through `CreateCall`. Deployed
+before it, as in the reference line, custody reads their roles and delays back
+before signing T3.
 
 A module's address depends on its Safe's address, which depends on the Safe's
 creation data, so a Safe cannot enable a new module in its creation
 transaction; the module comes in the Safe's first transaction of its own. The
 same transaction deploys the module and sets it up, so a stranger cannot set it
 up first. Custody signs no standing token approval: an approval comes only
-from a call the gate allows, capped per approval, and the funds leave the
+from a move the gate allows, capped per approval, and the funds leave the
 custody Safe only through a call the gate allows.
 
 ## One move
 
-The agent supplies 10 USDC. One transaction:
+The agent supplies 10 USDC. Two transactions, the delay apart:
 
 ```mermaid
 sequenceDiagram
     participant AG as Agent
     participant PB as Bands (Prime's Roles)
     participant PR as Prime account
+    participant MT as Move timelock
     participant GA as Custody gate
     participant CS as Custody Safe
     participant PO as Aave pool
-    AG->>PB: multiSend of two gate calls, band role
-    PB->>PB: each call against the band<br/>and the agent's daily cap
-    PB->>PR: run the batch
-    PR->>GA: approve the pool for 10, trading role
-    GA->>GA: against the trading role
-    GA->>CS: approve
-    PR->>GA: supply 10 on behalf of custody, trading role
+    AG->>PB: schedule a supply of 10, band role
+    PB->>PB: against the band<br/>and the agent's daily cap
+    PB->>PR: run it
+    PR->>MT: schedule the gate call
+    Note over MT: the delay; custody or the<br/>Prime account can cancel
+    AG->>MT: execute (anyone can)
+    MT->>GA: supply 10 on behalf of custody, trading role
     GA->>GA: against the trading role<br/>and custody's daily cap
     GA->>CS: supply
     CS->>PO: supply 10 USDC
     PO-->>CS: 10 aUSDC to the custody Safe
 ```
 
-In the fork check the agent's call used about 0.6M gas of execution on Safe
-1.4.1 and 1.5.0. The custody Safe paid 10 USDC and held the aUSDC, and the
-Prime account and the agent held nothing afterwards.
+The pool must hold custody's approval first, which the Prime owners schedule
+the same way. On the reference line the agent's `schedule` used 252,903
+gas and its `execute` 302,177. The custody Safe paid 10 USDC and held the
+aUSDC, and the Prime account, the move timelock and the agent held nothing
+afterwards.
 
 ## Recovery
 
 If custody's signers lose access, the Prime account's owners schedule a
-recovery on the timelock with 2 of 3 signatures. Nothing moves when it is
-scheduled. After the delay (2 days in the check, for example 48 hours in
-production) anyone can execute it. The timelock then calls the gate with the
-recovery role, and the custody Safe pays the trustee address.
+recovery on the recovery timelock with 2 of 3 signatures. Nothing moves when
+it is scheduled. After the delay (2 days in the fork test, 300 seconds on the
+reference line, for example 48 hours in production) anyone can execute it. The
+timelock then calls the gate with the recovery role, and the custody Safe pays
+the trustee address. Recovery does not depend on the trading role, so it works
+while the kill switch is on.
 
 The custody Safe can cancel a scheduled recovery at any time during the delay,
 in one transaction. Changing the timelock's own delay or roles also goes
@@ -307,14 +359,17 @@ but the trustee can be scheduled, and the gate refuses it when it runs.
 
 | Action | Who | How |
 |---|---|---|
-| Kill switch | custody's owners | `assignRoles(prime, [trading], [false])` on the gate. Trading stops, for the agent and the Prime owners alike; recovery still works. |
+| Cancel a move | custody's owners, or the Prime account's owners | `cancel(id)` on the move timelock during the delay. |
+| Kill switch | custody's owners | `assignRoles(moveTimelock, [trading], [false])` on the gate. Every move fails when it runs, scheduled or not, for the agent and the Prime owners alike; recovery still works. |
 | Lower the budget | custody's owners | `setAllowance` on custody's cap, with the balance and the refill at 0. |
-| Full stop | custody's owners | `disableModule` on the custody Safe. Trading and recovery stop; a scheduled recovery fails when it runs. |
+| Full stop | custody's owners | `disableModule` on the custody Safe. Moves and recovery stop; a scheduled recovery fails when it runs. |
 | Remove a call | custody's owners | `revokeFunction` for that call, then `revokeTarget` if the target goes too (see [Limits](#limits)). |
-| Stop an agent | the Prime account's owners | `assignRoles(agent, [band], [false])`, or the agent's cap down to 0. |
+| Stop an agent | the Prime account's owners | `assignRoles(agent, [band], [false])`, or the agent's cap down to 0, then `cancel` each move the agent has scheduled and not yet run. |
 
 Each is one transaction of the Safe concerned. The Prime account cannot undo
-any of custody's.
+any of custody's. The reference line turned the kill switch on and the gate off,
+then turned both back in one custody transaction, and a move scheduled before
+the kill switch ran.
 
 ## When custody is a plain address
 
@@ -344,16 +399,29 @@ the Safe and drops the gate's pull, F's approvals and the message risk.
 
 ## What has been run
 
-The configuration check is a test harness. Its one Solidity file,
-`scripts/evm-config-check/test/ConfigOnly.t.sol`, is a Foundry test that runs
-only on a fork and is never deployed. On that fork it creates only instances of
-existing code: Safe proxies of the canonical Safe singletons, ERC-1167 proxies
-of the Zodiac Roles v2.1.1 mastercopy, and OpenZeppelin's TimelockController
-compiled unmodified from the npm package. Prime still adds no contract on EVM.
+Two Foundry tests in `scripts/evm-config-check` run only on a fork and are
+never deployed, and one script runs the same flow transaction by transaction.
+Each creates only instances of existing code: Safe proxies of the canonical
+Safe singletons, ERC-1167 proxies of the Zodiac Roles v2.1.1 mastercopy, and
+OpenZeppelin's TimelockController compiled unmodified from the npm package.
+Prime still adds no contract on EVM.
+
+- `test/RefLine.t.sol` builds the design on this page and runs it with the
+  clock moved past each delay.
+- `test/ConfigOnly.t.sol` holds the base checks of the Safe and Roles parts
+  that do not depend on the move timelock: the gate's scopings, the band's
+  nested pins, custody's cap, recovery and the stops, with the Prime account
+  calling the gate directly. The STRIDE cases of
+  [stride-evm.md](../evidence/stride-evm.md) extend it.
+- `script/RefLine.s.sol` with `refline.ts` runs the reference line on a chain:
+  each phase is checked first as a simulation, then sent one transaction at a
+  time, and every refusal must land with the revert data the simulation gave.
 
 | Check | Where | Result |
 |---|---|---|
-| The design on this page | [`scripts/evm-config-check`](../scripts/evm-config-check/README.md), on a fork of Base Sepolia against the live Safe, Roles and Aave contracts, OpenZeppelin TimelockController 5.6.0 from npm; CI job `evm-config-check` | 27 October 2026: 2 of 2 tests, Safe 1.4.1 and Safe 1.5.0, 55 checks each ([log](../scripts/evm-config-check/run-2026-10-27.txt)). The agent's batch supplies 10 and custody holds the aUSDC; the band's top, the agent's cap and its refill a day later, and custody's cap, reached by the Prime owners, hold. Refused, each with its Roles status: a supply or withdrawal for a stranger, a plain transfer, an approval to a stranger, an aUSDC transfer, a borrow, a delegatecall, a call to the custody Safe or the gate, the recovery role used by the Prime account, a non-member, another asset, another target, a withdrawal dressed as a supply. Recovery: scheduled, cancelled by custody, run by a stranger after the delay, refused before it and for a stranger's address. Stopping: the kill switch stops the agent and the Prime owners; the full stop stops recovery; two of three custody signers and one Prime owner are refused. Six altered configurations each fail the check |
+| The design on this page | `test/RefLine.t.sol` in [`scripts/evm-config-check`](../scripts/evm-config-check/README.md), on a fork of Base Sepolia against the live Safe, Roles and Aave contracts; CI job `evm-config-check` | 27 October 2026: 2 of 2 tests, Safe 1.4.1 and Safe 1.5.0, 128 checks each. The agent schedules four supplies of 10 through its band and the first runs after the delay; custody holds the aUSDC and the Prime account, the move timelock and the agent hold nothing. Refused at scheduling, each with its Roles status: over the band, over the agent's cap, another asset, a withdrawal, a transfer, another target, the custody Safe as target, the recovery role, a delegatecall, `execute` through the band; the agent on the timelock or the gate directly, a stranger on the band, a run before the delay. Refused when it runs, with the gate's status: over custody's cap, a supply or withdrawal for a stranger, a transfer, an approval to a stranger, an aUSDC transfer, a borrow, a delegatecall, a call to the custody Safe or the gate, the recovery role, a gate rule written by the timelock, a cancelled move. Kill switch: moves already scheduled fail. Recovery pays the trustee while trading is off; a cancelled one and one to a stranger are refused; the full stop stops it. Two of three custody signers and one Prime owner are refused. After the restore, a move scheduled before the kill switch runs |
+| The reference line | `script/RefLine.s.sol` and `refline.ts`, on an anvil fork of Base Sepolia at block 50,996,017, move delay 120 seconds, recovery delay 300 seconds | 27 October 2026: the same flow as 64 transactions, 26 that succeed and 38 refused, each refusal with the revert data its simulation gave; 12,588,408 gas. Not yet on Base Sepolia itself: it waits for test ETH. [evm-reference-line.md](../evidence/evm-reference-line.md) has every transaction |
+| The base checks | `test/ConfigOnly.t.sol`, same fork and CI job | 27 October 2026: 2 of 2 tests, Safe 1.4.1 and Safe 1.5.0, 55 checks each ([log](../scripts/evm-config-check/run-2026-10-27.txt)), with the Prime account as the gate's trading member and no move delay. Six altered configurations each fail the check |
 | Custody at a plain address | Base Sepolia, 29 September 2026, the real Aave v3 pool, Uniswap v3 router, Safe, Roles and OpenZeppelin contracts | State read back 43 of 43 at first deployment and 20 of 20 after recovery moved to the timelock. Moves: agent supply 10, swap 10, withdraw 5, a shared-account supply of 150; every result reached F and the gate and Prime account held nothing. The agent's and F's daily caps refused moves over them. 48 refused attempts, from a pull to the Prime account to a batch with `shouldRevert = false`. Recovery ran after the delay, a cancelled one never ran, and a full stop blocked it. Addresses in [evm-testnet.json](../deployments/evm-testnet.json) |
 
 ## Contracts and their audits
@@ -364,7 +432,7 @@ compiled unmodified from the npm package. Prime still adds no contract on EVM.
 | Safe 1.5.0 (SafeL2, SafeProxyFactory) | canonical Safe deployments | Certora and Ackee (`docs/audit_1_5_0.md`) | addresses equal `safe-deployments` v1.5.0 |
 | Zodiac Roles v2.1.1 mastercopy, with its Integrity and Packer libraries | `0xF2964CE6161ce0e75964Fe7927cE114cb0B283D5` | The reports in the Roles repository cover v2 (G0 Group, April 2023; Omniscia, May 2023) and v2.1 (Omniscia and G0 Group, November 2023). v2.1.1, June 2026, is v2.1 with three fixes: the EIP-1271 signature check, `ArraySome` and `Bitmask` | address equals `mastercopies.json` v2.1.1 at `218a5164`; each gate and band module is an ERC-1167 proxy to it |
 | Roles MultiSend unwrapper | `0x93B7fCbc63ED8a3a24B59e1C3e6649D50B7427c0` | the Roles reports above | address equals `mastercopies.json` v2.1.0 and v2.1.1 |
-| OpenZeppelin TimelockController 5.6.0 | one per gate | OpenZeppelin's reports cover the changes of each 5.x release, the last in February 2026 (v5.5 and v5.6); Certora verified TimelockController formally at v4.4.0 (March 2022) | compiled from the npm package in the check |
+| OpenZeppelin TimelockController 5.6.0 | two per gate, for moves and for recovery | OpenZeppelin's reports cover the changes of each 5.x release, the last in February 2026 (v5.5 and v5.6); Certora verified TimelockController formally at v4.4.0 (March 2022) | compiled from the npm package in the check |
 | Aave v3 pool, USDC | Aave's test market | their own audits | live contracts |
 
 Not used, and why:
@@ -384,11 +452,12 @@ Not used, and why:
 ## Deployments
 
 Prime on EVM has no contract to deploy. Each Prime is a set of Safe proxies,
-Roles proxies and one timelock, made by its own setup transactions on Base
+Roles proxies and two timelocks, made by its own setup transactions on Base
 Sepolia. [deployments/evm-testnet.json](../deployments/evm-testnet.json)
 records the existing contracts that setup uses on Base Sepolia (read back on
-27 October 2026), the Aave test market, the configuration check and the custody
-run of 29 September 2026.
+27 October 2026), the Aave test market, the fork checks, the reference line
+and the custody run of 29 September 2026. The reference line's addresses there
+are from its anvil fork run until it runs on Base Sepolia itself.
 
 | | Address |
 |---|---|
@@ -414,12 +483,21 @@ contract of ours.
   Safe's own calls can use it, and those pass the gate.
 - **One parameter layout per branch:** every child of an `And` or `Or` must
   share one parameter layout, apart from calldata beside raw bytes
-  (`Integrity.sol:256-299`). A band whose calls have different layouts gives
-  each layout its own gate entry point (`execTransactionWithRole` and
-  `execTransactionWithRoleReturnData`) or its own band.
-- **Time is the allowance period only:** a rule cannot hold a call to a window
-  of the day or a date. Allowances refill per period, and the timelock delays
-  recovery.
+  (`Integrity.sol:256-299`). The move timelock has one `schedule` function, so
+  a band holds one call layout: the agent's band schedules supplies, and
+  approvals are the Prime owners' moves. A second layout needs its own band
+  and its own entry point.
+- **Time is a delay and an allowance period:** every move waits the move
+  timelock's delay and every recovery the recovery timelock's; allowances
+  refill per period. A rule cannot hold a call to a window of the day or a date.
+- **A move is checked when it runs:** the timelock checks only its delay and
+  its roles, so the Prime owners can schedule a move the gate will refuse, and
+  custody's cap can be used up by the time a move runs. The agent's band is
+  checked at scheduling. A reader of the scheduled operations, or the pre-sign
+  check of the Prime owners' Safe transaction, shows what will run.
+- **Scheduled moves outlive a band:** revoking an agent's band, or lowering its
+  cap, stops new moves only. The owners or custody cancel the moves already
+  scheduled, and the agent's cap counts a cancelled move for its day.
 - **Inflows and outflows share one mechanism:** `WithinAllowance` counts any
   amount argument, a borrow or subscription as well as a supply, but it counts
   what the call asks for. It does not see what the venue moved.
