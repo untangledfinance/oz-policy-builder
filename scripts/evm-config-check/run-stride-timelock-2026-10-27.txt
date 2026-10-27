@@ -1,0 +1,46 @@
+# evm-config-check move-timelock STRIDE run, 2026-10-27 UTC
+# forge 1.8.4, solc 0.8.28 via_ir, OpenZeppelin Contracts 5.6.0 (npm), fork of Base Sepolia (84532)
+# via https://sepolia.base.org at block ~51006449
+# command: FORK_URL=https://sepolia.base.org forge test --match-contract StrideTimelockTest -vv
+#
+# The move-timelock STRIDE cases (test_strideTimelock_safe141, test_strideTimelock_safe150) extend
+# the reference line of docs/evm.md (design B) with the proof-of-concept attacks the direct-shape
+# STRIDE never saw, because the move timelock did not exist there. They deploy only existing code:
+# Safe proxies, Zodiac Roles v2.1.1 ERC-1167 proxies, OpenZeppelin TimelockController 5.6.0.
+
+Ran 2 tests for test/StrideTimelock.t.sol:StrideTimelockTest
+[PASS] test_strideTimelock_safe141()  (gas: 12762815)   # 71 checks (emit log_count: 71)
+[PASS] test_strideTimelock_safe150()  (gas: 12765461)   # 71 checks (emit log_count: 71)
+Suite result: ok. 2 passed; 0 failed; 0 skipped
+
+# Evidence captured from -vvvv (each case returns the exact Safe, Roles or TimelockController status):
+#
+# TL-D1  the open executor and the missing run-window:
+#   a stranger runs a ready move (no executor key needed) ...... succeeds, custody's funds move
+#   custody then cancels the already-run move .................. revert: operation is Done
+#       Safe 1.4.1 surfaces the inner revert as GS013; Safe 1.5.0 bubbles
+#       TimelockUnexpectedOperationState(id, state=6) raw
+#   a month-old ready move still runs ......................... succeeds (readiness never expires)
+#
+# TL-D2  the agent's cap is spent at scheduling, a cancel does not refund it:
+#   five supplies of 10 spend the agent's whole 50-a-day ...... scheduled
+#   custody cancels one during the wait ...................... cancelled
+#   a sixth supply of 10 the same day ........................ revert ConditionViolation(17) AllowanceExceeded
+#
+# TL-T1  the move's salt is open:
+#   the same salt and call, scheduled twice .................. revert ModuleTransactionFailed()
+#       (the band pins shouldRevert, Roles wraps the inner
+#        TimelockUnexpectedOperationState(id, state=1) from the timelock)
+#   a new salt for the same supply ........................... scheduled (each one spends the cap)
+#
+# TL-E1  revoking the agent's band leaves its scheduled moves live:
+#   the Prime owners revoke the agent's band ................. done
+#   the agent schedules a new move after the revoke .......... revert NoMembership()
+#   a move scheduled before the revoke, run after the delay .. succeeds, custody's funds move
+#
+# TL-E2  the proposer reaches the timelock's own delay:
+#   the Prime owners (2 of 3) schedule the timelock's updateDelay(0) .. scheduled, pending
+#   custody cancels the pending delay change (the backstop) .......... cancelled
+#   un-cancelled, the delay change runs after the current delay ...... getMinDelay() == 0
+#   even at delay zero, custody's gate kill switch stops a move ...... revert NoMembership()
+#       (the kill switch is a call on the gate, independent of the timelock's delay)
