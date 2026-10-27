@@ -47,10 +47,9 @@ Stellar contract, record or build hash changed.
   describes this design. `scripts/evm-config-check/test/RefLine.t.sol` checks
   it on a Base Sepolia fork, 128 checks on Safe 1.4.1 and on Safe 1.5.0, and
   `script/RefLine.s.sol` with `refline.ts` runs it as a reference line, one
-  transaction at a time, checking each refusal's revert data. Its run on an
-  anvil fork of Base Sepolia (64 transactions) is in
-  `evidence/evm-reference-line.md`; the run on Base Sepolia itself waits for
-  test ETH.
+  transaction at a time, checking each refusal's revert data. Its run on
+  Base Sepolia (64 transactions, 38 refused, each linked on Basescan) is in
+  `evidence/evm-reference-line.md`.
 - **Build-hash match of the third-party builds:**
   `evidence/build-hash-match.md` compares each deployed build Prime configures
   with a build of its cited source. On Base Sepolia, Safe 1.4.1 (five

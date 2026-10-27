@@ -1,14 +1,14 @@
 # Prime on EVM: the reference line
 
 **Date:** 27 October 2026.
-**Status:** run on an anvil fork of Base Sepolia. The run on Base Sepolia
-itself is next: the throwaway deployer `0x00ccd1A17fD215d8104e712a220AbA6aA6D5F901`
-is waiting for test ETH, and the same command with `MODE=live` runs the line on
-chain and replaces this record. Until then every address and hash below exists
-only on that fork, and a block explorer will not find them.
-**Network:** anvil 1.8.4 forking Base Sepolia (chain 84532) through
-`https://sepolia.base.org` at block 50,996,017. The fork carries the live Safe
-1.4.1, Zodiac Roles v2.1.1 and Aave test-market contracts. Every key is a
+**Status:** on chain. The line ran on Base Sepolia (chain 84532) from 17:50:39 to
+17:57:35 UTC by block time, blocks 51,007,854 to 51,009,931. Every transaction below links to
+Basescan, and each was read back afterwards from a second RPC
+(`base-sepolia-rpc.publicnode.com`), status and block included. A dry run of
+the same line on an anvil fork had the same outcome for every transaction
+([refline/anvil-run.json](../scripts/evm-config-check/refline/anvil-run.json)).
+**Network:** Base Sepolia through `https://sepolia.base.org`, against the live
+Safe 1.4.1, Zodiac Roles v2.1.1 and Aave test-market contracts. Every key is a
 throwaway made for this run and kept outside the repository; nothing touches
 mainnet.
 **Design:** [docs/evm.md](../docs/evm.md): a custody Safe (3 of 3) with a
@@ -16,17 +16,15 @@ Roles gate, a Prime account (2 of 3) with the agent's band, a move timelock as
 the gate's only trading member and a recovery timelock as its only recovery
 member. The move delay is 120 seconds and the recovery delay 300 seconds, test
 values; the fork test uses 1 hour and 2 days.
-**Record:** [refline/anvil-run.json](../scripts/evm-config-check/refline/anvil-run.json)
-holds every transaction with its hash, block, time, gas and revert data, and
-`referenceLine` in [deployments/evm-testnet.json](../deployments/evm-testnet.json)
+**Record:** [refline/live-run.json](../scripts/evm-config-check/refline/live-run.json)
+holds every transaction with its hash, block, time, gas, fee and revert data,
+and `referenceLine` in [deployments/evm-testnet.json](../deployments/evm-testnet.json)
 the addresses.
 
 ## How it ran
 
 ```sh
 cd scripts/evm-config-check
-anvil --fork-url https://sepolia.base.org --port 8547 --chain-id 84532
-KEYS=/path/to/keys.json bun refline.ts                 # MODE=anvil, RPC=http://127.0.0.1:8547
 KEYS=/path/to/keys.json MODE=live RPC=https://sepolia.base.org bun refline.ts
 ```
 
@@ -40,24 +38,25 @@ then sends each one from the key the plan names and checks its receipt. A move
 must succeed. A refusal must fail on chain, and its revert data must equal the
 simulation's twice: by `eth_call` just before it is sent, and replayed against
 the block before the one that holds it. Before the move phase the driver waits
-for the move delay, and before the recover phase for the recovery delay. It
-refuses any chain but 84532.
+for the move delay, and before the recover phase for the recovery delay, by the
+chain's own block time. It refuses any chain but 84532.
 
 The four simulations made 128 checks (setup 34, schedule 28, move 27, recover
 39), the same 128 that `test/RefLine.t.sol` makes on each Safe version.
 
 ## The line
 
-| Part | Address on the fork | Code |
+| Part | Address on Base Sepolia | Code |
 |---|---|---|
-| Custody Safe, 3 of 3 | `0x1a5b68Ad9802189d3960eb970004F5c3Bc5b8550` | Safe proxy, 171 bytes; singleton SafeL2 1.4.1 `0x29fcB43b…C762` |
-| Custody gate | `0x160f9c7b55a01Cc9F39fCa01B60Dc42d9f003CD1` | ERC-1167 proxy, 45 bytes, of the Roles v2.1.1 mastercopy `0xF2964CE6…83D5` |
-| Prime account, 2 of 3 | `0x5DCc413D025F28C29eFECCC5d410B133eD3baad6` | Safe proxy, 171 bytes; singleton SafeL2 1.4.1 |
-| Band module | `0x4a448501A08C7529D112370EF304c7bB2C1e31B1` | ERC-1167 proxy, 45 bytes, of the same mastercopy |
-| Move timelock | `0x75Cb7Cb7281192b59e9aC550f0D91177F44b7100` | TimelockController 5.6.0, runtime hash `0x56cf178a…507f` |
-| Recovery timelock | `0x17BEFE1Bb2a4Cae942Ef0746Dac1E86DC99FaF0f` | TimelockController 5.6.0, runtime hash `0x56cf178a…507f` |
-| Agent | `0xBA70a9A88205d23cBf83332a98134882E965C2E6` | a key |
-| Trustee | `0x0559025737F5AE1cd53084D28dfdA02033367558` | a key |
+| Custody Safe, 3 of 3 | [`0x56b90A323dFFf645DB579E0b0E11D4fEbe115550`](https://sepolia.basescan.org/address/0x56b90A323dFFf645DB579E0b0E11D4fEbe115550) | Safe proxy, 171 bytes; singleton SafeL2 1.4.1 `0x29fcB43b…C762` |
+| Custody gate | [`0x24038e34749556773F201aAA5Dd043f5f00f35F6`](https://sepolia.basescan.org/address/0x24038e34749556773F201aAA5Dd043f5f00f35F6) | ERC-1167 proxy, 45 bytes, of the Roles v2.1.1 mastercopy `0xF2964CE6…83D5` |
+| Prime account, 2 of 3 | [`0xaaC536a742f82c9db0c8CD758EDbeBD3E7369F56`](https://sepolia.basescan.org/address/0xaaC536a742f82c9db0c8CD758EDbeBD3E7369F56) | Safe proxy, 171 bytes; singleton SafeL2 1.4.1 |
+| Band module | [`0xa61392F4E26505A3FdE1A2804E15f974Cf22110c`](https://sepolia.basescan.org/address/0xa61392F4E26505A3FdE1A2804E15f974Cf22110c) | ERC-1167 proxy, 45 bytes, of the same mastercopy |
+| Move timelock | [`0x75Cb7Cb7281192b59e9aC550f0D91177F44b7100`](https://sepolia.basescan.org/address/0x75Cb7Cb7281192b59e9aC550f0D91177F44b7100) | TimelockController 5.6.0, runtime hash `0x56cf178a…507f` |
+| Recovery timelock | [`0x17BEFE1Bb2a4Cae942Ef0746Dac1E86DC99FaF0f`](https://sepolia.basescan.org/address/0x17BEFE1Bb2a4Cae942Ef0746Dac1E86DC99FaF0f) | TimelockController 5.6.0, runtime hash `0x56cf178a…507f` |
+| Agent | [`0xBA70a9A88205d23cBf83332a98134882E965C2E6`](https://sepolia.basescan.org/address/0xBA70a9A88205d23cBf83332a98134882E965C2E6) | a key |
+| Trustee | [`0x0559025737F5AE1cd53084D28dfdA02033367558`](https://sepolia.basescan.org/address/0x0559025737F5AE1cd53084D28dfdA02033367558) | a key |
+| Deployer | [`0x00ccd1A17fD215d8104e712a220AbA6aA6D5F901`](https://sepolia.basescan.org/address/0x00ccd1A17fD215d8104e712a220AbA6aA6D5F901) | a key; it paid for setup and relayed the Safe transactions |
 
 No contract of ours is among them. The driver read each address's code after
 the run: both Safes are proxies whose singleton is the canonical SafeL2 1.4.1,
@@ -65,7 +64,8 @@ the gate and the band module are 45-byte proxies of the Roles v2.1.1
 mastercopy, and both timelocks' runtime hashes equal TimelockController as forge
 1.8.4 builds it from `@openzeppelin/contracts` 5.6.0 (solc 0.8.28, `via_ir`, 200
 runs). The timelock is the only code compiled for the line, and it is
-OpenZeppelin's, unmodified.
+OpenZeppelin's, unmodified. The two timelocks have the same addresses as in the
+fork run because the deployer made them at the same nonces, 2 and 3.
 
 ## What the run shows
 
@@ -73,8 +73,8 @@ Each result below is the result `test/RefLine.t.sol` asserts, with the same
 status.
 
 - **The agent's move waits, then reaches custody:** the agent scheduled four
-  supplies of 10 through its band (252,903 gas each) and nothing moved. After
-  the delay it ran the first (302,177 gas): custody paid 10 USDC and holds the
+  supplies of 10 through its band (252,927 gas each) and nothing moved. After
+  the delay it ran the first (302,201 gas): custody paid 10 USDC and holds the
   aUSDC, and the Prime account, the move timelock and the agent hold nothing.
 - **The band refuses at scheduling, with the Roles status:** a supply of 100
   over the band (`9`, ParameterGreaterThanAllowed); a supply of 20 with 10 left
@@ -111,83 +111,80 @@ status.
 
 ## Every transaction
 
-| # | Phase | Transaction | Result | Gas | Hash |
+| # | Phase | Transaction | Result | Gas | Transaction on Basescan |
 |---|---|---|---|---|---|
-| 1 | setup | T1a create the custody Safe (3 of 3) | succeeded | 283,428 | `0x1fa2be5800a32e74c0cc8e490e6fbe66b6e93c85f581946331b5b15295ad13d0` |
-| 2 | setup | T1b create the Prime account (2 of 3) | succeeded | 283,428 | `0xba0cf7751ef52863f667527caa5afebf8c2a95810f08a0b391d8b162e3350d6b` |
-| 3 | setup | Move timelock (TimelockController 5.6.0) | succeeded | 1,400,883 | `0xd3c645524ab9a1d7e427852c25d43c7c35d97789ed09cb5acba037bbd89c2a01` |
-| 4 | setup | Recovery timelock (TimelockController 5.6.0) | succeeded | 1,400,895 | `0x6ed89f113bdc1bb4301038ddb24cdba9b5af49914e0ad999702ac5fae7afa304` |
-| 5 | setup | T2 the Prime account sets up its Roles module and the agent band (2 of 3) | succeeded | 971,256 | `0x1fd358cf7303a8823375a6bb191a1332d9efaa06622cd46a0b7e6af5b80fb0db` |
-| 6 | setup | T3 custody sets up the gate, its trading and recovery roles and its cap (3 of 3) | succeeded | 1,365,057 | `0xb3c0cbf09c1f0fd83b46a3cb09979d4f5c0c5d9300e8df89913c99fa76b20664` |
-| 7 | setup | Aave faucet mints 1,000 test USDC to custody | succeeded | 87,890 | `0x977fe8b5f4e257178a245dfb33ff0a7c230473c291c80909605b89c0dd6ab166` |
-| 8 | setup | Gas for the agent | succeeded | 21,000 | `0x844ea5470a1e9573f92fa18144c709653f34f3ec08dc961224d30ed351b29070` |
-| 9 | setup | Gas for the stranger | succeeded | 21,000 | `0x0385fa0a81f3af16185abee798511023c345c309869874155a7408b7ca3b7e7a` |
-| 10 | schedule | Agent schedules move m1: supply 10 | succeeded | 252,903 | `0x8409b661cf5c981ce9fa419a02743494782dfbbf819ce7968033e0c1f54f74f9` |
-| 11 | schedule | Agent schedules move m2: supply 10 (custody cancels it) | succeeded | 252,903 | `0x8557c76581cd96ba6ed7fdf92df8f6103947f0a0d11d789de12f60b332aef238` |
-| 12 | schedule | Agent schedules move m3: supply 10 (runs after the kill switch) | succeeded | 252,903 | `0xc33cae070e922de2e2a02d8ba01c614c8218376f3fa6f7286a3612fc09fd2fee` |
-| 13 | schedule | Agent schedules move m4: supply 10 (runs after the restore) | succeeded | 252,903 | `0xd0ae7b292623c1669fcfc7593c83fcad73ea7071cb39f2d4f5a54626805288cd` |
-| 14 | schedule | Agent schedules a supply of 100, over its band | refused, `ConditionViolation(9 ParameterGreaterThanAllowed)` | 165,948 | `0x3505c10ec7ed2ee0643c14211a688787281dd1399839d3340cdb322f122e2404` |
-| 15 | schedule | Agent schedules a supply of 20 with 10 left of its daily 50 | refused, `ConditionViolation(17 AllowanceExceeded)` | 167,905 | `0x9a48c7d3fb94dde852c7a0fabf026930cde3eb666e54b01224cab4cc2640b95d` |
-| 16 | schedule | Agent schedules a supply of another asset (aUSDC) | refused, `ConditionViolation(7 ParameterNotAllowed)` | 163,487 | `0x1954bb83c1918654c3e45d42e09665af09ddabe68892ed386e29b0ce8d16ec19` |
-| 17 | schedule | Agent schedules a withdraw, a call its band does not list | refused, `ConditionViolation(15 BitmaskNotAllowed)` | 172,091 | `0x1c7a4b5feb5fbf273c9e7b1db5747b101ebaf1fc0b493aee1ae3fa9abe6871a9` |
-| 18 | schedule | Agent schedules a USDC transfer, a call its band does not list | refused, `ConditionViolation(7 ParameterNotAllowed)` | 157,801 | `0xd031d4e4a0d4527c349396d141493ab34689462ee3339e362c49bc5f9133c7e7` |
-| 19 | schedule | Agent schedules a supply at an off-list target | refused, `ConditionViolation(7 ParameterNotAllowed)` | 158,297 | `0x565bce783e800881326d4a8514cadc31282690522352bcc00fca0605cd3c73f2` |
-| 20 | schedule | Agent schedules a call to the custody Safe instead of the gate | refused, `ConditionViolation(7 ParameterNotAllowed)` | 153,112 | `0x967810eb4c809fb3437a98ffcfdebdfb1e3318a083295577e02cef13f1d82bbd` |
-| 21 | schedule | Agent schedules a supply under the recovery role | refused, `ConditionViolation(7 ParameterNotAllowed)` | 175,149 | `0xd4a6ea2c9a4382f27f1731b55134a9583f0bed75c0e1506048d220248a8a543a` |
-| 22 | schedule | Agent schedules a delegatecall from custody | refused, `ConditionViolation(7 ParameterNotAllowed)` | 173,633 | `0x3e39649474eaee35991e0426f69ace749fdc86ccfc7709f541aa60a48ad436d9` |
-| 23 | schedule | Agent calls the move timelock's execute through its band | refused, `ConditionViolation(3 FunctionNotAllowed)` | 42,499 | `0xd53d5cb889f0c3bb5ca0d7581f75489972e4f88b56466e8a3c6b07e0eafdd191` |
-| 24 | schedule | Agent schedules on the move timelock directly | refused, `AccessControlUnauthorizedAccount(address,bytes32)` | 30,860 | `0xdba1096b9c6eb030ccdb01dc8f29e15ef1fb4e13a63e9d3466cd80cb13636987` |
-| 25 | schedule | Agent calls the gate directly | refused, `NotAuthorized(address)` | 33,108 | `0xd7e7b3e7159e968b4daf06666932c79f397ff39d7638843e4b9e84e30743ccc6` |
-| 26 | schedule | A stranger uses the agent band | refused, `NotAuthorized(address)` | 36,021 | `0xba10551bac6f72c96a1398ed7899c2ea61b6598483f2dd2b5b9241ed11dc9aa7` |
-| 27 | schedule | Agent runs m1 before the delay | refused, `TimelockUnexpectedOperationState(bytes32,bytes32)` | 30,641 | `0xc2be8c77962e8ebd7cecf05180bc3b3575d1c17fd131371a2cc2473cd8466621` |
-| 28 | schedule | Prime owners schedule 16 moves in one transaction (2 of 3) | succeeded | 759,312 | `0x8b9a5e516399711f7c360936b85c54661f963c600549666f78d0828299813b8b` |
-| 29 | schedule | Custody cancels m2 during the wait (3 of 3) | succeeded | 80,737 | `0xae7122e206d31487ef6e767cf189dd2fb08e9f2fdf8ab5a66809aacf0b7b19b6` |
-| 30 | schedule | A stranger schedules a recovery | refused, `AccessControlUnauthorizedAccount(address,bytes32)` | 29,560 | `0x7de425adfeec88c561fdf2f1a0cb3e5e0b5753a2f6b0e5b37035412ba50a6b3a` |
-| 31 | schedule | Prime owners schedule recoveries r1 to r4 in one transaction (2 of 3) | succeeded | 243,457 | `0x029a0bb13d6a7ac7a9315bb0590b3eb682878de631dc61e9a6b01d1dcb1fa5eb` |
-| 32 | schedule | A stranger runs recovery r2 before the delay | refused, `TimelockUnexpectedOperationState(bytes32,bytes32)` | 30,073 | `0xdcb82d5c0b30985f4ed0d38ce0aefb6a0848ae40203c2d89b8d93099a59ca55e` |
-| 33 | schedule | Custody cancels recovery r1 (3 of 3) | succeeded | 80,737 | `0x60e5233b0729f8ed20c2d2eb744e9d827bc83c02a305bb8089074445fbf760d4` |
-| 34 | schedule | A stranger sets the move delay to 0 directly | refused, `TimelockUnauthorizedCaller(address)` | 21,632 | `0xa5eed0eaab3f88afc1749e2cd91b746a1a20bd3a78af4b7b53f4a4267e1526ed` |
-| 35 | schedule | A stranger schedules a move delay of 0 | refused, `AccessControlUnauthorizedAccount(address,bytes32)` | 25,283 | `0x7018ebe2ef8f61943077d51aca4ff4143e910eca5f282735ff55f5f5eacfe122` |
-| 36 | move | A keeper runs o-approve: custody approves the pool for 1,000 | succeeded | 124,867 | `0xc6d5aaa10deffc01f23674081f25a01ecde19f11c69ad266035e684fff83f0ea` |
-| 37 | move | Agent runs m1: custody supplies 10 to the pool | succeeded | 302,177 | `0x5f59ff2277c1fb038427c2dd9134a8902675cb3c12c3fa33404ebb60c66db5d4` |
-| 38 | move | Agent runs the cancelled m2 | refused, `TimelockUnexpectedOperationState(bytes32,bytes32)` | 30,597 | `0x28a27e98d49e1a24720dc05157258677c1496077c832c29bf39941bb320536ff` |
-| 39 | move | A keeper runs o1: custody supplies 140 (150 of its 200 a day used) | succeeded | 260,292 | `0x3c055edc27ed467a0482525c3b5cfed5cc5aa66ddddd9404be32222d01d0c2a8` |
-| 40 | move | O2 runs, a supply of 51 with 50 left of custody's daily 200 | refused, `ConditionViolation(17 AllowanceExceeded)` | 88,374 | `0xdf4f0658e3b67490f62d5588b25474fb68cf7e87c42591bb7468feede890feca` |
-| 41 | move | A keeper runs o3: custody withdraws 5 to itself | succeeded | 242,963 | `0xb1f5db6291904783438b0816328d11b5e6ebf0fac477ec7f2d2b2d49a7eaffbf` |
-| 42 | move | X1 runs, a supply on behalf of a stranger | refused, `ConditionViolation(7 ParameterNotAllowed)` | 90,809 | `0x309eb4c1e9758b9177ba31a3dd6ffc8e971a129443f26815e7bfe4f5d033798b` |
-| 43 | move | X2 runs, a withdrawal to a stranger | refused, `ConditionViolation(7 ParameterNotAllowed)` | 77,156 | `0x2146fddf4bd7532fe957dc8f1dfb957f723b01ac746fdf0239768a93a9728b32` |
-| 44 | move | X3 runs, a USDC transfer out of custody | refused, `ConditionViolation(3 FunctionNotAllowed)` | 49,359 | `0x82bef70a40a48318db716100ab9ea9e267d77b9112ec96880d6a859e39d13c2c` |
-| 45 | move | X4 runs, an approval to a stranger | refused, `ConditionViolation(7 ParameterNotAllowed)` | 68,003 | `0x83592dee9cbd04ed9e810ed9ebafc106e6d68e38e76039d63f509c4e645b88dd` |
-| 46 | move | X5 runs, an aUSDC transfer | refused, `ConditionViolation(2 TargetAddressNotAllowed)` | 47,057 | `0x27df0e3dbd7d73581b1d35f69e3818f15523521a4e40a6ac0434e1259ec713f8` |
-| 47 | move | X6 runs, a borrow against custody's position | refused, `ConditionViolation(3 FunctionNotAllowed)` | 50,056 | `0x5040f241a89227b027609f58cca70408852d375b7b43ef8f223856a1de47d5db` |
-| 48 | move | X7 runs, a delegatecall from custody | refused, `ConditionViolation(1 DelegateCallNotAllowed)` | 50,255 | `0xdbc096934ddb8a4bde677f43f7398e6f1fd91a3ac50efccdae301d97bf5df86e` |
-| 49 | move | X8 runs, an owner added to custody | refused, `ConditionViolation(2 TargetAddressNotAllowed)` | 47,021 | `0xd1c2f3a6370238468bd03db5ae6cdbdea766e28ebe89f48987700fee79ad997c` |
-| 50 | move | X9 runs, a gate rule changed through the gate | refused, `ConditionViolation(2 TargetAddressNotAllowed)` | 47,986 | `0xe1eba72c27af6c90b89c37e3875f48dda23aca0e7fa589e314fed1c1ae6f4e9c` |
-| 51 | move | X10 runs, the recovery role used by the move timelock | refused, `NoMembership()` | 41,548 | `0xf85e9ddd67ed5f19e3a0fe222b200c52d41a194e9635e8e2c6fb31525693ac62` |
-| 52 | move | X11 runs, a gate rule written by the move timelock | refused, `OwnableUnauthorizedAccount(address)` | 38,476 | `0xd95d11203e956398cc5f960e8e8a16dac6ea995db537618575b8b654ccd55ddf` |
-| 53 | move | Kill switch: custody revokes the trading role (3 of 3) | succeeded | 90,875 | `0xb63d02e24fac033c36d9fcd9373722f49f480900ca4655e94fb93ecead517aed` |
-| 54 | move | After the kill switch: agent runs m3 | refused, `NoMembership()` | 42,128 | `0xe705470be682f8884866747e2c873eb3a1dfaa9fe0f75b985c68197d06befa4a` |
-| 55 | move | After the kill switch: x12 runs, a withdrawal to custody | refused, `NoMembership()` | 41,988 | `0x173e07ba2fc42ef8722d4a6290950d5e5faf9a1c10cf783f1defe56e472ce922` |
-| 56 | recover | A stranger runs the cancelled recovery r1 | refused, `TimelockUnexpectedOperationState(bytes32,bytes32)` | 30,029 | `0xbc78cb3451a82a26b4cdfb20c74cae8608f4c6a38af95cbe3f0a51bc80849c34` |
-| 57 | recover | Recovery r2 with trading off: a stranger runs it, custody pays the trustee 20 aUSDC | succeeded | 196,033 | `0xba189ebd99e98f5c276816ef2be1aea88e75c9f272ea79fe21a876acfee90924` |
-| 58 | recover | Recovery r3 runs, the gate refuses to pay a stranger | refused, `ConditionViolation(7 ParameterNotAllowed)` | 67,723 | `0xa68879f67c881f1be2c158822c3a6fcd152e3e84416f02e303e123e96195cd8a` |
-| 59 | recover | Full stop: custody disables the gate (3 of 3) | succeeded | 82,033 | `0xd8b2e48a305c75bbe27996d4881c2e5417308f1efa90d8d311ff05dd39105f60` |
-| 60 | recover | Recovery r4 runs while the gate is off | refused, `Error("GS104")` | 86,002 | `0x19cb36623db17eda79563dbe17ed6ae6d5f7a599f1d52df1bf0eece21ac25c19` |
-| 61 | recover | Two of three custody signers re-enable the gate | refused, `Error("GS020")` | 49,179 | `0xde4b9c02522a290f07b2527e3f13d7c7995d3471882e30b47bfa28e1f5164c2d` |
-| 62 | recover | One Prime owner schedules a move | refused, `Error("GS020")` | 56,243 | `0x108d82c288a468fa07fdc8de9785552a4d03cee225869549e38ecaae59f87a8e` |
-| 63 | recover | Restore: custody re-enables the gate and the trading role (3 of 3) | succeeded | 151,095 | `0xd98c9733d2010731d9ee48944b833bffc4d8e0c9c0e23933597eeb97b2247cfa` |
-| 64 | recover | Agent runs m4 after the restore: custody supplies 10 | succeeded | 260,292 | `0xe8ad36e9da428722b9a18e7f98b2af88db46479959f44370659ac968251c5bad` |
+| 1 | setup | T1a create the custody Safe (3 of 3) | succeeded | 283,428 | [`0x7be18b15…6983fe`](https://sepolia.basescan.org/tx/0x7be18b15bf12457699ae6c333fc2a652e5030f4d2d5a552b8f6f3fbbca6983fe) |
+| 2 | setup | T1b create the Prime account (2 of 3) | succeeded | 283,428 | [`0x6d9ae53e…fe14bd`](https://sepolia.basescan.org/tx/0x6d9ae53ef2ecc75334ca058bfb986580b967108ea127997eda8a4b2664fe14bd) |
+| 3 | setup | Move timelock (TimelockController 5.6.0) | succeeded | 1,400,895 | [`0x1e59711c…933a71`](https://sepolia.basescan.org/tx/0x1e59711c94e8cc566f71b6b695f10614ed5d8b1223b0c0bec5092d5586933a71) |
+| 4 | setup | Recovery timelock (TimelockController 5.6.0) | succeeded | 1,400,907 | [`0x03ea8821…d31b58`](https://sepolia.basescan.org/tx/0x03ea882136a57269425437af24dbf95ca7a9e0ef9c08f4a691e4d90bedd31b58) |
+| 5 | setup | T2 the Prime account sets up its Roles module and the agent band (2 of 3) | succeeded | 971,292 | [`0xbeb810e1…139db4`](https://sepolia.basescan.org/tx/0xbeb810e1896f7bb61284b0ef2a9556f88782b85e7e8cd9b46ea81f452d139db4) |
+| 6 | setup | T3 custody sets up the gate, its trading and recovery roles and its cap (3 of 3) | succeeded | 1,365,333 | [`0x89eaeb4a…28c743`](https://sepolia.basescan.org/tx/0x89eaeb4a10c01be8aab7de5d696d574bb8d5a3a1eb818809affafe3db928c743) |
+| 7 | setup | Aave faucet mints 1,000 test USDC to custody | succeeded | 87,902 | [`0xe3d78f1d…f105c3`](https://sepolia.basescan.org/tx/0xe3d78f1d6af9f96c1a6e886c1e85aad03f08c535e808fc1688e2f89fb6f105c3) |
+| 8 | setup | Gas for the agent | succeeded | 21,000 | [`0x382215db…6b63b9`](https://sepolia.basescan.org/tx/0x382215db22f20c4a4e718d41374aeb16eb62ecbbd6405b052d9e843b0f6b63b9) |
+| 9 | setup | Gas for the stranger | succeeded | 21,000 | [`0x24b92035…fee0b0`](https://sepolia.basescan.org/tx/0x24b92035631a384c780587df63bee2d342cdd7c66e3dcf55116a680340fee0b0) |
+| 10 | schedule | Agent schedules move m1: supply 10 | succeeded | 252,927 | [`0xd56a3319…97c12e`](https://sepolia.basescan.org/tx/0xd56a3319b6905b6c9de7a0be576b09ce78ea8d8830338cfe822b8de47697c12e) |
+| 11 | schedule | Agent schedules move m2: supply 10 (custody cancels it) | succeeded | 252,927 | [`0x4a8b9120…7e99e3`](https://sepolia.basescan.org/tx/0x4a8b91206376266f438dadc535ceb45171c8c93d7503d9e0f0af85d9c27e99e3) |
+| 12 | schedule | Agent schedules move m3: supply 10 (runs after the kill switch) | succeeded | 252,927 | [`0xb2318d29…45b1fc`](https://sepolia.basescan.org/tx/0xb2318d2952b3aeec6bc2802af54f9946f5680dc7c25f18240a13b8d0dc45b1fc) |
+| 13 | schedule | Agent schedules move m4: supply 10 (runs after the restore) | succeeded | 252,927 | [`0x08e1d1d1…d3cb49`](https://sepolia.basescan.org/tx/0x08e1d1d1acb65d839d94db3b864bad7c901f89a1374cccbb557fe649c7d3cb49) |
+| 14 | schedule | Agent schedules a supply of 100, over its band | refused, `ConditionViolation(9 ParameterGreaterThanAllowed)` | 165,972 | [`0x1618cc4c…846822`](https://sepolia.basescan.org/tx/0x1618cc4cc71bec7d2b2a69678fbbb850b6bf3f9e22ca7975e7cf254c28846822) |
+| 15 | schedule | Agent schedules a supply of 20 with 10 left of its daily 50 | refused, `ConditionViolation(17 AllowanceExceeded)` | 167,929 | [`0x2f5806f1…8da976`](https://sepolia.basescan.org/tx/0x2f5806f1fd498dfbf6b6ff66b020f94f6a116a9892f5dba5c15a75391e8da976) |
+| 16 | schedule | Agent schedules a supply of another asset (aUSDC) | refused, `ConditionViolation(7 ParameterNotAllowed)` | 163,511 | [`0x6585eba2…f6d004`](https://sepolia.basescan.org/tx/0x6585eba225f2fcaac4760b14392d9f37ba0de2cbba939c08047f93718df6d004) |
+| 17 | schedule | Agent schedules a withdraw, a call its band does not list | refused, `ConditionViolation(15 BitmaskNotAllowed)` | 172,115 | [`0x073d7faf…58d45e`](https://sepolia.basescan.org/tx/0x073d7faf651b14a6cf716da7708c0bbb8d9f849a91257f520dfe13ab5358d45e) |
+| 18 | schedule | Agent schedules a USDC transfer, a call its band does not list | refused, `ConditionViolation(7 ParameterNotAllowed)` | 157,813 | [`0xa0cbb05e…98d8ea`](https://sepolia.basescan.org/tx/0xa0cbb05e37bd2794f133d52aa217c9f8f51f4f6df8268c495e3979af9398d8ea) |
+| 19 | schedule | Agent schedules a supply at an off-list target | refused, `ConditionViolation(7 ParameterNotAllowed)` | 158,321 | [`0x2fa80a52…8497bb`](https://sepolia.basescan.org/tx/0x2fa80a52b009efd66e28155990fea1b6f5330efbc5e4aa834f149c6f848497bb) |
+| 20 | schedule | Agent schedules a call to the custody Safe instead of the gate | refused, `ConditionViolation(7 ParameterNotAllowed)` | 153,136 | [`0xb404a61a…93767f`](https://sepolia.basescan.org/tx/0xb404a61a4972ee2d7d65900897418f9810663e0be148ea06ff6f03ab2e93767f) |
+| 21 | schedule | Agent schedules a supply under the recovery role | refused, `ConditionViolation(7 ParameterNotAllowed)` | 175,173 | [`0x0dc558ee…0acf3c`](https://sepolia.basescan.org/tx/0x0dc558eeabbbcd3fa8c4fd44b3aa99f620a62efd33f6f55ef000b59c980acf3c) |
+| 22 | schedule | Agent schedules a delegatecall from custody | refused, `ConditionViolation(7 ParameterNotAllowed)` | 173,657 | [`0x8b6f76aa…fa29fb`](https://sepolia.basescan.org/tx/0x8b6f76aae66adcc27a5e441464629e1a2db5182c078576cf1b67d2da58fa29fb) |
+| 23 | schedule | Agent calls the move timelock's execute through its band | refused, `ConditionViolation(3 FunctionNotAllowed)` | 42,523 | [`0x887c27ae…051b29`](https://sepolia.basescan.org/tx/0x887c27ae54775ee334952f55f8ce282b4a22b9c6faf05409de242c38fb051b29) |
+| 24 | schedule | Agent schedules on the move timelock directly | refused, `AccessControlUnauthorizedAccount(address,bytes32)` | 30,920 | [`0xb0494f34…c96348`](https://sepolia.basescan.org/tx/0xb0494f341dbbdfaa3cc2822c921b5d803b15d9aa03e264a7b7957c4b9dc96348) |
+| 25 | schedule | Agent calls the gate directly | refused, `NotAuthorized(address)` | 33,120 | [`0xc7118922…efb573`](https://sepolia.basescan.org/tx/0xc7118922a845c775cadbdb399f74025882bcce93a3aaba2a1a6b99a883efb573) |
+| 26 | schedule | A stranger uses the agent band | refused, `NotAuthorized(address)` | 36,045 | [`0x3f6bf649…be87e3`](https://sepolia.basescan.org/tx/0x3f6bf64917d5bbab41d86de4fd55399c45bd6775d5da7a0e616c373efbbe87e3) |
+| 27 | schedule | Agent runs m1 before the delay | refused, `TimelockUnexpectedOperationState(bytes32,bytes32)` | 30,665 | [`0xde1c5ce0…2bb13a`](https://sepolia.basescan.org/tx/0xde1c5ce0e9890b5b59d92f8d4f6b10e8f25b4f8ddbffb1ae8f90e30bf52bb13a) |
+| 28 | schedule | Prime owners schedule 16 moves in one transaction (2 of 3) | succeeded | 759,600 | [`0x2928ec05…8e8979`](https://sepolia.basescan.org/tx/0x2928ec05ca04f19a7c88f4890775de2d6352a4c258e2ba00aafe4d53a88e8979) |
+| 29 | schedule | Custody cancels m2 during the wait (3 of 3) | succeeded | 80,725 | [`0xfffe969c…148435`](https://sepolia.basescan.org/tx/0xfffe969c0ca94f0c69c51ef4266ea02cef9ad82370527c58f4a74b8fc5148435) |
+| 30 | schedule | A stranger schedules a recovery | refused, `AccessControlUnauthorizedAccount(address,bytes32)` | 29,590 | [`0x020d0329…6fff26`](https://sepolia.basescan.org/tx/0x020d0329cf3b9bf4277e479306e3a75b23c631ec44cee6deaaec82592b6fff26) |
+| 31 | schedule | Prime owners schedule recoveries r1 to r4 in one transaction (2 of 3) | succeeded | 243,505 | [`0x238736fb…58f37a`](https://sepolia.basescan.org/tx/0x238736fbfc2333604f51772139d7ff4e4338412b3323a44c30d98e7c2358f37a) |
+| 32 | schedule | A stranger runs recovery r2 before the delay | refused, `TimelockUnexpectedOperationState(bytes32,bytes32)` | 30,085 | [`0xc4579fb7…7af230`](https://sepolia.basescan.org/tx/0xc4579fb7278a61d2004a2fc3cd15bac2ae4d23b79eff853326ebbe2ab57af230) |
+| 33 | schedule | Custody cancels recovery r1 (3 of 3) | succeeded | 80,749 | [`0x84db5d62…2d3e20`](https://sepolia.basescan.org/tx/0x84db5d62501c84c55078fbcd9c21731f148517e9112efb6b5a5a8f6fd02d3e20) |
+| 34 | schedule | A stranger sets the move delay to 0 directly | refused, `TimelockUnauthorizedCaller(address)` | 21,632 | [`0x5950229b…85df3e`](https://sepolia.basescan.org/tx/0x5950229bf630379d3360239cdaa39db2b20d251a706d49759050b8b7c485df3e) |
+| 35 | schedule | A stranger schedules a move delay of 0 | refused, `AccessControlUnauthorizedAccount(address,bytes32)` | 25,283 | [`0x9f929cfb…9fa67a`](https://sepolia.basescan.org/tx/0x9f929cfb36f0d2e5b4828ce71116163cc77a506f7af65397df141ab5539fa67a) |
+| 36 | move | A keeper runs o-approve: custody approves the pool for 1,000 | succeeded | 124,879 | [`0x52df8c03…79f23e`](https://sepolia.basescan.org/tx/0x52df8c039908fecd7bf3dd2e834e63e88dff936791ac798881a29c164d79f23e) |
+| 37 | move | Agent runs m1: custody supplies 10 to the pool | succeeded | 302,201 | [`0x31de6f09…fedd4b`](https://sepolia.basescan.org/tx/0x31de6f0937291f0981cfa8bd2e8cf09207d813e8de800cffff5a61991efedd4b) |
+| 38 | move | Agent runs the cancelled m2 | refused, `TimelockUnexpectedOperationState(bytes32,bytes32)` | 30,621 | [`0x6170b34e…62dda4`](https://sepolia.basescan.org/tx/0x6170b34e810ce0a818d4901717e90cbc9f813fda6da634cdaac56267d462dda4) |
+| 39 | move | A keeper runs o1: custody supplies 140 (150 of its 200 a day used) | succeeded | 254,057 | [`0x59e34f9e…fc156f`](https://sepolia.basescan.org/tx/0x59e34f9e2956e8787fde52a85af7d025a415c80ce36d3d343282d037a0fc156f) |
+| 40 | move | O2 runs, a supply of 51 with 50 left of custody's daily 200 | refused, `ConditionViolation(17 AllowanceExceeded)` | 88,398 | [`0x3477fb39…bbd6b5`](https://sepolia.basescan.org/tx/0x3477fb396acad946af39fb32f2d1084cf2448f1a2f13f2f90676a5e156bbd6b5) |
+| 41 | move | A keeper runs o3: custody withdraws 5 to itself | succeeded | 242,987 | [`0xa1e45b1c…af904f`](https://sepolia.basescan.org/tx/0xa1e45b1cdb3d7a6ccae0da44e3bcbbb69ed8f5271c25d69a85b985f2e1af904f) |
+| 42 | move | X1 runs, a supply on behalf of a stranger | refused, `ConditionViolation(7 ParameterNotAllowed)` | 90,821 | [`0x7b488925…d144fe`](https://sepolia.basescan.org/tx/0x7b4889254ac531da5923c9d268919022f8d778bded4dfb7a16885fc3b9d144fe) |
+| 43 | move | X2 runs, a withdrawal to a stranger | refused, `ConditionViolation(7 ParameterNotAllowed)` | 77,168 | [`0xce68b01b…1330fd`](https://sepolia.basescan.org/tx/0xce68b01bfe92e2b96237e98466004b282fd0671e5dc74399b939da8fa31330fd) |
+| 44 | move | X3 runs, a USDC transfer out of custody | refused, `ConditionViolation(3 FunctionNotAllowed)` | 49,371 | [`0x1b47da86…2f320a`](https://sepolia.basescan.org/tx/0x1b47da865accd25bb13c40d4ad658e8cc8360b7d15798ef4c1c5991d7d2f320a) |
+| 45 | move | X4 runs, an approval to a stranger | refused, `ConditionViolation(7 ParameterNotAllowed)` | 68,015 | [`0x2b5d4fb7…f69788`](https://sepolia.basescan.org/tx/0x2b5d4fb710fa1d650d379798f082fcbac3d911273f59714333c7a5372bf69788) |
+| 46 | move | X5 runs, an aUSDC transfer | refused, `ConditionViolation(2 TargetAddressNotAllowed)` | 47,069 | [`0xf2bff39a…d1d73a`](https://sepolia.basescan.org/tx/0xf2bff39a812f3da7d8fee9f561a950dc8411cbfc4ba602a002d6e2a864d1d73a) |
+| 47 | move | X6 runs, a borrow against custody's position | refused, `ConditionViolation(3 FunctionNotAllowed)` | 50,080 | [`0x7abae1b7…351179`](https://sepolia.basescan.org/tx/0x7abae1b7aecd2906e56aad4f20a17bedd33a16e8634abd2256bdae0ca1351179) |
+| 48 | move | X7 runs, a delegatecall from custody | refused, `ConditionViolation(1 DelegateCallNotAllowed)` | 50,279 | [`0xf9068eb5…af8237`](https://sepolia.basescan.org/tx/0xf9068eb59f104b0bf03148fa7e88bc3601e8dc0938bf5763b7e576b09baf8237) |
+| 49 | move | X8 runs, an owner added to custody | refused, `ConditionViolation(2 TargetAddressNotAllowed)` | 47,045 | [`0x977ecdc7…06562b`](https://sepolia.basescan.org/tx/0x977ecdc7076071c330562ed548924b4475f497ce06b4bd18238ac5910506562b) |
+| 50 | move | X9 runs, a gate rule changed through the gate | refused, `ConditionViolation(2 TargetAddressNotAllowed)` | 48,010 | [`0x17f39fdf…1ca9a4`](https://sepolia.basescan.org/tx/0x17f39fdf06fe2dd2a052db9229f8f1ba40ca72a32aa32189e30327e4b11ca9a4) |
+| 51 | move | X10 runs, the recovery role used by the move timelock | refused, `NoMembership()` | 41,560 | [`0x4619f7a9…a4331e`](https://sepolia.basescan.org/tx/0x4619f7a90f1984180b5af535d145dbf6f70d852a28b622298f6cb98bfea4331e) |
+| 52 | move | X11 runs, a gate rule written by the move timelock | refused, `OwnableUnauthorizedAccount(address)` | 38,488 | [`0xc7beaf4b…76a642`](https://sepolia.basescan.org/tx/0xc7beaf4b986c01aafd97b2514fe0fd963c7ce207f7c252db4008967a7076a642) |
+| 53 | move | Kill switch: custody revokes the trading role (3 of 3) | succeeded | 90,887 | [`0x87f58e95…0de8eb`](https://sepolia.basescan.org/tx/0x87f58e950648d08acef4ba0455fae78962b8427eabf8af15442668ae550de8eb) |
+| 54 | move | After the kill switch: agent runs m3 | refused, `NoMembership()` | 42,152 | [`0x7de202dc…8d4e4b`](https://sepolia.basescan.org/tx/0x7de202dca4db45c0060bfb312f3d5f1f97288cdc5a1b5742ab509627908d4e4b) |
+| 55 | move | After the kill switch: x12 runs, a withdrawal to custody | refused, `NoMembership()` | 42,012 | [`0xc19e44bd…1368a0`](https://sepolia.basescan.org/tx/0xc19e44bdb6db706281bc7b36bf15fe0b5559bc29f40745d7c0d90d987f1368a0) |
+| 56 | recover | A stranger runs the cancelled recovery r1 | refused, `TimelockUnexpectedOperationState(bytes32,bytes32)` | 30,041 | [`0x006226ee…562005`](https://sepolia.basescan.org/tx/0x006226ee480ee3cfff30355b0196be39fda808b4ffddb98198a11749a3562005) |
+| 57 | recover | Recovery r2 with trading off: a stranger runs it, custody pays the trustee 20 aUSDC | succeeded | 196,045 | [`0x736fae22…2b4592`](https://sepolia.basescan.org/tx/0x736fae22731d30511770f6fca07e5302c5c9e01b2fa010680adf768c632b4592) |
+| 58 | recover | Recovery r3 runs, the gate refuses to pay a stranger | refused, `ConditionViolation(7 ParameterNotAllowed)` | 67,735 | [`0x88830150…23ae19`](https://sepolia.basescan.org/tx/0x888301500f59dfb04dd1042a297b6ff352e841159051baf3e6c81dd8f523ae19) |
+| 59 | recover | Full stop: custody disables the gate (3 of 3) | succeeded | 82,057 | [`0x22e23753…5249f3`](https://sepolia.basescan.org/tx/0x22e237538482f96bb9ff5736a1b120ea8540b5daa50c9975e68ba175d55249f3) |
+| 60 | recover | Recovery r4 runs while the gate is off | refused, `Error("GS104")` | 86,014 | [`0x5bc294b0…18ba86`](https://sepolia.basescan.org/tx/0x5bc294b0a4573079e33e66ef6a95dbfb2cef133932c7798bf91361386018ba86) |
+| 61 | recover | Two of three custody signers re-enable the gate | refused, `Error("GS020")` | 49,203 | [`0x4fdd6966…dde433`](https://sepolia.basescan.org/tx/0x4fdd69663c9468f081ba7a4a43e861af690dd4597d06b0a9e4d965d8ffdde433) |
+| 62 | recover | One Prime owner schedules a move | refused, `Error("GS020")` | 56,255 | [`0x76c1102d…059032`](https://sepolia.basescan.org/tx/0x76c1102d63e65526e702c1d4c144d50308211dbfd2cb9c5604b5cbbde3059032) |
+| 63 | recover | Restore: custody re-enables the gate and the trading role (3 of 3) | succeeded | 151,083 | [`0x12ccc0bf…a687c6`](https://sepolia.basescan.org/tx/0x12ccc0bfa17af0e1d067a8c3f8b14ebc06a2bf10816dc627639874d616a687c6) |
+| 64 | recover | Agent runs m4 after the restore: custody supplies 10 | succeeded | 260,316 | [`0x2e326036…4f82dd`](https://sepolia.basescan.org/tx/0x2e32603602bbc351e4d4acef959b30f9c010f640239efd28ca96b8fef74f82dd) |
 
 ## Cost
 
-64 transactions, 26 that succeed and 38 refused, used 12,588,408 gas. At the
-fork's base fee of about 0.005 gwei and a tip of 0.001 gwei that is 0.0000710
-ETH of execution. Base also charges an L1 data fee, which anvil does not; the
-driver priced each signed transaction with Base's `GasPriceOracle.getL1Fee` on
-the fork, 0.0002458 ETH in all. The deployer's own transactions come to about
-0.00018 ETH, and it sends 0.00015 ETH of gas money each to the agent and the
-stranger, so a deployer with 0.001 test ETH runs the line on Base Sepolia with
-room for the L1 fee to move.
+64 transactions, 26 that succeed and 38 refused, used 12,583,811 gas. Base
+charged 0.0000755 ETH of execution and 0.0004013 ETH of L1 data fee, as the
+receipts report it, 0.0004768 ETH in all. The deployer's own transactions cost
+0.0002954 ETH, and it sent 0.00015 ETH of gas money each to the agent and the
+stranger.
 
 ## Altered configurations
 
@@ -201,8 +198,6 @@ raised to 500.
 
 ## What it does not show
 
-- **Base Sepolia itself:** the run is on a fork, at the fork's clock. The live
-  run waits for test ETH.
 - **The daily refill:** both caps refill after a day; the line runs inside one
   day. `test/ConfigOnly.t.sol` moves the clock a day and shows the agent's cap
   refilled.
@@ -211,3 +206,4 @@ raised to 500.
 - **A pre-sign read of the owners' batch:** the Prime owners' 16 moves were
   signed as built. `evm_review` reads such a batch before signing; it was not
   run here.
+- **Safe 1.5.0 on chain:** the line used Safe 1.4.1; the fork test runs both.
