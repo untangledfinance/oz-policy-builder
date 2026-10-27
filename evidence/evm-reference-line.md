@@ -189,6 +189,16 @@ the fork, 0.0002458 ETH in all. The deployer's own transactions come to about
 stranger, so a deployer with 0.001 test ETH runs the line on Base Sepolia with
 room for the L1 fee to move.
 
+## Altered configurations
+
+Six changes to the line's configuration, each applied alone to
+`script/RefLine.s.sol`, make `test/RefLine.t.sol` fail
+([log](../scripts/evm-config-check/refline/mutants-2026-10-27.txt)): the Prime
+account as the gate's trading member in place of the move timelock, the band's
+target left open, the band's role left open, the band's operation left open,
+custody without the canceller role on the move timelock, and the agent's cap
+raised to 500.
+
 ## What it does not show
 
 - **Base Sepolia itself:** the run is on a fork, at the fork's clock. The live
