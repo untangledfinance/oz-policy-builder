@@ -1,3 +1,5 @@
 lib/
 out/
 cache/
+refline/*.plan.jsonl
+refline/*-state.json
