@@ -35,7 +35,8 @@ Stellar contract, record or build hash changed.
   withdraw without its `has_debt` read, a liquidation without its marked read,
   a repay whose obligation is open; on EVM an open target or argument list, a
   layout that differs from the function's ABI, a recipient not pinned to the
-  avatar, a `revokeTarget` without its functions, trailing calldata. The tests
+  avatar, trailing calldata, with a warning on a `revokeTarget` without its
+  functions (its scopes stay stored and come back on a re-scope). The tests
   read PayFi's own rule bytes and the fork check's two configuration batches,
   with the hashes the live Safe computed. No new dependency.
 - **CI:** runs on pushes to `feat/primex`; a contract test step fails when it

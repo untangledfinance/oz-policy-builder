@@ -495,23 +495,6 @@ describe('evm_review catches each footgun (problem, signable false)', () => {
     )
   })
 
-  it('the revokeTarget gap: a revokeTarget without revoking its functions', () => {
-    const revoke = entry(0, GATE, call('revokeTarget(bytes32,address)', TRADE, POOL))
-    caught(
-      custody([revoke]),
-      /without revoking its functions in the same batch: revokeTarget keeps every function scope/
-    )
-    // with the functions revoked in the same batch it is a warning, not a problem
-    const fns = [SEL.supply, SEL.withdraw].map((s) =>
-      entry(0, GATE, call('revokeFunction(bytes32,address,bytes4)', TRADE, POOL, `0x${s}`))
-    )
-    const r = custody([revoke, ...fns])
-    expect(r.problems).toEqual([])
-    expect(r.warnings.some((w) => /check every function scoped on it is revoked/.test(w))).toBe(
-      true
-    )
-  })
-
   it('trailing calldata past the last argument of a decoded call', () => {
     const t = scopeTarget(GATE, TRADE, POOL)
     caught(
@@ -662,6 +645,42 @@ describe('evm_review catches each footgun (problem, signable false)', () => {
       custody([entry(0, USDC, call('transfer(address,uint256)', STRANGER, 5n))]),
       /makes the Safe itself call transfer/
     )
+  })
+})
+
+describe('evm_review warns on the revokeTarget gap (allowed, signable true)', () => {
+  const revoke = entry(0, GATE, call('revokeTarget(bytes32,address)', TRADE, POOL))
+  const fns = [SEL.supply, SEL.withdraw].map((s) =>
+    entry(0, GATE, call('revokeFunction(bytes32,address,bytes4)', TRADE, POOL, `0x${s}`))
+  )
+
+  it('a revokeTarget without revoking its functions is a warning, not a problem', () => {
+    const r = custody([revoke])
+    expect(r.problems).toEqual([])
+    expect(r.signable).toBe(true)
+    expect(
+      r.warnings.some((w) =>
+        /without revoking its functions in the same batch: the target is closed at once, but every function scope on it stays stored and comes back as it was if the target is scoped again.*revokeFunction each of its functions too/.test(
+          w
+        )
+      )
+    ).toBe(true)
+    expect(r.reviewTree[0]?.op).toBe('warnings')
+  })
+
+  it('with its functions revoked in the same batch, in any order, the warning asks to check the rest', () => {
+    for (const batch of [
+      [revoke, ...fns],
+      [...fns, revoke],
+    ]) {
+      const r = custody(batch)
+      expect(r.problems).toEqual([])
+      expect(r.signable).toBe(true)
+      expect(r.warnings.some((w) => /without revoking its functions/.test(w))).toBe(false)
+      expect(r.warnings.some((w) => /check every function scoped on it is revoked/.test(w))).toBe(
+        true
+      )
+    }
   })
 })
 

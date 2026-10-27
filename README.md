@@ -165,8 +165,9 @@ measurements behind the limits.
   of [docs/solana.md](./docs/solana.md) and [docs/evm.md](./docs/evm.md) never
   makes: a rule with no constraints, a `SettingsChange` policy on custody, an
   unpinned destination or recipient, a withdraw without its `has_debt` read, an
-  under-read Roles scoping, the `revokeTarget` gap, trailing calldata. They read
-  no chain state, so `signable` again means no problem in the bytes.
+  under-read Roles scoping, trailing calldata. They warn on what is allowed but
+  must be known, such as a `revokeTarget` whose function scopes stay stored. They
+  read no chain state, so `signable` again means no problem in the bytes.
 - **Contract signers:** the install reads each contract signer off the ledger
   and refuses an execution adapter bound to no gate, an execution adapter
   signing a rule scoped to itself that does not pin `call_fn = run`, or a
