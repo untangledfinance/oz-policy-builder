@@ -51,6 +51,15 @@ Stellar contract, record or build hash changed.
   anvil fork of Base Sepolia (64 transactions) is in
   `evidence/evm-reference-line.md`; the run on Base Sepolia itself waits for
   test ETH.
+- **Build-hash match of the third-party builds:**
+  `evidence/build-hash-match.md` compares each deployed build Prime configures
+  with a build of its cited source. On Base Sepolia, Safe 1.4.1 (five
+  contracts) and Zodiac Roles v2.1.1 (mastercopy, two libraries, unwrapper)
+  match byte for byte. On Solana devnet, neither klend (`e921c64`) nor the
+  Squads Smart Account (`0e51082`) matches: devnet's klend is built from
+  unpublished source and devnet's Squads build predates the cited commit.
+  `docs/solana.md` and `docs/evm.md` state the match, and `docs/solana.md`
+  cites the PayFi devnet line by its evidence files.
 - **CI:** runs on pushes to `feat/primex`; a contract test step fails when it
   runs no test or skips one; the EVM job runs the configuration check on a
   Base Sepolia fork.

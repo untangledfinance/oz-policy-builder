@@ -14,12 +14,16 @@ Prime account that holds the agent's bands.
 
 Every claim about a program below cites its source: the Squads Smart Account
 at `0e51082` (paths under `programs/squads_smart_account_program/src/`), Kamino
-klend at `e921c64`, the commit Kamino's mainnet build is verified against
-(paths under `programs/klend/src/`), Token-2022 at `f0a7d60` (program 11.1.0;
-the 1.0.0 crate gives the same order of checks), SPL Token at `57bd873`, the
-associated token account program at `8efacd6` and Kamino Scope at `b789326`.
-The deployed Squads and klend builds were compared with these sources by
-behaviour, with no hash check (see [Limits](#limits)).
+klend at `e921c64` (release 1.26.0; paths under `programs/klend/src/`),
+Token-2022 at `f0a7d60` (program 11.1.0; the 1.0.0 crate gives the same order
+of checks), SPL Token at `57bd873`, the associated token account program at
+`8efacd6` and Kamino Scope at `b789326`.
+On 27 October 2026 a build of each cited commit was compared byte for byte
+with the devnet build: neither matches. Devnet's klend is a Kamino build of
+source that is not published, and devnet's Squads build predates `0e51082`. So
+the devnet runs on this page describe the devnet builds, and the source reading
+describes the builds those commits produce
+([build-hash match](../evidence/build-hash-match.md); see [Limits](#limits)).
 
 ## The use case and the setup
 
@@ -94,12 +98,16 @@ review status:** the Squads policy engine this design relies on
 (`ProgramInteraction`, its account and data constraints, spending limits and
 hooks) appears in no published review of the Smart Account program; the
 Certora (January 2025) and OtterSec (May 2025) reports in its repository do
-not cover policies or hooks. Kamino's mainnet klend is a verified build of
-`e921c64`, a check that the binary matches that source, and Kamino's reports
-for klend 1.18 to 1.26 are still requested. Token-2022 is the standard Solana
-token program. Nothing on this page is code of ours, so there is nothing of
-ours to audit; partners should weigh the review status of the third-party
-programs as a trust note.
+not cover policies or hooks. OtterSec's verified-build registry lists
+Kamino's mainnet klend as a build of `77e8185` (1.27.0, verified on 26 October
+2026), one release after the 1.26.0 source read here, and Kamino's reports for
+klend 1.18 to 1.26 are still requested. Squads publishes `0e51082` as the
+source of its mainnet build, and a build of it here gives the hash Squads
+publishes. Neither devnet build matches its cited commit
+([build-hash match](../evidence/build-hash-match.md)). Token-2022 is the
+standard Solana token program. Nothing on this page is code of ours, so there
+is nothing of ours to audit; partners should weigh the review status of the
+third-party programs as a trust note.
 
 ### Custody account
 
@@ -553,8 +561,15 @@ can cancel any stored Prime transaction before it runs.
 
 ## What has been run
 
-This repository holds no Solana code and no Solana run. The design rests on
-the sources cited on this page and on these runs:
+This repository holds no Solana code. Its one Solana check is the build-hash
+match, which reads devnet and sends nothing. The live reference for this design
+on Solana is the PayFi team's devnet line, a configuration-only deployment of
+Squads accounts, Token-2022 and klend with no program of its own. Its evidence
+is in the payfi repository under `evidence/solana-v2/`: `setup.md` (each set-up
+transaction and who signed it), `handover.md` (the line's verifier passes 156
+of 156 checks), `e2e.md` (the moves and the refusals), `fixes.md` (the review
+fixes) and `deploy.md` (the live deploy). The design rests on the sources cited
+on this page and on these runs:
 
 | Check | Where | Result |
 |---|---|---|
@@ -562,15 +577,18 @@ the sources cited on this page and on these runs:
 | A rule whose signer is another account's vault | devnet simulation, 27 October 2026, nothing sent (the PayFi team's run) | a 2-of-2 rule with a key and a foreign vault as signers, no constraints or limits, passed when that account's settings-level execution called it; with the key alone it refused (`InvalidSignerCount`, 6047) |
 | A Squads vault as klend's permission authority | the same simulation, on Kamino's devnet klend | the nested borrow passed the permission check (then failed later on an empty position); without the lender's execution it failed with 3010, with the old authority with 6183 |
 | The `has_debt` byte | devnet read, 27 October 2026 | 1 on a position owing 700 USDC, 0 on one owing nothing |
-| The same design, as a PayFi line | Solana devnet, 27 October 2026; `evidence/solana-v2/e2e.md` in the payfi repository, branch `feat/solana-v2` at `04b8747` (in review) | sent: a market owner that is a Squads account (2 of 3) marked and unmarked positions; an issuer Squads account (2 of 2) minted the Token-2022 asset; seizures ran after a 90 s notice. Simulated refusals: a withdraw while `has_debt` read 1 (`ProgramInteractionInvalidNumericValue`); a payment over a daily spending limit (`ProgramInteractionInsufficientTokenAllowance`); a liquidation into a frozen account (Token `AccountFrozen`, 0x11) |
-| A borrow through nested Squads executions | Solana devnet, 27 October 2026, the PayFi team's line, transaction `3Gh7kss5zZxdV8kWSATV2s5ewu7S7mYticSs6iw2SWU64EbXzpQARESLJGgh4bRovKpYD9obaSmuCYnPfNZYpAhg` (slot 515,680,593) | succeeded: Scope and klend refreshes at the top level, then a lender's Squads execution (height 1) calling a borrower's rule (2), which deposited and borrowed at klend (3) with the lender's vault as permission authority; token calls at 4. 872 bytes with a lookup table, 358,214 compute units |
+| The same design, as the PayFi line | Solana devnet, 27 October 2026; payfi `evidence/solana-v2/e2e.md`, with the accounts in `setup.md` and the verifier in `handover.md` | sent: a market owner that is a Squads account (2 of 3) marked and unmarked positions; an issuer Squads account (2 of 2) minted the Token-2022 asset; seizures ran after a 90 s notice. Simulated refusals: a withdraw while `has_debt` read 1 (`ProgramInteractionInvalidNumericValue`); a payment over a daily spending limit (`ProgramInteractionInsufficientTokenAllowance`); a liquidation into a frozen account (Token `AccountFrozen`, 0x11) |
+| A borrow through nested Squads executions | Solana devnet, 27 October 2026, the PayFi line: payfi `evidence/solana-v2/e2e.md` (the full advance, row 5), transaction `3Gh7kss5zZxdV8kWSATV2s5ewu7S7mYticSs6iw2SWU64EbXzpQARESLJGgh4bRovKpYD9obaSmuCYnPfNZYpAhg` (slot 515,680,593) | succeeded: Scope and klend refreshes at the top level, then a lender's Squads execution (height 1) calling a borrower's rule (2), which deposited and borrowed at klend (3) with the lender's vault as permission authority; token calls at 4. 872 bytes with a lookup table, 358,214 compute units |
+| The deployed builds against their sources | Solana devnet, 27 October 2026, this repository: [build-hash match](../evidence/build-hash-match.md) | klend: devnet `4157037d…`, `e921c64` builds to `976f1c8c…`; Squads: devnet `e88ffe8d…`, `0e51082` builds to `1cacfe20…`. Neither matches. Each build method reproduces the publisher's own hash (klend `77e8185` gives Kamino's verified `1a71bd22…`, Squads `0e51082` gives `1cacfe20…`) |
 
 The PayFi transaction proves two nested Squads executions reaching klend
-within the depth and size limits, through the pass-through mechanism. This
-design's own shape, a Prime rule calling a custody rule whose only signer is a
-Prime vault, with constraints and a spending limit, needs a devnet run of its
-own. The PayFi line covers the mark, the issuer account and the frozen
-account above on the deployed builds.
+within the depth and size limits, through the pass-through mechanism. The PayFi
+line gates the borrow with the lender's own rule (the LP gate). This design's
+custody rule is a different variant: a Prime rule calling a custody rule whose
+only signer is a Prime vault, with constraints and a spending limit. That
+variant is documented on this page and needs a devnet run of its own. The PayFi
+line covers the mark, the issuer account and the frozen account above on the
+devnet builds.
 
 ## Deployments
 
@@ -620,9 +638,12 @@ and are unused ([contracts/solana](../contracts/solana/README-architecture.md)).
   a mainnet prerequisite.
 - **Upgradeable third parties:** Squads (no time lock), klend (24 h time lock)
   and Token-2022 can be upgraded. Re-read the rule semantics, the venue's
-  instructions and the offsets a rule reads after each upgrade. The deployed
-  Squads and klend builds were compared with the sources here by behaviour
-  only; Token-2022's frozen-account refusal was seen on devnet.
+  instructions and the offsets a rule reads after each upgrade. Neither
+  devnet build matches the source read here byte for byte
+  ([build-hash match](../evidence/build-hash-match.md)): devnet results hold
+  for the devnet builds, and a byte match on the target network is a mainnet
+  prerequisite. A pinned deploy slot catches an upgrade and ties the build to
+  no source. Token-2022's frozen-account refusal was seen on devnet.
 - **The fee payer reaches every inner call as a signer:** it must hold nothing
   and no permission.
 - **Call depth:** two Squads executions and the venue reach stack height 4 of

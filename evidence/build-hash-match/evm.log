@@ -1,0 +1,81 @@
+# EVM build-hash match, 2026-10-27T17:03:26Z, node v20.20.2
+# safe-check.cjs (Safe v1.4.1 at bf943f80fec5ac647159d26161446ac5d716a294, safe-deployments b45417dd009957effb3575928941e736f8fd37d1)
+rpc https://sepolia.base.org chainId 84532 block 50993695
+Safe singleton factory 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 code keccak 0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989 (69 B)
+SafeL2 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762 (Base Sepolia listed in safe-deployments: canonical)
+  compiler 0.7.6+commit.7338295f settings {"optimizer":{"enabled":false,"runs":200},"metadata":{"useLiteralContent":true}}
+  init code keccak 0x3555bd3ee95b1c6605c602740d71efaf200068e0395ccd701ac82ab8e42307bd; CREATE2 = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762 matches: true
+  runtime on chain 24421 B keccak 0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff
+  runtime compiled 24421 B keccak 0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff (immutables filled: 0)
+  equal: true; safe-deployments codeHash 0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff equal: true
+  RESULT PASS
+SafeProxyFactory 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67 (Base Sepolia listed in safe-deployments: canonical)
+  compiler 0.7.6+commit.7338295f settings {"optimizer":{"enabled":false,"runs":200},"metadata":{"useLiteralContent":true}}
+  init code keccak 0x596f87ec561ad5ea1c13253af5c91247a713253499b74a5d594537cae42eaaa9; CREATE2 = 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67 matches: true
+  runtime on chain 3054 B keccak 0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317
+  runtime compiled 3054 B keccak 0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317 (immutables filled: 0)
+  equal: true; safe-deployments codeHash 0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317 equal: true
+  RESULT PASS
+MultiSend 0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526 (Base Sepolia listed in safe-deployments: canonical)
+  compiler 0.7.6+commit.7338295f settings {"optimizer":{"enabled":false,"runs":200},"metadata":{"useLiteralContent":true}}
+  init code keccak 0x4b098e80d2b37db2c4a92ff33a116dfacb2276a8532a6b493367952cc6d0b7b3; CREATE2 = 0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526 matches: true
+  runtime on chain 629 B keccak 0x0e4f7fc66550a322d1e7688e181b75e217e662a4f3f4d6a29b22bc61217c4b77
+  runtime compiled 629 B keccak 0x0e4f7fc66550a322d1e7688e181b75e217e662a4f3f4d6a29b22bc61217c4b77 (immutables filled: 1)
+  equal: true; safe-deployments codeHash 0x0e4f7fc66550a322d1e7688e181b75e217e662a4f3f4d6a29b22bc61217c4b77 equal: true
+  RESULT PASS
+MultiSendCallOnly 0x9641d764fc13c8B624c04430C7356C1C7C8102e2 (Base Sepolia listed in safe-deployments: canonical)
+  compiler 0.7.6+commit.7338295f settings {"optimizer":{"enabled":false,"runs":200},"metadata":{"useLiteralContent":true}}
+  init code keccak 0xa7934433f19155c708af2674b14c6c8b591fedbed7b01ce8cf64014f307468a0; CREATE2 = 0x9641d764fc13c8B624c04430C7356C1C7C8102e2 matches: true
+  runtime on chain 410 B keccak 0xecd5bd14a08c5d2122379900b2f272bdf107a7e92423c10dd5fe3254386c9939
+  runtime compiled 410 B keccak 0xecd5bd14a08c5d2122379900b2f272bdf107a7e92423c10dd5fe3254386c9939 (immutables filled: 0)
+  equal: true; safe-deployments codeHash 0xecd5bd14a08c5d2122379900b2f272bdf107a7e92423c10dd5fe3254386c9939 equal: true
+  RESULT PASS
+CreateCall 0x9b35Af71d77eaf8d7e40252370304687390A1A52 (Base Sepolia listed in safe-deployments: canonical)
+  compiler 0.7.6+commit.7338295f settings {"optimizer":{"enabled":false,"runs":200},"metadata":{"useLiteralContent":true}}
+  init code keccak 0x0871bf92dc4e13f2fd05dfec9570999908913bb89dda487f781cebe3435f9c62; CREATE2 = 0x9b35Af71d77eaf8d7e40252370304687390A1A52 matches: true
+  runtime on chain 1099 B keccak 0x2b3060c55fcb8275653e99ad511a71f67ba76934ed66a7d74d6e68b52afff889
+  runtime compiled 1099 B keccak 0x2b3060c55fcb8275653e99ad511a71f67ba76934ed66a7d74d6e68b52afff889 (immutables filled: 0)
+  equal: true; safe-deployments codeHash 0x2b3060c55fcb8275653e99ad511a71f67ba76934ed66a7d74d6e68b52afff889 equal: true
+  RESULT PASS
+ALL PASS
+
+# roles-check.cjs (zodiac-modifier-roles at 218a5164d739c107b132034436978e78cdd90c95)
+rpc https://sepolia.base.org chainId 84532 block 50993707
+ERC-2470 factory code keccak 0xc4d5542b53a8b779595a20a8ddd60e58a6c49d3c3decc2df83ced1c69c8ca807 (308 B)
+Roles 2.1.1 0xF2964CE6161ce0e75964Fe7927cE114cb0B283D5
+  sources in recorded input: 27, all equal to the files at the commit: true
+  settings: {"optimizer":{"enabled":true,"runs":100},"libraries":{"contracts/Integrity.sol":{"Integrity":"0x6a6Af4b16458Bc39817e4019fB02BD3b26d41049"},"contracts/packers/Packer.sol":{"Packer":"0x869718C939652084BC491fBC5ce0D3C1d5B309F0"}}}
+  init code keccak 0x749042d915cad108a3a7c2cc5e76cf218fc7b0e0cf2a9090aeeee2b9b6998a4d equals recorded: true
+  CREATE2(factory 0xce0042b868300000d44a59004da54a005ffdcf9f, salt 0x0000000000000000000000000000000000000000000000000000000000000000) = 0xF2964CE6161ce0e75964Fe7927cE114cb0B283D5 matches: true
+  runtime on chain 24409 B keccak 0x471d8b3b419f1eb955230c0326c8812176df49bf3c7b414a563fda5a3c6c10b6
+  runtime compiled 24409 B keccak 0x471d8b3b419f1eb955230c0326c8812176df49bf3c7b414a563fda5a3c6c10b6 immutables 0
+  RESULT PASS
+Integrity 2.1.1 0x6a6Af4b16458Bc39817e4019fB02BD3b26d41049
+  sources in recorded input: 3, all equal to the files at the commit: true
+  settings: {"optimizer":{"enabled":true,"runs":100},"libraries":{}}
+  init code keccak 0xc4e3b66cc587b3f0f21f7bef570e4db62ae6aa74b3b660e6c66da72b8ffe9956 equals recorded: true
+  CREATE2(factory 0xce0042b868300000d44a59004da54a005ffdcf9f, salt 0x0000000000000000000000000000000000000000000000000000000000000000) = 0x6a6Af4b16458Bc39817e4019fB02BD3b26d41049 matches: true
+  runtime on chain 5637 B keccak 0xee8ec55ea4ac609a3fc768eccf3f0479631454fe0a802e4a4b8132102d10d495
+  runtime compiled 5637 B keccak 0xee8ec55ea4ac609a3fc768eccf3f0479631454fe0a802e4a4b8132102d10d495 immutables 0, library: own address filled at byte 1
+  RESULT PASS
+Packer 2.1.1 0x869718C939652084BC491fBC5ce0D3C1d5B309F0
+  sources in recorded input: 14, all equal to the files at the commit: true
+  settings: {"optimizer":{"enabled":true,"runs":100},"libraries":{}}
+  init code keccak 0x0f6751157852e49cbb402a08ced3908f31b391134540a831742b895c21a6f634 equals recorded: true
+  CREATE2(factory 0xce0042b868300000d44a59004da54a005ffdcf9f, salt 0x0000000000000000000000000000000000000000000000000000000000000000) = 0x869718C939652084BC491fBC5ce0D3C1d5B309F0 matches: true
+  runtime on chain 2138 B keccak 0xc28f5fb0c8857669286d01e3df89f310d5ddfbf98205ad46d2f7d28767a76c82
+  runtime compiled 2138 B keccak 0xc28f5fb0c8857669286d01e3df89f310d5ddfbf98205ad46d2f7d28767a76c82 immutables 0, library: own address filled at byte 1
+  RESULT PASS
+MultiSendUnwrapper 2.1.1 0x93B7fCbc63ED8a3a24B59e1C3e6649D50B7427c0
+  sources in recorded input: 3, all equal to the files at the commit: true
+  settings: {"optimizer":{"enabled":true,"runs":100},"libraries":{}}
+  init code keccak 0x5c92aa9e89a3467e31f5f441ab79511bc37e9fce78ed36f89b53920ee1a9786a equals recorded: true
+  CREATE2(factory 0xce0042b868300000d44a59004da54a005ffdcf9f, salt 0x0000000000000000000000000000000000000000000000000000000000000000) = 0x93B7fCbc63ED8a3a24B59e1C3e6649D50B7427c0 matches: true
+  runtime on chain 2071 B keccak 0x4d8d8608b70a6e2f40726b9dd74406bbf73e90cac58e23ee953e2b45ad7dc3df
+  runtime compiled 2071 B keccak 0x4d8d8608b70a6e2f40726b9dd74406bbf73e90cac58e23ee953e2b45ad7dc3df immutables 0
+  RESULT PASS
+ALL PASS
+
+# Safe 1.5.0: runtime keccak on Base Sepolia vs safe-deployments v1.5.0 canonical codeHash
+SafeL2 0xEdd160fEBBD92E350D4D398fb636302fccd67C7e chain 0x180193227186ccb85316c94db1f0d156ed932b14712cfaac78901899178572dc published 0x180193227186ccb85316c94db1f0d156ed932b14712cfaac78901899178572dc equal
+SafeProxyFactory 0x14F2982D601c9458F93bd70B218933A6f8165e7b chain 0x967dae4cda22b0c9ef7f31b010bdc1ceb0af9904b0c3dc060b5302e4c18a4529 published 0x967dae4cda22b0c9ef7f31b010bdc1ceb0af9904b0c3dc060b5302e4c18a4529 equal
