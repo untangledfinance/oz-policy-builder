@@ -11,15 +11,20 @@ Stellar contract, record or build hash changed.
 
 ### Added
 
-- **EVM contracts:** `contracts/evm/prime-seat` (`PrimeSeat`) was brought into
-  `feat/primex`, with `docs/evm.md`, the three-chain `docs/architecture.md`
-  and its two entries in
-  `contracts/build-hashes.json`. It runs on test networks only and is outside
-  the external audit. `PrimeSeat` is fork-tested against Base Sepolia and has no
-  persistent deployment (`deployments/evm-testnet.json`).
+- **EVM configuration:** Prime on EVM is configuration on unmodified Safe,
+  Zodiac Roles v2.1.1 and OpenZeppelin TimelockController 5.6.0, with no
+  contract of ours: a Roles module on custody's own Safe is the custody gate,
+  and the Prime account's Roles module holds the agent's bands, with
+  `docs/evm.md` and the three-chain `docs/architecture.md`. It runs on a test
+  network only and is outside the external audit.
+  `deployments/evm-testnet.json` lists the existing contracts it uses on Base
+  Sepolia.
+- **EVM configuration check:** `scripts/evm-config-check`, a Foundry test that
+  builds that configuration on a Base Sepolia fork and checks 55 moves and
+  refusals on Safe 1.4.1 and on Safe 1.5.0.
 - **CI:** runs on pushes to `feat/primex`; a contract test step fails when it
-  runs no test or skips one; the EVM job runs the real-Safe tests on a Base
-  Sepolia fork, and a second job runs the mutation pass.
+  runs no test or skips one; the EVM job runs the configuration check on a
+  Base Sepolia fork.
 
 ### Removed
 
@@ -34,6 +39,10 @@ Stellar contract, record or build hash changed.
   signers, with no seat. `docs/solana.md` is rewritten for this design. The two
   programs stay deployed final on devnet, unused; their source is at commit
   `89f7839` of `feat/primex`.
+- **`PrimeSeat`, the EVM seat:** `contracts/evm/prime-seat`, its two entries in
+  `contracts/build-hashes.json`, its deployment record and its two CI jobs (the
+  fork suite and the mutation pass). Prime on EVM has no seats and no session
+  keys: each Safe owner signs each decision.
 
 ## [5.2.0] - 2026-10-26
 

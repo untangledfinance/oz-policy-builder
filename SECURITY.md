@@ -18,10 +18,10 @@ There is currently no bug bounty programme.
 | `policy-interpreter`, `custody-gate`, `execution-adapter` (Stellar) | Soroban contracts on Stellar testnet (addresses in `packages/policy-synth/src/config.ts` and `deployments/`) |
 | Prime seat, `prime-seat` (Stellar) | Soroban contract on Stellar testnet, one instance per seat owner and account (code hash in `contracts/build-hashes.json`) |
 | `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` | Off-chain packages in `packages/`, published to npm at version 5.2.0 from this repository at tag `v5.2.0` |
-| `PrimeSeat` (EVM) | Solidity contract, fork-tested against Base Sepolia with real Safe 1.4.1 and 1.5.0 and not deployed from this repository; an integrating app deploys one instance per seat owner and Safe (code hashes in `contracts/build-hashes.json`, status in `deployments/evm-testnet.json`) |
+| Prime on EVM configuration | no contract of ours: the Safe, Zodiac Roles and OpenZeppelin TimelockController configuration of [docs/evm.md](./docs/evm.md) on Base Sepolia, checked on a fork by `scripts/evm-config-check` (existing contracts listed in `deployments/evm-testnet.json`). Reports on how the configuration uses those contracts are in scope; flaws in Safe, Zodiac Roles or OpenZeppelin code go to their maintainers |
 
 `test-blend-pool` is a testnet-only fixture and is out of scope. The EVM
-contracts are in scope for reports and outside the external audit below.
+configuration is in scope for reports and outside the external audit below.
 Prime on Solana adds no program of its own: it is configuration of existing
 third-party programs ([docs/solana.md](./docs/solana.md)), so this repository
 holds no Solana code to report against.

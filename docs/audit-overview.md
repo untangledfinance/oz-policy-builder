@@ -82,6 +82,7 @@ The CHANGELOG entry for 5.2.0 lists the rest.
 | Custody account | a classic Stellar account whose own signers and thresholds decide what it approves |
 | Owners' wallets and the owner key of a Prime seat | sign only what their holder means to sign. A seat's owner key raw-signs the 32-byte grant hash; a NEAR-routed MPC holds it in the reference integration |
 | The Prime app (separate repository) | builds transactions and refuses dangerous rule shapes before any wallet signs; an extra control, never one the contracts rely on |
+| Prime on EVM ([evm.md](evm.md)) | configuration of existing third-party contracts deployed unmodified: Safe 1.4.1 or 1.5.0, Zodiac Roles v2.1.1 and OpenZeppelin TimelockController 5.6.0. It adds no contract of ours; `scripts/evm-config-check` checks the configuration on a Base Sepolia fork |
 | `scripts/`, `deployments/`, `evidence/`, fixtures | deployment and test tooling |
 | Prime on Solana: the Squads Smart Account, SPL Token and Token-2022, Kamino klend and Scope | third-party programs that Prime configures with no program of ours, so this repository holds no Solana code in scope. Prime assumes each behaves as its cited source reads ([solana.md](solana.md)); the Squads policy engine it relies on has no published review |
 

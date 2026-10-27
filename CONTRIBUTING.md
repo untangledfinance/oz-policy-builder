@@ -76,17 +76,14 @@ its `tests/nogate.rs` also loads the execution adapter's, so build both first:
   cargo test --locked )
 ```
 
-The EVM seat has gates of its own; Prime on Solana has no program in this
-repository. The tool versions and the one-time OpenZeppelin unpack are in
-[contracts/README.md](contracts/README.md#evm):
+The EVM configuration check has a gate of its own; Prime on Solana has no
+program in this repository. The check's one-time OpenZeppelin unpack is in
+[scripts/evm-config-check/README.md](scripts/evm-config-check/README.md):
 
 ```sh
-( cd contracts/evm/prime-seat &&
-  forge fmt --check src && forge build &&
-  FORK_URL=https://sepolia.base.org ../../assert-tests.sh 1 forge test &&
-  ../../check-build-hash.sh evm/prime-seat:runtime out/PrimeSeat.sol/PrimeSeat.json &&
-  ../../check-build-hash.sh evm/prime-seat:creation out/PrimeSeat.sol/PrimeSeat.json &&
-  FORK_URL=https://sepolia.base.org ./mutate.py mutants.json )   # 3 known survivors, so it exits 1
+( cd scripts/evm-config-check &&
+  forge fmt --check test &&
+  FORK_URL=https://sepolia.base.org ../../contracts/assert-tests.sh 2 forge test )
 ```
 
 ## Style

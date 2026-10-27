@@ -1,38 +1,55 @@
 {
   "network": "base-sepolia",
   "chainId": 84532,
-  "recorded": "2026-10-25",
-  "status": "fork-tested only; no persistent deployment",
-  "note": "Prime on EVM, test network only. PrimeSeat (contracts/evm/prime-seat) has NO persistent deployment from this repository, on Base Sepolia or anywhere else, and no shared instance: an integrating app deploys one PrimeSeat per seat owner and Safe from the creation code below, and checks a deployed seat's runtime against the template hash (runtime with its immutable slots zeroed). The seat is tested on a fork of Base Sepolia against the real Safe 1.4.1 and 1.5.0 L2 contracts (test/PrimeSeatSafe.t.sol, 7 tests), which CI runs against the public RPC. The custody design (Safe, Zodiac Roles, OpenZeppelin TimelockController) ran on Base Sepolia on 29 September 2026 without a seat; its addresses are below as a record of that run, not as Prime deployments. No mainnet deployment exists.",
-  "contracts": {
-    "prime-seat": {
-      "deployed": false,
-      "runtimeSha256": "3b4402d54f28ef3eb23bc14e9ac1e44c4aa946da42c4c3cea46cd76970c438d6",
-      "creationSha256": "4d3558643131eebbbb8087fc65ed8c52581e0c48619adcf60cdc756cb83a0de7",
-      "template": {
-        "immutableSlots": 11,
-        "zeroedRuntimeKeccak256": "0xbf34aaa214ae621319dc882cca9151f9a45ef40560ba2dd64d788a31b4cb22ff",
-        "note": "keccak-256 of the runtime code with the 11 places that hold the three immutables (owner, safe, roles) set to zero; the same for every seat built from this source"
-      }
+  "recorded": "2026-10-27",
+  "status": "configuration only; no contract of ours",
+  "note": "Prime on EVM, test network only. It deploys no contract of ours: a Prime is configuration on the existing contracts below (Safe proxies, Zodiac Roles proxies, one OpenZeppelin TimelockController per gate). Each address was read back on Base Sepolia on 27 October 2026 (code present). The configuration check in scripts/evm-config-check runs the design of docs/evm.md against these contracts on a fork; it deploys nothing on the network. The custody run of 29 September 2026 (custody at a plain address) is kept as a record of that run. No mainnet deployment exists.",
+  "existingContracts": {
+    "safe-1.4.1": {
+      "safeL2": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+      "safeProxyFactory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+      "multiSend": "0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526",
+      "multiSendCallOnly": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2",
+      "createCall": "0x9b35Af71d77eaf8d7e40252370304687390A1A52",
+      "source": "safe-global/safe-deployments v1.4.1 canonical addresses"
+    },
+    "safe-1.5.0": {
+      "safeL2": "0xEdd160fEBBD92E350D4D398fb636302fccd67C7e",
+      "safeProxyFactory": "0x14F2982D601c9458F93bd70B218933A6f8165e7b",
+      "source": "safe-global/safe-deployments v1.5.0 canonical addresses"
+    },
+    "zodiac-roles-2.1.1": {
+      "rolesMastercopy": "0xF2964CE6161ce0e75964Fe7927cE114cb0B283D5",
+      "integrity": "0x6a6Af4b16458Bc39817e4019fB02BD3b26d41049",
+      "packer": "0x869718C939652084BC491fBC5ce0D3C1d5B309F0",
+      "multiSendUnwrapper": "0x93B7fCbc63ED8a3a24B59e1C3e6649D50B7427c0",
+      "source": "gnosisguild/zodiac-modifier-roles packages/evm/mastercopies.json at 218a5164 (v2.1.1)"
+    },
+    "openzeppelin-timelock": {
+      "version": "5.6.0",
+      "note": "TimelockController from @openzeppelin/contracts 5.6.0, unmodified; one instance per custody gate, deployed by its setup"
     }
   },
-  "forkTests": {
-    "suite": "contracts/evm/prime-seat/test/PrimeSeatSafe.t.sol",
-    "tests": 7,
-    "safeVersions": ["1.4.1 L2", "1.5.0 L2"],
+  "venues": {
+    "aaveV3Pool": "0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27",
+    "usdc": "0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f",
+    "aUsdc": "0x10F1A9D11CDf50041f3f8cB7191CBE2f31750ACC",
+    "note": "the Aave v3 test market on Base Sepolia; USDC here is Aave's test token"
+  },
+  "configCheck": {
+    "suite": "scripts/evm-config-check/test/ConfigOnly.t.sol",
+    "date": "2026-10-27",
     "forkUrl": "https://sepolia.base.org",
-    "block": "latest at run time"
+    "blockAtRun": 50898225,
+    "result": "2 of 2 tests (Safe 1.4.1 and Safe 1.5.0), 55 checks each; six altered configurations each fail it",
+    "log": "scripts/evm-config-check/run-2026-10-27.txt"
   },
   "custodyRun": {
     "date": "2026-09-29",
-    "note": "the custody design test of docs/evm.md (What was tested); no PrimeSeat in it",
+    "note": "the run with custody at a plain address (docs/evm.md, When custody is a plain address)",
     "custody": "0xD2b7126a24C1271c5714194C71AC1A8CDc6c7DE5",
     "gate": "0xAC00d5cAE9206367C4500a70d48BD0090876e4DB",
     "timelock": "0xf6A426D1529fd6305f643057B739d40bC1E73904",
     "primeAccount": "0x5F2E70c757900e967D8a84C9605539ba82802ab2"
-  },
-  "source": {
-    "buildHashes": "contracts/build-hashes.json",
-    "toolchain": "Foundry 1.8.4, solc 0.8.28, optimizer 200 runs, via_ir off, OpenZeppelin Contracts 5.4.0"
   }
 }
