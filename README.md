@@ -16,8 +16,9 @@ It is built as two halves:
   declared mandate, turns it into a rule written in the predicate's own wire
   shape, verifies that rule through the interpreter's `check` (a dry run that always fails with its verdict), renders
   a review tree, and returns an unsigned install transaction for the user's
-  wallet to sign. A CLI and an MCP server register the same nine tools from one
-  table, for shells and agents.
+  wallet to sign. A CLI and an MCP server register the same eleven tools from one
+  table, for shells and agents. Two of them, `solana_review` and `evm_review`,
+  are the owner's pre-sign check for Prime on Solana and on EVM.
 - **On chain**, the `policy-interpreter` Soroban contract evaluates the
   predicate on every guarded call, fail-closed: one audit-once engine, and
   every policy is declarative data fed into it, so a new combination of
@@ -158,6 +159,14 @@ measurements behind the limits.
   not mean safe. An agent can rewrite the bytes consistently, for example to
   make itself an admin, and they read signable, so the owner reads the Authority
   node against what they meant.
+- **The Solana and EVM reviews:** `solana_review` reads an unsigned Squads
+  Smart Account transaction and `evm_review` an unsigned Safe transaction, from
+  their bytes alone, and flag the configurations the configuration-only design
+  of [docs/solana.md](./docs/solana.md) and [docs/evm.md](./docs/evm.md) never
+  makes: a rule with no constraints, a `SettingsChange` policy on custody, an
+  unpinned destination or recipient, a withdraw without its `has_debt` read, an
+  under-read Roles scoping, the `revokeTarget` gap, trailing calldata. They read
+  no chain state, so `signable` again means no problem in the bytes.
 - **Contract signers:** the install reads each contract signer off the ledger
   and refuses an execution adapter bound to no gate, an execution adapter
   signing a rule scoped to itself that does not pin `call_fn = run`, or a
@@ -192,16 +201,16 @@ measurements behind the limits.
 | Understand the custody setup and the Prime seats | [docs/architecture.md](./docs/architecture.md) |
 | Read the Stellar contracts and the policy builder in detail | [docs/stellar.md](./docs/stellar.md) |
 | Read the EVM or Solana design | [docs/evm.md](./docs/evm.md), [docs/solana.md](./docs/solana.md) |
-| Build and install a policy from a shell | `packages/policy-builder-cli` (`policy-builder <tool>`, all nine tools) |
+| Build and install a policy from a shell | `packages/policy-builder-cli` (`policy-builder <tool>`, all eleven tools) |
 | Drive it from an agent | `packages/policy-builder-mcp` (MCP over stdio / Streamable HTTP) |
 
 ## Layout
 
 | Path | What it is |
 | --- | --- |
-| `packages/policy-synth` | The wire codec, the synthesiser and the nine tools (record, synthesize, simulate, verify, install, revoke, bind, info, review). Packaged as `@crediolabs/policy-synth`. |
+| `packages/policy-synth` | The wire codec, the synthesiser and the eleven tools (record, synthesize, simulate, verify, install, revoke, bind, info, review, and the Solana and EVM reviews). Packaged as `@crediolabs/policy-synth`. |
 | `packages/policy-builder-cli` | One command per tool, registered from the synth core's table (`@crediolabs/policy-builder-cli`). |
-| `packages/policy-builder-mcp` | MCP server exposing the nine policy tools (`@crediolabs/policy-builder-mcp`). |
+| `packages/policy-builder-mcp` | MCP server exposing the eleven policy tools (`@crediolabs/policy-builder-mcp`). |
 | `contracts/stellar/policy-interpreter` | The Soroban contract that enforces a predicate on chain. |
 | `contracts/stellar/custody-gate` | The custody account's gate: holds its allowance and releases only to listed addresses. |
 | `contracts/stellar/execution-adapter` | The per-Prime batcher, bound to one gate or to none. With a gate, a batch can wait a number of ledgers before it runs. |

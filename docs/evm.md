@@ -179,7 +179,14 @@ scoping was written. No condition reads the state of another contract, except
 scopings and reads them back from the module's events; Gnosis Guild's
 `zodiac-roles-sdk` and its Roles app at roles.gnosisguild.org write and show
 them too. The policy builder in this repository's `packages/` writes rules for
-the Stellar policy interpreter and has no EVM output.
+the Stellar policy interpreter only. For EVM it carries a reader, `evm_review`
+(`packages/policy-synth`): from the bytes of an unsigned Safe transaction alone
+it gives the hash the owners sign, decodes every Roles call and condition tree
+in it, and flags an open target, a condition that constrains nothing, a
+parameter layout that differs from the function's ABI, a recipient not pinned
+to the custody Safe, a `revokeTarget` without its functions, an unwrap adapter
+other than the Roles one and calldata past the last argument. It reads no
+chain state, so a module's stored scopes stay out of its view.
 
 ### Permissioned assets
 
@@ -422,7 +429,8 @@ contract of ours.
   reset only the target's clearance, and the function scopes stay stored and
   return when the target is scoped again (`PermissionBuilder.sol:72-97`). Revoke
   each function (`:118-125`) before the target, and give unrelated rules their
-  own role key.
+  own role key. `evm_review` flags a `revokeTarget` whose batch revokes none of
+  that target's functions, and warns on every `scopeTarget`.
 - **Unwrap adapters are owner settings:** the owner of a Roles module can
   register an adapter that splits calls before they are checked
   (`Periphery.sol:21-28`). On the gate only custody can, and a reader of the
@@ -430,7 +438,9 @@ contract of ours.
 - **Extra calldata after the last checked argument passes Roles:** a venue that
   reads `msg.data.length` or the last 20 bytes of calldata (an ERC-2771 trusted
   forwarder does) sees a different call, so rules should target venues that
-  decode arguments with the Solidity ABI decoder.
+  decode arguments with the Solidity ABI decoder. `evm_review` flags a scoping
+  whose `Matches` stops before the function's last argument, and warns on a
+  function whose ABI it does not know.
 - **Permissioned tokens need permissioned venues:** a venue that holds the
   token must have its addresses verified by the issuer, and the venue's own
   liquidation rules apply. Configuration adds no notice period.

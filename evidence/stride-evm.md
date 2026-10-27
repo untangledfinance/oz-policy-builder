@@ -87,7 +87,7 @@ Every threat has one ID by STRIDE category: `S-` spoofing, `T-` tampering, `R-` 
 - **TB7, the Prime account to the timelock, and the timelock to the gate:** the Prime account proposes and either party cancels; after the delay anyone executes, and the gate still pins the recovery to the trustee.
 - **TB8, the token to its holder:** a permissioned token moves only between holders its issuer has verified, and the issuer can freeze, force-transfer, recover or pause.
 - **TB9, the venue to its own governance:** the venue can upgrade or pause under its own rules, outside custody's control.
-- **TB10, the owner to the unsigned transaction:** what an owner signs is the wallet's rendering; the pre-sign read-back is off chain.
+- **TB10, the owner to the unsigned transaction:** what an owner signs is the wallet's rendering; the pre-sign check `evm_review` reads the same bytes off chain and gives the hash the owner signs.
 
 ## 5. Data flow
 
@@ -202,8 +202,8 @@ The Prime app writes the scopings and reads them back from the module's events; 
 
 | ID | STRIDE | Threat | Control | Verified | Status |
 |---|---|---|---|---|---|
-| T-10 | T | An owner signs a transaction that does more than the wallet shows | the design calls for a pre-sign read-back that simulates the transaction and reads every scoping, cap, member and unwrapper before a wallet signs; until it is built the owner relies on the wallet's rendering | `[src]` `docs/evm.md` "Tooling", "Setting it up" | Open, High |
-| E-10 | E | The SDK builds a scoping that reads differently from what the owner intended (an open target, an empty condition, a wrong layout) | the read-back must refuse an open target, an empty or `PASS`-only condition where a pin was meant, and a mismatched layout; the on-chain facts behind each are T-05, T-06, E-03, E-04 | `[fork:802,816]` the trailing-calldata and revokeTarget gaps are the concrete cases the reader must catch | Open, High |
+| T-10 | T | An owner signs a transaction that does more than the wallet shows | `evm_review` (`packages/policy-synth`) reads an unsigned Safe transaction from its bytes alone, with no RPC: the EIP-712 hash the owners sign, each call of a MultiSend batch, and every scoping, cap, member and unwrapper it writes. It reads no chain state, so a module's stored scopes, members and adapters still need a read of their own | `evm.test.ts`: the fork check's two configuration batches rebuilt byte for byte and judged signable, with the hashes the live Safe 1.4.1 computed on the fork | Open, Medium |
+| E-10 | E | The SDK builds a scoping that reads differently from what the owner intended (an open target, an empty condition, a wrong layout) | `evm_review` flags an open target (`allowTarget`), any arguments (`allowFunction`), a tree that constrains nothing, a `Matches` whose children differ from the function's ABI, a band's inner call with no selector `Bitmask`, a recipient not pinned to the avatar, a `revokeTarget` without its functions (T-06) and calldata past the last argument (T-05) | `[fork:802,816]` the concrete cases; `evm.test.ts` builds each as a change to the fork check's batch and sees it flagged | Open, Medium |
 | E-11 | E | The reader misses an unwrap adapter and under-reports what a batch can do | an adapter is an owner setting on the module (`Periphery.sol:21-28`); the reader must enumerate adapters as part of the rules | `[fork:790,794]` only the owner can register one, so the set is bounded and readable from the owner's own transactions | Open, Medium |
 | S-11 | S | The relayer or app substitutes a different transaction | an owner's wallet renders and signs the Safe hash; the relayer and app hold no custody funds and the chain never relies on them (`Safe.sol:274`) | `[src]` `docs/evm.md` "Owners" | Accepted |
 
@@ -270,8 +270,8 @@ Read-only evidence in the same run: custody holds the canceller role and not the
 
 | ID | Severity | Item | What would close it |
 |---|---|---|---|
-| T-10 | High | No pre-sign read-back is built for EVM, so an owner relies on the wallet's rendering | build the owner-side surface that simulates the transaction and reads every scoping, cap, member and unwrapper before a wallet signs |
-| E-10 | High | The SDK can build a scoping that reads differently from the intent (an open target, an empty condition, a wrong layout) | the read-back refuses an open target, an empty or `PASS`-only condition where a pin was meant, and a mismatched layout; test it against the T-05 and T-06 cases |
+| T-10 | Medium | `evm_review` checks the bytes of a Safe transaction; it reads no chain state | add a read of each module's stored scopings, caps, members and unwrappers before a wallet signs |
+| E-10 | Medium | The SDK can build a scoping that reads differently from the intent (an open target, an empty condition, a wrong layout) | `evm_review` flags each in the bytes, tested against the T-05 and T-06 cases; a scoping already on chain needs the chain read of T-10 |
 | T-05 | Medium (gap) | Calldata after the last pinned argument passes Roles | target venues that decode arguments with the Solidity ABI decoder; the read-back warns on a venue that reads `msg.data.length` or trailing bytes |
 | T-06 | Medium (gap) | `revokeTarget` keeps the function scopes, which return on re-`scopeTarget` | revoke each function before the target, and give unrelated rules their own role key; the read-back counts stored-but-dormant function scopes |
 | E-11 | Medium | An unwrap adapter is an owner setting the reader must enumerate | the read-back lists every adapter registered on each module |

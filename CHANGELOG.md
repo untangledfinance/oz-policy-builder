@@ -22,6 +22,22 @@ Stellar contract, record or build hash changed.
 - **EVM configuration check:** `scripts/evm-config-check`, a Foundry test that
   builds that configuration on a Base Sepolia fork and checks 55 moves and
   refusals on Safe 1.4.1 and on Safe 1.5.0.
+- **Solana and EVM pre-sign checks:** two tools in `@crediolabs/policy-synth`,
+  registered for the CLI and the MCP server like the other nine, and
+  `reviewSolana` and `reviewEvm` from the package root. `solana_review` reads
+  an unsigned Squads Smart Account transaction (a settings change, or an
+  execution) and `evm_review` an unsigned Safe transaction (Roles scopings,
+  allowances, members, a band, with the EIP-712 hash the owners sign), each
+  from its bytes alone with no RPC, in the envelope of `review_unsigned`. They
+  flag the configurations the configuration-only design never makes: on
+  Solana an empty rule (E-02), a `SettingsChange` policy on custody (E-03), a
+  spending limit with no destinations (E-04), an unpinned destination, a
+  withdraw without its `has_debt` read, a liquidation without its marked read,
+  a repay whose obligation is open; on EVM an open target or argument list, a
+  layout that differs from the function's ABI, a recipient not pinned to the
+  avatar, a `revokeTarget` without its functions, trailing calldata. The tests
+  read PayFi's own rule bytes and the fork check's two configuration batches,
+  with the hashes the live Safe computed. No new dependency.
 - **CI:** runs on pushes to `feat/primex`; a contract test step fails when it
   runs no test or skips one; the EVM job runs the configuration check on a
   Base Sepolia fork.

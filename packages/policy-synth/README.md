@@ -132,7 +132,7 @@ The RPC endpoint is the operator's: `POLICY_BUILDER_RPC_URL_<NETWORK>` (for
 example `POLICY_BUILDER_RPC_URL_TESTNET`), else the network default. It must be https, or
 http on loopback. No tool input takes an endpoint.
 
-## The nine tools
+## The eleven tools
 
 | Tool | What it does |
 | --- | --- |
@@ -145,6 +145,8 @@ http on loopback. No tool input takes an endpoint.
 | `bind_policy` | Unsigned `bind_executor((smartAccount, ruleId), executor)` on the interpreter: the rule then needs that executor's grant for every call (its own `run` excepted), and a keyless rule permits only what the executor vouches for. The rule is read first; see "Keyless rules and the executor binding". |
 | `get_interpreter_info` | The pin, its `limits` and the `ceilings`. `verifyLive` adds what is deployed now. |
 | `review_unsigned` | The owner's side: an unsigned install, removal or binding read from its bytes alone, with no RPC. `problems` lists what is wrong in the bytes; the review follows, and the owner must read it (see "The owner's review"). Also `reviewUnsigned` from the package root. |
+| `solana_review` | The owner's side on Solana: an unsigned Squads Smart Account transaction (a settings change that adds, edits or removes rules, or an execution) read from its bytes alone, with no RPC, and checked against the configuration-only design of `docs/solana.md`. Also `reviewSolana` from the package root. See "The Solana and EVM reviews". |
+| `evm_review` | The owner's side on EVM: an unsigned Safe transaction (Zodiac Roles v2.1.1 scopings, allowances, members, a band) read from its bytes alone, with no RPC, with the EIP-712 hash the owners sign, and checked against the configuration-only design of `docs/evm.md`. Also `reviewEvm` from the package root. See "The Solana and EVM reviews". |
 
 `TOOLS` (also `@crediolabs/policy-synth/run`) is the table the MCP server and the
 CLI register from. Each tool validates its input strictly, never throws, and
@@ -493,6 +495,124 @@ the owner meant. These come back signable:
 So the owner reads the Authority node (signers, who can act alone, admins,
 expiry, total) and the predicate against what they meant, and signs only
 then.
+
+## The Solana and EVM reviews
+
+Prime on Solana and on EVM is configuration of other teams' programs
+(`docs/solana.md`, `docs/evm.md`), so nothing on chain stops an owner from
+signing a configuration the design never makes. `solana_review` and
+`evm_review` are the owner's check before signing, in the shape of
+`review_unsigned`: they read the unsigned bytes and nothing else (no RPC, no
+key), and return `problems`, `warnings`, `signable`, `review` and
+`reviewTree`. A problem is a reason not to sign; a warning is allowed and must
+be known. Both refuse (`INVALID_INPUT`) bytes that do not decode as their
+transaction.
+
+**Solana (`solana_review`):** give the transaction (`transaction`, base64, with
+its signature slots) or its message alone (`message`), the `role` of the
+account (`custody`, the account that holds the funds; `prime`, the account
+whose bands call the custody rules) and `account` (the Squads account the
+owner means to act on). It reads `execute_settings_transaction_sync` and
+`create_settings_transaction` into the actions they take (owners, threshold,
+time lock, rules added, edited or removed, with every constraint and spending
+limit), and `execute_transaction_sync_v2` into the calls an execution makes,
+a band's nested execution of a custody rule included. Optional:
+`destinations` (the only keys a pinned destination may be), `signers` (the
+only keys a rule may list), `requireNoDebt`, `minTimeLock` and `vaultIndex`.
+It lists as problems:
+
+- a `ProgramInteraction` rule with no instruction constraints, which admits
+  any instruction (STRIDE E-02, `program_interaction.rs:859`);
+- a `SettingsChange` policy, which on custody changes its settings without the
+  3 of 3 and the trustee (E-03); a `SpendingLimit` policy or a legacy spending
+  limit, which with no destinations pays anyone (E-04); an
+  `InternalFundTransfer` policy; a hook;
+- a constraint with no discriminator or token tag pinned; a program the role
+  never pins (custody: klend and the token programs; prime: Squads'
+  `execute_transaction_sync_v2`); klend v1 or an instruction outside klend's
+  allowlist; a token Approve, SetAuthority, CloseAccount, freeze or extension
+  instruction;
+- a reserve, source or destination that is not pinned (the klend `_v2`
+  positions of payfi `solana/v2/rules.ts`, a token transfer or mint
+  destination, a band's account 0), or a destination outside `destinations`;
+- a repay whose obligation is not pinned: klend binds a repay to no owner
+  (`handler_repay_obligation_liquidity.rs:115-146`), so the vault could pay
+  down another obligation's debt;
+- a collateral withdraw without the `has_debt == 0` read (U8 at 2287, owner
+  klend) when the same change permits a borrow or `requireNoDebt` is set, and
+  one rule that admits both a borrow and a withdraw (Squads reads every
+  constraint before any inner instruction runs, so the read cannot stop both
+  in one execution); a liquidation without the marked read (U64 at 2336 above
+  0, owner klend);
+- a rule for another vault than custody's, a signer outside `signers`, a
+  threshold below 3 on custody or 2 on the Prime account, a settings time lock
+  below `minTimeLock`;
+- an execution under a `SettingsChange`, `SpendingLimit` or
+  `InternalFundTransfer` rule, and in any execution a call to a loader, a
+  token Approve or a destination outside `destinations`;
+- in the envelope: a signature already present, a durable nonce (once signed it
+  never expires), a top-level instruction beside compute budget and the Scope
+  and klend refreshes, the Squads account loaded from a lookup table, an
+  approval of a stored proposal (what it does is on chain), or `account`
+  absent or different.
+
+Its warnings: a rule edit refills the rule's spending limits for the period,
+and an edit with no expiry removes any expiry the rule had; spending limits
+count the net decrease of each token account; a rule with no expiry; no
+per-call ceiling on a deposit or a borrow; a settings time lock set to 0; a
+settings-level execution, which no rule constrains.
+
+**EVM (`evm_review`):** give the Safe transaction as `safeTx` (`to`, `value`,
+`data`, `operation`, the gas fields, `nonce`) or as `execTransaction`
+`calldata` with `nonce`, with `safe`, `chainId` (default 84532, Base Sepolia)
+and `role` (`custody`: the custody Safe and its gate; `prime`: the Prime
+account and its bands). It returns `safeTxHash`, the EIP-712 hash the owners
+sign, to compare with the wallet, and reads a MultiSend batch call by call,
+with each Roles scoping's condition tree. `recipients` lists the addresses
+besides the avatar a recipient may be pinned to (a trustee). It lists as
+problems:
+
+- an under-read scoping: `allowTarget` (every function), `allowFunction` or a
+  condition tree that constrains nothing (any arguments), an `Or` with one open
+  branch;
+- a wrong layout: a `Matches` whose children differ in number or type from the
+  function's ABI, so the arguments past the last one it reads pass unchecked;
+  a band's inner call with no `Bitmask` on exactly its four selector bytes;
+- on the custody gate, a recipient that is not `EqualToAvatar` or one of
+  `recipients` (`supply` and `deposit` `onBehalfOf`, `withdraw` `to`,
+  `transfer` and `transferFrom` `to`, `repay` `onBehalfOf`), an approval or
+  allowance spender that is not pinned, a borrow, credit delegation or Permit2;
+- a band that leaves the gate call's target, value, operation, role key or
+  `shouldRevert` open, or reaches `execTransactionFromModule`, which acts with
+  the caller's default role;
+- a `revokeTarget` with no `revokeFunction` for that target in the same
+  batch: `revokeTarget` keeps the function scopes, and they come back on the
+  next `scopeTarget` (`PermissionBuilder.sol:72-97`);
+- calldata past the last argument of any call it decodes;
+- a `Custom` condition, a `DelegateCall` execution option, an unwrap adapter
+  other than the Roles MultiSend unwrapper, a Roles module set up, re-owned or
+  re-pointed to another address than the Safe;
+- a delegatecall other than MultiSend 1.4.1 (and, inside a batch, CreateCall
+  deploying the exact Roles v2.1.1 proxy); a guard or fallback handler; a
+  threshold below 3 on custody or 2 on the Prime account; the Safe itself
+  calling a venue; a gas refund, value sent, signatures already present, or
+  `safe` absent.
+
+Its warnings: every `scopeTarget` (a function scope stored before comes back
+with it, and the stored scopes are not in the bytes), a band that leaves a
+recipient for the gate to pin, no ceiling on a band's amount, a function with
+no known ABI, and owner changes.
+
+**What `signable` covers:** as for `review_unsigned`, it means no problem was
+found in the bytes. An agent holding the unsigned bytes can rewrite them
+consistently (itself as a signer, a larger cap, another address pinned), and
+they read signable, so the owner reads the review (each rule's signers, who
+can act alone, expiry, every constraint and limit; each scoping's tree) against
+what they meant. What sits on chain stays out of view: an existing rule's
+constraints, a Roles module's stored function scopes, a proposal's actions.
+The fixtures are PayFi's own rule bytes (`fixtures/solana/payfi-golden.json`)
+and the fork check's two configuration batches with the hashes the live Safe
+computed (`fixtures/evm/configonly-golden.json`).
 
 ## Security model
 
