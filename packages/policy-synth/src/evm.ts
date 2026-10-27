@@ -979,9 +979,11 @@ export function reviewEvm(i: {
         )
         break
       case 'revokeTarget':
+        // Allowed (removing a venue is a legitimate change, and it takes effect at once), but the
+        // owner must know the function scopes stay stored and revive on a later scopeTarget.
         if (!revoked.has(`${arg(0)}|${arg(1)}`))
-          flag(
-            `${where} revokes target ${arg(1)} for role ${role(0)} without revoking its functions in the same batch: revokeTarget keeps every function scope, and they come back as they were when the target is scoped again (PermissionBuilder.sol:72-97); revoke each function too, or to stop the role at once use assignRoles(member, [role], [false]) or disableModule`
+          warn(
+            `${where} revokes target ${arg(1)} for role ${role(0)} without revoking its functions in the same batch: the target is closed at once, but every function scope on it stays stored and comes back as it was if the target is scoped again (PermissionBuilder.sol:72-97); to remove the target for good, revokeFunction each of its functions too`
           )
         else
           warn(

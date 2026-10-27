@@ -585,9 +585,6 @@ problems:
 - a band that leaves the gate call's target, value, operation, role key or
   `shouldRevert` open, or reaches `execTransactionFromModule`, which acts with
   the caller's default role;
-- a `revokeTarget` with no `revokeFunction` for that target in the same
-  batch: `revokeTarget` keeps the function scopes, and they come back on the
-  next `scopeTarget` (`PermissionBuilder.sol:72-97`);
 - calldata past the last argument of any call it decodes;
 - a `Custom` condition, a `DelegateCall` execution option, an unwrap adapter
   other than the Roles MultiSend unwrapper, a Roles module set up, re-owned or
@@ -598,8 +595,12 @@ problems:
   calling a venue; a gas refund, value sent, signatures already present, or
   `safe` absent.
 
-Its warnings: every `scopeTarget` (a function scope stored before comes back
-with it, and the stored scopes are not in the bytes), a band that leaves a
+Its warnings: a `revokeTarget` with no `revokeFunction` for that target in
+the same batch (the target closes at once, but `revokeTarget` keeps its
+function scopes, which come back on a later `scopeTarget`,
+`PermissionBuilder.sol:72-97`; to remove a venue for good, revoke each function
+too), every `scopeTarget` (a function scope stored before comes back with it,
+and the stored scopes are not in the bytes), a band that leaves a
 recipient for the gate to pin, no ceiling on a band's amount, a function with
 no known ABI, and owner changes.
 

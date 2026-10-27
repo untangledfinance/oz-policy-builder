@@ -184,8 +184,9 @@ the Stellar policy interpreter only. For EVM it carries a reader, `evm_review`
 it gives the hash the owners sign, decodes every Roles call and condition tree
 in it, and flags an open target, a condition that constrains nothing, a
 parameter layout that differs from the function's ABI, a recipient not pinned
-to the custody Safe, a `revokeTarget` without its functions, an unwrap adapter
-other than the Roles one and calldata past the last argument. It reads no
+to the custody Safe, an unwrap adapter other than the Roles one and calldata
+past the last argument. A `revokeTarget` without its functions comes back as a
+warning. It reads no
 chain state, so a module's stored scopes stay out of its view.
 
 ### Permissioned assets
@@ -429,8 +430,8 @@ contract of ours.
   reset only the target's clearance, and the function scopes stay stored and
   return when the target is scoped again (`PermissionBuilder.sol:72-97`). Revoke
   each function (`:118-125`) before the target, and give unrelated rules their
-  own role key. `evm_review` flags a `revokeTarget` whose batch revokes none of
-  that target's functions, and warns on every `scopeTarget`.
+  own role key. `evm_review` warns on a `revokeTarget` whose batch revokes none
+  of that target's functions, and on every `scopeTarget`.
 - **Unwrap adapters are owner settings:** the owner of a Roles module can
   register an adapter that splits calls before they are checked
   (`Periphery.sol:21-28`). On the gate only custody can, and a reader of the
