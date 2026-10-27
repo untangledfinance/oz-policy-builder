@@ -1,0 +1,28 @@
+# evm-config-check run, 2026-10-27 11:45 UTC
+# forge 1.8.4, solc 0.8.28, OpenZeppelin Contracts 5.6.0 (npm), fork of Base Sepolia (84532) via https://sepolia.base.org at block ~50898225
+# command: FORK_URL=https://sepolia.base.org ../../contracts/assert-tests.sh 2 forge test -vvvv (trace lines dropped; the two emitted counters kept)
+No files changed, compilation skipped
+Ran 2 tests for test/ConfigOnly.t.sol:ConfigOnlyTest
+[PASS] test_configOnly_safe141() (gas: 10884987)
+Traces:
+  [10963887] ConfigOnlyTest::test_configOnly_safe141()
+[PASS] test_configOnly_safe150() (gas: 10881644)
+Traces:
+  [10960544] ConfigOnlyTest::test_configOnly_safe150()
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 9.27s (17.11s CPU time)
+Ran 1 test suite in 9.32s (9.27s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+assert-tests: 2 passed, 0 skipped or ignored (minimum 2 passed, none skipped)
+[PASS] test_configOnly_safe141() (gas: 10884987)
+    ├─ emit log_move_gas(: 596233 [5.962e5])
+    ├─ emit log_count(: 55)
+[PASS] test_configOnly_safe150() (gas: 10881644)
+    ├─ emit log_move_gas(: 601133 [6.011e5])
+    ├─ emit log_count(: 55)
+
+# Six altered configurations, each applied alone to test/ConfigOnly.t.sol and run on the Safe 1.4.1 test; each must fail:
+M1 gate: supply onBehalfOf left open: [FAIL: not a ConditionViolation] test_configOnly_safe141()
+M2 band: top raised from 100 to 1,000: [FAIL: agent over its band (100)] test_configOnly_safe141()
+M3 band: inner selector pinned to withdraw: [FAIL: agent batch approve + supply 10] test_configOnly_safe141()
+M4 gate: withdraw recipient left open: [FAIL: withdraw to a stranger] test_configOnly_safe141()
+M5 gate: custody daily cap raised to 2,000: [FAIL: custody's daily cap reached, even for the Prime owners] test_configOnly_safe141()
+M6 recovery: trustee pin removed: [FAIL: but the gate refuses to pay a stranger] test_configOnly_safe141()
