@@ -304,7 +304,7 @@ and then the move uses all 5.
 withdraw check that they run at the top level, or under a program on a short
 list, and refuse with `CpiDisabled` (`utils/refresh_ix_utils.rs:35-66`,
 `lending_market/ix_utils.rs:53-90`). The list holds Squads' v3 and v4 multisig
-programs, without the Smart Account program (`utils/consts.rs:223-240`). The
+programs and the Smart Account program itself (`utils/consts.rs:224`), but at level 1 the whitelist admits a CPI only to stack height two; a custody rule reaches klend at height three (the Prime execution calls the custody rule's execution, which calls klend), so v1 still refuses it with `CpiDisabled` because the depth exceeds that allowance. The
 `_v2` instructions skip that check (`handlers/handler_borrow_obligation_liquidity.rs:41-58`
 against `process_v1` at `24-39`), so every custody rule pins the `_v2`
 instructions. Kamino may close that path; a written answer from Kamino that
