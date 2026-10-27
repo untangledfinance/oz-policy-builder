@@ -238,4 +238,4 @@ jobs:
       - name: Configuration check on a Base Sepolia fork
         env:
           FORK_URL: https://sepolia.base.org
-        run: ../../contracts/assert-tests.sh 2 forge test
+        run: ../../contracts/assert-tests.sh 4 forge test

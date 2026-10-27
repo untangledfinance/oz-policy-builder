@@ -1,0 +1,33 @@
+# evm-config-check STRIDE attack run, 2026-10-27 13:xx UTC
+# forge 1.8.4, solc 0.8.28 via_ir, OpenZeppelin Contracts 5.6.0 (npm), fork of Base Sepolia (84532) via https://sepolia.base.org at block ~50921846
+# command: FORK_URL=https://sepolia.base.org forge test --match-contract ConfigOnlyTest -vv
+# The STRIDE attack cases (test_stride_safe141, test_stride_safe150) extend the configuration
+# check with proof-of-concept attacks. They deploy only existing code, the same as the base
+# check: Safe proxies, Zodiac Roles v2.1.1 ERC-1167 proxies, OpenZeppelin TimelockController 5.6.0.
+
+Ran 4 tests for test/ConfigOnly.t.sol:ConfigOnlyTest
+[PASS] test_configOnly_safe141() (gas: 10885116)   # base check, 55 checks
+[PASS] test_configOnly_safe150() (gas: 10881776)   # base check, 55 checks
+[PASS] test_stride_safe141()    (gas: 6871391)     # STRIDE attacks, 26 checks (emit log_count: 26)
+[PASS] test_stride_safe150()    (gas: 6852007)     # STRIDE attacks, 26 checks (emit log_count: 26)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 10.20s
+
+# Attack evidence captured from -vvvv (each refusal returns the exact Safe or Roles status):
+#   stranger on the custody module path .................. Revert GS104   (only an enabled module drives the Safe)
+#   stranger adding a custody owner directly ............. Revert GS031   (owner management is a self-call only)
+#   stranger scoping a gate target ...................... Revert OwnableUnauthorizedAccount(stranger)
+#   stranger raising custody's cap ...................... Revert OwnableUnauthorizedAccount(stranger)
+#   stranger registering an unwrap adapter .............. Revert OwnableUnauthorizedAccount(stranger)
+#   the Prime account registering an unwrap adapter ..... Revert OwnableUnauthorizedAccount(prime)
+#   a stranger cancels a scheduled recovery ............. Revert AccessControlUnauthorizedAccount(stranger, CANCELLER_ROLE)
+#   a supply once the pool target is revoked ............ Revert ConditionViolation(2)   TargetAddressNotAllowed
+#   a supply once the daily budget is zero .............. Revert ConditionViolation(17)  AllowanceExceeded
+#   a Safe transaction with one agent signature ......... Revert GS020   (one signature cannot meet the 2-of-3 threshold)
+#
+# Documented gaps that pass (honest weaknesses, called out in evidence/stride-evm.md):
+#   GAP: a supply with 32 bytes of trailing calldata still passes the gate (the venue's ABI decoder drops them)
+#   GAP: the stored supply scope returns after revokeTarget then scopeTarget (re-scoping re-opens the old functions)
+#
+# Read-only evidence:
+#   custody holds CANCELLER_ROLE, not DEFAULT_ADMIN_ROLE; the timelock administers itself; the executor role is open (role zero holder address(0))
+#   the gate and the bands module are each a 45-byte ERC-1167 minimal proxy whose runtime hard-codes the Roles v2.1.1 mastercopy 0xF2964CE6161ce0e75964Fe7927cE114cb0B283D5 (no admin, no upgrade path)
