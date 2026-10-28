@@ -43,6 +43,28 @@
     "result": "RefLine.t.sol (the design of docs/evm.md, with the move timelock): 2 of 2 tests, Safe 1.4.1 and Safe 1.5.0, 128 checks each. ConfigOnly.t.sol (the base checks, the Prime account as the gate trading member): 2 of 2 tests, 55 checks each, at block 50898225; six altered configurations each fail it",
     "log": "scripts/evm-config-check/run-2026-10-27.txt"
   },
+  "leverageYield": {
+    "status": "fork-verified on Base Sepolia against the live contracts; the live on-chain run is pending a funded key",
+    "date": "2026-10-28",
+    "note": "the config-only leverage-yield execution adapter for the tokenised-gold carry flow: a Zodiac Roles policy template on the custody gate plus a Safe MultiSend batch, no contract of Prime's. It adds no production contract, no wasm and no build-hashes.json entry. The gate registers the Roles MultiSend unwrapper for MultiSendCallOnly, so one batch is split and each inner call checked against the leverage-yield role, then the custody Safe runs the batch atomically.",
+    "suite": "scripts/evm-config-check/test/LeverageYield.t.sol",
+    "forkUrl": "https://sepolia.base.org",
+    "result": "2 of 2 tests, Safe 1.4.1 and Safe 1.5.0, 31 checks each: the open runs atomically (supply gold + borrow stable + deposit yield), the borrow cap bounds the leverage, Aave's health factor still applies, the close runs atomically (redeem + repay-max + withdraw-max), and every out-of-scope call is refused with its Roles status",
+    "log": "scripts/evm-config-check/run-leverage-2026-10-28.txt",
+    "evidence": "evidence/evm-leverage-yield.md",
+    "assets": {
+      "goldStandIn": "0xD171b9694f7A2597Ed006D41f7509aaD4B485c4B (cbETH, 18 decimals; an Aave v3 collateral reserve, LTV 82.5%, supplied and withdrawn only). First choice WBTC has a full supply cap (175 of 175) on the test market.",
+      "borrowStable": "0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f (USDC, 6 decimals)",
+      "yieldSource": "MockVault, a test fixture only (a minimal ERC-4626-shaped vault under the Foundry test directory); no liquid ERC-4626 vault on Base Sepolia lists the borrow stablecoin",
+      "aaveV3Pool": "0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27",
+      "faucet": "0xD9145b5F45Ad4519c7ACcD6E0A4A82e83bB8A6Dc (mint(token, to, amount))"
+    },
+    "onChainRun": {
+      "status": "pending a funded key",
+      "reason": "the throwaway deployer the reference line used (0x00ccd1A17fD215d8104e712a220AbA6aA6D5F901) still holds about 0.0144 test ETH on Base Sepolia, but its key file was removed in a disk cleanup; a Base Sepolia faucet needs a login or CAPTCHA, so a fresh key cannot be funded without a human",
+      "freshDeployer": "0x41524EF4C574377c4e780f409337Bf03C52Faa11"
+    }
+  },
   "referenceLine": {
     "status": "on chain: Base Sepolia, 27 October 2026; every transaction read back from a second RPC (status and block)",
     "date": "2026-10-27",
