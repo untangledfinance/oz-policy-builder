@@ -323,6 +323,52 @@ describe('get_interpreter_info: only a trusted interpreter is read from', () => 
 })
 
 describe('synthesize_policy', () => {
+  // the gate walks the produced predicate, and a self-referential minOut is refused at
+  // the input.
+  it('an intent cap under `some` is still questioned (walks the finished rule)', async () => {
+    const intent = {
+      calls: [
+        {
+          contract: TOKEN,
+          fn: 'submit',
+          where: [
+            {
+              constraint: 'some',
+              at: [3],
+              where: [{ constraint: 'cap', at: ['amount'], max: '5' }],
+            },
+          ],
+        },
+      ],
+    }
+    const r = await call('synthesize_policy', { intent }, false)
+    expect(r.ok).toBe(true)
+    expect(r.data.ambiguities.map((a: { code: string }) => a.code)).toContain(
+      'AMOUNT_BOUND_MISSING'
+    )
+  })
+
+  it('refuses a minOut that bounds an output by itself', async () => {
+    const intent = {
+      calls: [
+        {
+          contract: TOKEN,
+          fn: 'swap_exact_tokens_for_tokens',
+          where: [
+            { constraint: 'cap', at: [0], max: '5' },
+            { constraint: 'minOut', at: [1], of: [1], num: '99', den: '100' },
+          ],
+        },
+      ],
+    }
+    await failing(
+      'synthesize_policy',
+      { intent },
+      'INVALID_INPUT',
+      /minOut bounds an output by itself/
+    )
+  })
+
   it('a payment: who is pinned, the amount is a question, and the review says so', async () => {
     const r = await call('synthesize_policy', { xdr: transferXdr() }, false)
     expect(r.ok).toBe(true)
@@ -369,7 +415,9 @@ describe('synthesize_policy', () => {
       limit: '9000000',
       allow: { to: [account(2)] },
     })
-    expect(r.data.rules[0].review.at(-2)).toContain('GABAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEJXA («to»)')
+    expect(r.data.rules[0].review.at(-2)).toContain(
+      'GABAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEJXA («to»)'
+    )
   })
 
   it('the first name an address is given stays; a numbered list is not a name', async () => {
@@ -769,7 +817,9 @@ describe('install_policy', () => {
       'Authority',
     ])
     const text = review.join('\n')
-    expect(text).toContain('signer:  GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB ([source account])')
+    expect(text).toContain(
+      'signer:  GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB ([source account])'
+    )
     expect(text).toContain('to act:  any 2 of these 2 signers must approve')
     expect(text).toContain(
       'admins:  GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB ([source account]) (all of them together: alone, may uninstall the predicate, which stops the rule; with the account, may re-install, replace the admins or bind an executor)'
@@ -820,7 +870,9 @@ describe('install_policy', () => {
       contract: TOKEN,
       allowOverlap: true,
     })
-    expect(r.data.rule.review.join('\n')).toContain('GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB ([source account])')
+    expect(r.data.rule.review.join('\n')).toContain(
+      'GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB ([source account])'
+    )
   })
 
   it('a signer the account does not share is a clean install', async () => {
@@ -935,7 +987,10 @@ describe('install_policy', () => {
       const text = r.data.rules[0].review.join('\n')
       // Either shown as the caller's («word») or, when it is not plain words, not shown at all; never bracketed.
       expect(text).not.toMatch(/GABAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEJXA \(\[/)
-      if (/^[A-Za-z][\w .-]{0,23}$/.test(word)) expect(text).toContain(`GABAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEJXA («${word}»)`)
+      if (/^[A-Za-z][\w .-]{0,23}$/.test(word))
+        expect(text).toContain(
+          `GABAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEJXA («${word}»)`
+        )
       else expect(text).not.toContain('GABAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEJXA (')
     }
   })
@@ -947,7 +1002,9 @@ describe('install_policy', () => {
       allow: { payee: [SIGNER] },
     })
     const text = r.data.rule.review.join('\n')
-    expect(text).toContain('GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB ([source account])')
+    expect(text).toContain(
+      'GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB ([source account])'
+    )
     expect(text).not.toContain('«payee»')
   })
 

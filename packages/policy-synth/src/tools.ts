@@ -152,6 +152,16 @@ const nesting = (where: unknown, depth = 1): number => {
   }
   return max
 }
+/** Whether any `minOut` in a constraint tree bounds an output by itself (`at` equals `of`): such a
+ *  floor permits a trade at any price, so it is refused rather than mistaken for a slippage bound
+ */
+const selfMinOut = (where: unknown): boolean =>
+  Array.isArray(where) &&
+  where.some((r) => {
+    const c = r as { constraint?: string; at?: unknown; of?: unknown; where?: unknown }
+    if (c.constraint === 'minOut' && JSON.stringify(c.at) === JSON.stringify(c.of)) return true
+    return selfMinOut(c.where)
+  })
 const intent = z
   .object({
     calls: z
@@ -165,12 +175,18 @@ const intent = z
   })
   .strict()
   .superRefine((i, ctx) => {
-    for (const c of i.calls)
+    for (const c of i.calls) {
       if (nesting(c.where) > MAX_INTENT_DEPTH)
         ctx.addIssue({
           code: 'custom',
           message: `${c.fn}: constraints nested deeper than ${MAX_INTENT_DEPTH}`,
         })
+      if (selfMinOut(c.where))
+        ctx.addIssue({
+          code: 'custom',
+          message: `${c.fn}: minOut bounds an output by itself (\`at\` equals \`of\`), which is no floor; bound it by the input amount or a constant`,
+        })
+    }
   })
 
 const call = z.object({ contract: contractId, fn: z.string().min(1), args: z.array(val) }).strict()
@@ -310,6 +326,12 @@ const questions = (as: Synthesis['ambiguities']) => ({
   openSlippage: as.find((a) => a.code === 'SLIPPAGE_FLOOR_MISSING')?.question,
 })
 
+/** The questions a set carries, each once: the recorded ones and those the FINISHED predicate still
+ *  leaves open are merged, so the gate is judged on the rule produced, not on the input shape. */
+const uniqueQuestions = (as: Synthesis['ambiguities']): Synthesis['ambiguities'] => [
+  ...new Map(as.map((a) => [a.question, a])).values(),
+]
+
 const present = (r: ReturnType<typeof propose>[number]) => ({
   contract: r.contract,
   predicate: r.expr,
@@ -448,13 +470,20 @@ const synthesize_policy = tool(
     // Proposing needs no live interpreter: the pin's recorded limits are its limits.
     const pin = INTERPRETER[i.network]
     const rules = propose(s.intent, pin?.limits)
+    // The gate is judged on the FINISHED rule: walk each produced predicate and merge what it still
+    // leaves open with what the recording asked, so a cap under `some`, a cap on one index, or a
+    // self-referential minOut (which the input-shape check misses) is still a question here.
+    const ambiguities = uniqueQuestions([
+      ...s.ambiguities,
+      ...rules.flatMap((r) => unboundedExpr(r.expr)),
+    ])
     return {
       intent: s.intent,
       rules: rules.map((r) => ({ ...present(r), ...explain(i, r) })),
       heldTo: pin
         ? `the limits recorded for ${pin.address}`
         : `the default limits (no interpreter is pinned for ${i.network})`,
-      ambiguities: s.ambiguities,
+      ambiguities,
       warnings: s.warnings,
       ...(s.recording ? { recording: s.recording } : {}),
     }
@@ -635,7 +664,13 @@ const install_policy = tool(
       }
     } else {
       const s = await sourceOf(i)
-      rule = { ...pick(propose(s.intent, caps), i.contract), ...questions(s.ambiguities) }
+      const chosen = pick(propose(s.intent, caps), i.contract)
+      // The amount and slippage gate is judged on the predicate actually being installed, walked the
+      // same way as an encoded or followed one, so a source cannot slip an uncapped rule past it.
+      rule = {
+        ...chosen,
+        ...questions(uniqueQuestions([...s.ambiguities, ...unboundedExpr(chosen.expr)])),
+      }
     }
     const server = connect(i)
     const chain: Chain = {

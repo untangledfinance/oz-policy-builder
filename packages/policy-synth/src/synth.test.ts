@@ -392,6 +392,110 @@ describe('an encoded predicate is asked about the least output too', () => {
   })
 })
 
+// the safety gate walks the FINISHED rule, so none of the shapes that pinned the
+// INPUT while leaving the produced rule uncapped slips through. Honest forms still pass.
+describe('the gate is judged on the produced rule, not the input shape', () => {
+  const amt = { i128: '9' }
+  const pin = (fn: string, ...rest: Expr[]): Expr => [
+    'and',
+    [['eq', ['call_contract'], C], ['eq', ['call_fn'], fn], ...rest],
+  ]
+  const codes = (e: Expr) => unboundedExpr(e).map((a) => a.code)
+
+  it('a cap under `some` (not `each`) does not cap the requests', () => {
+    expect(
+      codes(pin('submit', ['any', ['call_arg', 3], ['lte', ['elem', 'amount'], amt]]))
+    ).toEqual(['AMOUNT_BOUND_MISSING'])
+    // The honest `each` form caps every element, and asks nothing.
+    expect(
+      codes(pin('submit', ['all', ['call_arg', 3], ['lte', ['elem', 'amount'], amt]]))
+    ).toEqual([])
+  })
+
+  it('a cap on requests[0] alone does not cap them all', () => {
+    expect(codes(pin('submit', ['lte', ['call_path', 3, 0, 'amount'], amt]))).toEqual([
+      'AMOUNT_BOUND_MISSING',
+    ])
+    // With a length bound of one and a cap on that one element, it is covered.
+    expect(
+      codes(
+        pin(
+          'submit',
+          ['lte', ['call_path', 3, 0, 'amount'], amt],
+          ['lte', ['call_path', 3, true], 1]
+        )
+      )
+    ).toEqual([])
+  })
+
+  it('a minOut that bounds the output by itself is no floor', () => {
+    const swap = (floor: Expr) =>
+      pin('swap_exact_tokens_for_tokens', ['lte', ['call_arg', 0], amt], floor)
+    const scaled = (src: number): Expr => [
+      'scaled',
+      ['call_arg', src],
+      { i128: '99' },
+      { i128: '100' },
+      { i128: '0' },
+    ]
+    // amount_out_min >= amount_out_min * 99/100 permits a trade at any price.
+    expect(codes(swap(['gte', ['call_arg', 1], scaled(1)]))).toEqual(['SLIPPAGE_FLOOR_MISSING'])
+    // amount_out_min >= amount_in * 99/100 is an honest slippage floor.
+    expect(codes(swap(['gte', ['call_arg', 1], scaled(0)]))).toEqual([])
+  })
+
+  it('the allowance-based value movers are asked too (SYNTH-CORE-01)', () => {
+    // transfer_from, burn_from and submit_with_allowance move value under an allowance, so an
+    // uncapped rule over any of them is a question, like transfer and submit.
+    for (const fn of ['transfer_from', 'burn_from', 'submit_with_allowance'])
+      expect(codes(pin(fn, ['eq', ['call_arg', 0], A]))).toEqual(['AMOUNT_BOUND_MISSING'])
+    // transfer_from's amount is argument 3; capping it answers the question.
+    expect(codes(pin('transfer_from', ['lte', ['call_arg', 3], amt]))).toEqual([])
+  })
+
+  it('a scaled slippage floor must be a ratio of the input amount with a non-negative add (SYNTH-CORE-02)', () => {
+    const swap = (floor: Expr) =>
+      pin('swap_exact_tokens_for_tokens', ['lte', ['call_arg', 0], amt], floor)
+    const sc = (src: number, num: string, den: string, add: string): Expr => [
+      'scaled',
+      ['call_arg', src],
+      { i128: num },
+      { i128: den },
+      { i128: add },
+    ]
+    // A negative add, or a source that is not the input amount (here the deadline), admits a 0 output.
+    expect(codes(swap(['gte', ['call_arg', 1], sc(0, '1', '1', '-1')]))).toEqual([
+      'SLIPPAGE_FLOOR_MISSING',
+    ])
+    expect(codes(swap(['gte', ['call_arg', 1], sc(4, '99', '100', '0')]))).toEqual([
+      'SLIPPAGE_FLOOR_MISSING',
+    ])
+    // The honest floor (a ratio of amount_in, non-negative add) passes.
+    expect(codes(swap(['gte', ['call_arg', 1], sc(0, '99', '100', '0')]))).toEqual([])
+  })
+
+  it('a known function recorded with the wrong number of arguments is refused', () => {
+    // A transfer without its amount (two args, not three): the rule would never bound the amount.
+    expect(() => synthesize([{ contract: C, fn: 'transfer', args: [A, A] }])).toThrow(
+      /transfer: recorded with 2 argument\(s\), but transfer takes 3/
+    )
+    // A swap without its deadline (four args, not five): amount_out_min would be mis-typed.
+    expect(() =>
+      synthesize([
+        {
+          contract: C,
+          fn: 'swap_exact_tokens_for_tokens',
+          args: [{ i128: '5' }, { i128: '1' }, [C], A],
+        },
+      ])
+    ).toThrow(/recorded with 4 argument\(s\), but swap_exact_tokens_for_tokens takes 5/)
+    // The honest, complete forms synthesise (no over-restriction).
+    expect(() =>
+      synthesize([{ contract: C, fn: 'transfer', args: [A, A, { i128: '5' }] }], { limit: '5' })
+    ).not.toThrow()
+  })
+})
+
 describe('synthesis from what was recorded', () => {
   it('a SEP-41 transfer: pin who, cap how much; no cap is a question, not a guess', () => {
     const [call] = recording('sep41').contexts as [Call]

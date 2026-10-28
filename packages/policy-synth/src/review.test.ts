@@ -168,11 +168,46 @@ describe('reviewUnsigned: an honest build, read back from its bytes', () => {
     expect(r.review[0]).toBe('Transaction')
     expect(r.review).toContain('Authority')
     const text = r.review.join('\n')
-    expect(text).toContain('calls:  CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P ([smart account])  add_context_rule')
+    expect(text).toContain(
+      'calls:  CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P ([smart account])  add_context_rule'
+    )
     expect(text).toContain('expires:  never expires')
     expect(text).toContain('total:  no total limit')
     expect(text).toMatch(/authorisation: {2}by rule 0, valid through ledger \d+/)
     expect(text).toContain('must be at most  500')
+    // The honest, capped build warns about nothing (no over-restriction).
+    expect(r.warnings.some((w) => w.includes('what is the most'))).toBe(false)
+  })
+
+  it('warns when the installed predicate leaves an amount uncapped', async () => {
+    // Take the honest build and edit its predicate to an uncapped transfer (as an override, or a
+    // bypass, could): the review walks the finished predicate and warns, so an uncapped rule is never
+    // signed in silence.
+    install.done = (await install()).unsignedXdr
+    const enc = encode(
+      callExpr({
+        contract: XLM,
+        fn: 'transfer',
+        where: [{ constraint: 'pin', at: [0], to: ACCOUNT }],
+      })
+    )
+    const uncappedXdr = edit(install.done as string, (env) => {
+      const a = callArgs(env).args()
+      const policies = fromScVal(a[4] as xdr.ScVal) as { map: [Val, { map: [string, Val][] }][] }
+      for (const [, p] of policies.map)
+        for (const kv of p.map ?? []) {
+          if (kv[0] === 'predicate') kv[1] = { bytes: Buffer.from(enc, 'base64').toString('hex') }
+          if (kv[0] === 'predicate_hash') kv[1] = { bytes: hashOf(enc) }
+        }
+      a[4] = toScVal(policies)
+      resign(env)
+    })
+    const r = review(uncappedXdr)
+    expect(r.warnings.some((w) => w.includes('transfer') && w.includes('what is the most'))).toBe(
+      true
+    )
+    // It is a warning, not a problem: the bytes may have used an override, which this review cannot see.
+    expect(r.signable).toBe(true)
   })
 
   it('every authority line is read from the bytes: a weighted threshold, a rolling total, an expiry, two admins', async () => {

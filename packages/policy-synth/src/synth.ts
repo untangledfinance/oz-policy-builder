@@ -61,6 +61,25 @@ export function synthesize(contexts: Call[], answers: Answers = {}): Synthesis {
 function callIntent(c: Call, a: Answers, out: Synthesis): CallIntent {
   const known = identify(c.fn, c.args)
   if (!known) {
+    // A function the registry knows BY NAME but recorded with the WRONG NUMBER of arguments is
+    // refused, never treated as unknown: its arguments no longer line up with the roles the registry
+    // gives them, so the amount cap or slippage floor the real function needs would be missed and the
+    // gate would pass an uncapped rule. A matching count whose shape differs is pinned
+    // as recorded (every argument fixed to its exact value), which is tight, so it is allowed through.
+    const rows = Object.values(PROTOCOLS).flatMap((fns) =>
+      Object.hasOwn(fns, c.fn) ? [fns[c.fn] as [string, Kind][]] : []
+    )
+    if (rows.length > 0 && !rows.some((r) => r.length === c.args.length)) {
+      const r = rows[0] as [string, Kind][]
+      throw new Refusal(
+        'SYNTHESIS_ERROR',
+        `${c.contract}.${c.fn}: recorded with ${c.args.length} argument(s), but ${c.fn} takes ${r.length} (${r
+          .map(([n]) => n)
+          .join(
+            ', '
+          )}); the recorded call does not match the function the registry knows, so no rule is scoped to it`
+      )
+    }
     out.warnings.push(
       `${c.contract}.${c.fn} is not a function the registry knows: every argument that is not an amount is pinned to its recorded value`
     )
@@ -183,6 +202,11 @@ export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
     }
     const named = [...new Set(selectors(and(branch)).map((s) => s.fn))]
     const fns = named.filter((f) => f !== '*')
+    // The leaves that carry the call's amount arguments, for a `scaled` slippage floor: a floor is a
+    // ratio OF THE INPUT AMOUNT, so its source must be one of these, not the output itself, a
+    // deadline or anything else (SYNTH-CORE-02).
+    const amountLeaves = (fn: string) =>
+      rowOf(fn).flatMap(([, k], j) => (k === 'amount' ? [canon(['call_arg', j])] : []))
     // A branch that names no function serves every function, with any amount.
     if (named.includes('*')) {
       const q = {
@@ -200,16 +224,20 @@ export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
         if (kind === 'amount')
           q = upper.some((b) => canon(b.at) === at) ? undefined : missing(ask, name)
         else if (kind === 'min') {
-          // More than nothing: `>= 0` and `> -1` admit every output; a scaled floor is a ratio.
+          // More than nothing: `>= 0` and `> -1` admit every output. A `scaled` floor is a ratio of
+          // the INPUT AMOUNT: its source must be an amount argument of the call (never the output
+          // itself, a deadline, or another leaf), and its additive term must be non-negative, or the
+          // floor can be driven to zero (`out >= in * 1/10^18`, `out >= in * 1 - 2^126`, or a scaled
+          // of the wrong argument all admit an output of 0).
+          const amounts = amountLeaves(fn)
           const floor = (b: Bound) => {
+            if (canon(b.at) !== at || !(b.op === 'gte' || b.op === 'gt')) return false
+            if (isSelector(b.to) && b.to[0] === 'scaled') {
+              const addN = intOf(unlit(b.to[4] as Val))
+              return amounts.includes(canon(b.to[1] as Val)) && addN !== undefined && addN >= 0n
+            }
             const n = intOf(unlit(b.to))
-            const scaled = isSelector(b.to) && b.to[0] === 'scaled'
-            return (
-              canon(b.at) === at &&
-              (b.op === 'gte' || b.op === 'gt') &&
-              (scaled ||
-                (isConstant(b.to) && n !== undefined && (b.op === 'gte' ? n > 0n : n >= 0n)))
-            )
+            return isConstant(b.to) && n !== undefined && (b.op === 'gte' ? n > 0n : n >= 0n)
           }
           q = got.top.some(floor) ? undefined : slippage(ask, name)
         } else if (kind === 'requests') {
@@ -297,8 +325,10 @@ function requests(
       `${c.fn}.${name}: ${vec.length} requests with ${names.length} distinct fields exceed the interpreter's ceilings (at most ${CEILINGS.max_leaves} leaves, ${CEILINGS.max_elems} per quantified element); record a smaller batch`
     )
   const bound = a.limits?.[`${name}.amount`] ?? a.limit
-  if (names.includes('amount') && bound === undefined)
-    out.ambiguities.push(missing(c, `${name}.amount`))
+  // The question is asked from the function's definition (this argument is a `requests` vec, which
+  // carries an amount per element), not from whether the recorded elements happen to include an
+  // `amount` key: a submit recorded with the amount omitted must still be capped.
+  if (bound === undefined) out.ambiguities.push(missing(c, `${name}.amount`))
   const field = (f: string, seen: Val[], path: Path): Constraint[] => {
     if (f === 'amount')
       return bound === undefined ? [] : [{ constraint: 'cap', at: path, max: bound }]

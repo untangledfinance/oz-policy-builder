@@ -35,6 +35,14 @@ export const PROTOCOLS: Record<string, Record<string, Row>> = {
       ['to', 'who'],
       ['amount', 'amount'],
     ],
+    // The allowance-based movers: a spender draws `amount` from `from`, so the amount needs a cap
+    // just as much as `transfer`'s (SYNTH-CORE-01).
+    transfer_from: [
+      ['spender', 'who'],
+      ['from', 'who'],
+      ['to', 'who'],
+      ['amount', 'amount'],
+    ],
     approve: [
       ['from', 'who'],
       ['spender', 'who'],
@@ -49,9 +57,21 @@ export const PROTOCOLS: Record<string, Record<string, Row>> = {
       ['from', 'who'],
       ['amount', 'amount'],
     ],
+    burn_from: [
+      ['spender', 'who'],
+      ['from', 'who'],
+      ['amount', 'amount'],
+    ],
   },
   blend: {
     submit: [
+      ['from', 'who'],
+      ['spender', 'who'],
+      ['to', 'who'],
+      ['requests', 'requests'],
+    ],
+    // Blend v2's allowance variant of submit, the same shape (SYNTH-CORE-01).
+    submit_with_allowance: [
       ['from', 'who'],
       ['spender', 'who'],
       ['to', 'who'],
