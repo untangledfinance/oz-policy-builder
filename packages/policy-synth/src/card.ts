@@ -314,7 +314,9 @@ function executorText(ex: { address: string; kind?: string | undefined }, c: Vie
   if (ex.kind === 'null-gate adapter')
     return `${who}, an execution adapter with no gate: anyone may call its execute with an immediate batch, and it vouches for every call of that batch to this account's policy, so this rule's predicate is the only fence on what such a batch does; no other rule on the account may approve its execute, a Default-scoped rule included (bound with bind_executor, a second transaction)`
   if (ex.kind === 'gated adapter')
-    return `${who}, an execution adapter with a gate: it vouches only for calls its gate allows (bound with bind_executor, a second transaction)`
+    return `${who}, a verified gated adapter (a pinned adapter build whose prime is this account): it vouches only for calls its gate allows (bound with bind_executor, a second transaction)`
+  if (ex.kind === 'unverified adapter')
+    return `${who}, which holds the adapter symbols (prime, gate) but is not a verified adapter build for this account: what it would vouch for is not known, so it is not bound to`
   return `${who} (bound with bind_executor, a second transaction)`
 }
 
