@@ -9,9 +9,20 @@
 
 import { isAddress, isMap, isTagged, type Val } from './wire.ts'
 
-export type Kind = 'who' | 'amount' | 'min' | 'free' | 'time' | 'exact' | 'requests'
+export type Kind = 'who' | 'amount' | 'min' | 'free' | 'time' | 'exact' | 'requests' | 'loan'
 
 const isNum = (v: Val, ...tags: string[]) => isTagged(v) && tags.some((t) => t in v)
+
+/** The fields of a map value, by key. */
+const mapOf = (v: Val): Record<string, Val> =>
+  Object.fromEntries(isMap(v) ? v.map.map(([k, x]) => [String(k), x]) : [])
+
+/** Blend v2's `FlashLoan { amount: i128, asset: Address, contract: Address }`, the struct a
+ *  flash_loan borrows through: it carries an amount (to cap) and the lender/asset (to pin). */
+const isLoan = (v: Val): boolean => {
+  const m = mapOf(v)
+  return isNum(m.amount as Val, 'i128') && isAddress(m.asset as Val) && isAddress(m.contract as Val)
+}
 
 /** The shape each kind of argument has. */
 export const SHAPE: Record<Kind, (v: Val) => boolean> = {
@@ -23,6 +34,7 @@ export const SHAPE: Record<Kind, (v: Val) => boolean> = {
   exact: () => true,
   // `'map' in []` holds (Array.prototype.map): an element must be a `{map}` value, not a vec.
   requests: (v) => Array.isArray(v) && v.every(isMap),
+  loan: isLoan,
 }
 
 type Row = [name: string, kind: Kind][]
@@ -81,6 +93,15 @@ export const PROTOCOLS: Record<string, Record<string, Row>> = {
       ['from', 'who'],
       ['reserve_token_ids', 'exact'],
       ['to', 'who'],
+    ],
+    // Blend v2's `flash_loan(from, FlashLoan { amount, asset, contract }, requests)`: the borrowed
+    // amount lives inside the struct, so it needs a cap just as `submit`'s requests do, and the
+    // follow-up `requests` carry their own amounts (SYNTH-CORE-01). The ABI was read from the
+    // testnet pool CCEBVDYM… (code hash a41fc53d…).
+    flash_loan: [
+      ['from', 'who'],
+      ['flash_loan', 'loan'],
+      ['requests', 'requests'],
     ],
   },
   soroswap: {

@@ -54,6 +54,7 @@ import {
   synthesize,
   unbounded,
   unboundedExpr,
+  unmodeledWarnings,
 } from './synth.ts'
 import {
   type Caps,
@@ -682,14 +683,18 @@ const install_policy = tool(
       contracts: (a) => contractKinds(server, a, i.smartAccount),
     }
     const plan = await planInstall(i, rule, chain)
+    // The gate models some functions; for any other the predicate names, warn that it cannot confirm
+    // the amounts are capped (SYNTH-CORE-01). A recording pins such a call's arguments, but a
+    // hand-built or followed predicate reaches here without that warning.
+    const warnings = [...plan.warnings, ...unmodeledWarnings(rule.expr)]
     // Only a rule that passed every refusal is described.
     const shown = explain(i, {
       ...rule,
       authority: plan.authority,
       overrides: plan.overrides,
-      warnings: plan.warnings,
+      warnings,
     })
-    return { ...plan, rule: { ...plan.rule, ...shown } }
+    return { ...plan, warnings, rule: { ...plan.rule, ...shown } }
   }
 )
 

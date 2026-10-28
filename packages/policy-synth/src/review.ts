@@ -57,7 +57,7 @@ import {
 } from './install.ts'
 import { callOf } from './record.ts'
 import type { Followed } from './rules.ts'
-import { unboundedExpr } from './synth.ts'
+import { unboundedExpr, unmodeledWarnings } from './synth.ts'
 import {
   CEILINGS,
   decode,
@@ -426,10 +426,14 @@ export function reviewUnsigned(i: {
       // E-38: no signer (of any kind: an External one is a problem of its own), and a predicate
       // another account re-installs at will. Allowed, and said.
       warnings.push(...ruleWarnings(call.args[3] as Val[], r.rule.follows))
-      // the finished predicate is walked here too, so a rule that leaves an amount or a
-      // swap's least output unbounded (perhaps installed behind an override) is never signed in
-      // silence; the owner reads each open question as a warning.
-      if (r.rule.predicate) warnings.push(...unboundedExpr(r.rule.predicate).map((a) => a.question))
+      // The finished predicate is walked here too, so a rule that leaves an amount or a swap's least
+      // output unbounded (perhaps installed behind an override), or that moves value through a
+      // function the gate does not model, is never signed in silence; the owner reads each open
+      // question, and each unmodelled function, as a warning.
+      if (r.rule.predicate) {
+        warnings.push(...unboundedExpr(r.rule.predicate).map((a) => a.question))
+        warnings.push(...unmodeledWarnings(r.rule.predicate))
+      }
       out.authority = r.authority
       out.rule = r.rule
       const v = { ...view, contract: scopedTo }
