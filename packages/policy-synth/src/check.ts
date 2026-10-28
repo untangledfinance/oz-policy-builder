@@ -241,8 +241,10 @@ export interface DenyCase {
   /** What the case breaks, in words. */
   label: string
   call: Call
-  /** The conjunct it breaks. */
+  /** The conjunct it breaks (for an `all` body leaf, the whole `all`: it is dropped as one). */
   conjunct: Expr
+  /** For a case derived from an `all` body, the body leaf it breaks (so every leaf is tracked). */
+  leaf?: Expr
 }
 
 /** How far past an ordering's bound a value must move to break it. */
@@ -315,9 +317,33 @@ function breakConjunct(call: Call, c: Expr): Call | undefined {
 
 const phrase = (c: Expr): string => JSON.stringify(c).slice(0, 80)
 
-/** One deny case per conjunct, derived from the leaf and the call it must refuse. */
+/** One deny case per BREAKABLE leaf of an `all` body, each broken on element 0, so every body leaf
+ *  is exercised rather than only the first (SYNTH-CORE-03). A leaf no case can be derived for (a
+ *  read, the clock, a nested quantifier, or a vacuous self-comparison whose break still holds) yields
+ *  no case and is left for `untested`/`ok`. The whole `all` stays as `conjunct` (dropped as one for
+ *  minimality); `leaf` names which body leaf each case breaks. */
+function allLeafCases(call: Call, conjunct: Expr): DenyCase[] {
+  const [, a, b] = conjunct as [string, Val, Expr]
+  const v = target(call, a)
+  const vec = v?.get()
+  if (!v || !Array.isArray(vec) || vec.length === 0) return []
+  const base = stepsOf(a) ?? []
+  const abs = (x: Val): Val =>
+    isSel(x) && x[0] === 'elem' ? (['call_path', ...base, 0, ...x.slice(1)] as Val) : x
+  return conjuncts(b).flatMap((leaf) => {
+    if (!isSel(leaf)) return []
+    const broken = breakConjunct(call, [leaf[0], abs(leaf[1] as Val), abs(leaf[2] as Val)] as Expr)
+    return broken
+      ? [{ label: `breaks ${phrase(conjunct)} at ${phrase(leaf)}`, call: broken, conjunct, leaf }]
+      : []
+  })
+}
+
+/** One deny case per conjunct, derived from the leaf and the call it must refuse; an `all` conjunct
+ *  expands to one case per body leaf so none goes untested. */
 export function denyCases(conjuncts: Expr[], permit: Call): DenyCase[] {
   return conjuncts.flatMap((conjunct) => {
+    if (isSel(conjunct) && conjunct[0] === 'all') return allLeafCases(permit, conjunct)
     const call = breakConjunct(permit, conjunct)
     return call ? [{ label: `breaks ${phrase(conjunct)}`, call, conjunct }] : []
   })
@@ -464,8 +490,23 @@ export async function verifyRule(
     if (!into.includes(phrase(c.conjunct))) into.push(phrase(c.conjunct))
   })
   const tried = new Set(cases.map((c) => c.conjunct))
-  const left = live.flatMap(({ b }) => b.filter((c) => !tried.has(c)))
+  // An `all` conjunct is accounted for per body leaf below, not as one unit.
+  const left = live.flatMap(({ b }) =>
+    b.filter((c) => !tried.has(c) && !(isSel(c) && c[0] === 'all'))
+  )
   untested.push(...left.map(phrase))
+  // Every leaf of an `all` body must be exercised; a leaf no case broke (or one the budget cut) is
+  // untested, so `complete` no longer vouches for it (SYNTH-CORE-03).
+  for (const { b } of live)
+    for (const c of b) {
+      if (!isSel(c) || c[0] !== 'all') continue
+      const tested = new Set(cases.filter((x) => x.conjunct === c).map((x) => x.leaf))
+      for (const leaf of conjuncts(c[2] as Expr)) {
+        if (!isSel(leaf)) continue
+        const p = phrase(leaf)
+        if (!tested.has(leaf) && !untested.includes(p)) untested.push(p)
+      }
+    }
   const unexamined = or
     ? all.filter((_, i) => !live.some((l) => l.i === i)).map((b) => phrase(and(b)))
     : []
