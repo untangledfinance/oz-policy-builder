@@ -156,6 +156,22 @@ describe('an intent is asked the question a recording is: how much?', () => {
   const call = (fn: string, where: CallIntent['where']): CallIntent => ({ contract: C, fn, where })
   const codes = (...calls: CallIntent[]) => unbounded({ calls }).map((a) => a.code)
 
+  it('a minOut floor below the minimum ratio is no floor, so the slippage question stands (SYNTH-CORE-02)', () => {
+    const swap = (num: string, den: string): CallIntent =>
+      call('swap_exact_tokens_for_tokens', [
+        { constraint: 'cap', at: [0], max: '1000' },
+        { constraint: 'minOut', at: [1], of: [0], num, den },
+      ])
+    // Below one in a million (1/10^18, 1/10^7): a degenerate floor, so the question stands.
+    expect(codes(swap('1', '1000000000000000000'))).toContain('SLIPPAGE_FLOOR_MISSING')
+    expect(codes(swap('1', '10000000'))).toContain('SLIPPAGE_FLOOR_MISSING')
+    // A ratio at or above one in a million is an honest floor, even a small one.
+    expect(codes(swap('1', '1000'))).not.toContain('SLIPPAGE_FLOOR_MISSING')
+    expect(codes(swap('1', '3'))).not.toContain('SLIPPAGE_FLOOR_MISSING')
+    expect(codes(swap('1', '2'))).not.toContain('SLIPPAGE_FLOOR_MISSING')
+    expect(codes(swap('99', '100'))).not.toContain('SLIPPAGE_FLOOR_MISSING')
+  })
+
   it('a known function whose amount nobody capped is a question; a cap, or a total, answers it', () => {
     expect(codes(call('transfer', undefined))).toEqual(['AMOUNT_BOUND_MISSING'])
     expect(codes(call('transfer', [{ constraint: 'pin', at: [1], to: A }]))).toEqual([
@@ -472,6 +488,30 @@ describe('the gate is judged on the produced rule, not the input shape', () => {
     ])
     // The honest floor (a ratio of amount_in, non-negative add) passes.
     expect(codes(swap(['gte', ['call_arg', 1], sc(0, '99', '100', '0')]))).toEqual([])
+  })
+
+  it('a scaled floor must meet the minimum ratio: a degenerate 1/10^18 is no floor (SYNTH-CORE-02)', () => {
+    const swap = (floor: Expr) =>
+      pin('swap_exact_tokens_for_tokens', ['lte', ['call_arg', 0], amt], floor)
+    const sc = (num: string, den: string): Expr => [
+      'scaled',
+      ['call_arg', 0],
+      { i128: num },
+      { i128: den },
+      { i128: '0' },
+    ]
+    // out >= in * 1/10^18, and any ratio below one in a million (1/10^7), admit a near-zero output.
+    expect(codes(swap(['gte', ['call_arg', 1], sc('1', '1000000000000000000')]))).toEqual([
+      'SLIPPAGE_FLOOR_MISSING',
+    ])
+    expect(codes(swap(['gte', ['call_arg', 1], sc('1', '10000000')]))).toEqual([
+      'SLIPPAGE_FLOOR_MISSING',
+    ])
+    // One in a million (the minimum) and tighter pass, including an honest small floor.
+    expect(codes(swap(['gte', ['call_arg', 1], sc('1', '1000')]))).toEqual([])
+    expect(codes(swap(['gte', ['call_arg', 1], sc('1', '3')]))).toEqual([])
+    expect(codes(swap(['gte', ['call_arg', 1], sc('1', '2')]))).toEqual([])
+    expect(codes(swap(['gte', ['call_arg', 1], sc('99', '100')]))).toEqual([])
   })
 
   it('a known function recorded with the wrong number of arguments is refused', () => {

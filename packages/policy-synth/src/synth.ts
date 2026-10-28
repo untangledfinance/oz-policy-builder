@@ -164,6 +164,9 @@ export function unbounded(intent: Intent): Synthesis['ambiguities'] {
       return []
     // A floor of zero or less admits every output.
     if (r.constraint === 'floor' && BigInt(r.min) <= 0n) return []
+    // A minOut whose ratio is below the minimum is no floor: it admits a near-zero output
+    // (the degenerate 1/10^18 the audit found), so it does not answer the slippage question.
+    if (r.constraint === 'minOut' && !ratioOk(BigInt(r.num), BigInt(r.den))) return []
     return [r.constraint === 'total' ? [...r.at, ...(r.of ?? [])] : r.at]
   }
   return intent.calls.flatMap((c) => {
@@ -185,6 +188,23 @@ export function unbounded(intent: Intent): Synthesis['ambiguities'] {
     })
   })
 }
+
+/** The least a `scaled` slippage floor's ratio (num/den) may be before it stops being a floor: a
+ *  ratio below this admits an output far under what was put in (the degenerate 1/10^18 the audit
+ *  found). The threshold exists only to reject such a near-zero floor, so it sits at one in a
+ *  million (1/10^6): low enough to leave an honest floor on a swap between very different-valued
+ *  assets alone (a 1/1000 ratio is a real floor), while still catching the degenerate case. It
+ *  stays an ask, not a block: a ratio below it raises the waivable slippage question and the review
+ *  card shows the actual floor (SYNTH-CORE-02). */
+export const MIN_FLOOR_RATIO = { num: 1n, den: 1_000_000n }
+
+/** Whether a `scaled` floor's ratio num/den is at least `MIN_FLOOR_RATIO` (and a positive fraction). */
+const ratioOk = (num: bigint | undefined, den: bigint | undefined): boolean =>
+  num !== undefined &&
+  den !== undefined &&
+  den > 0n &&
+  num >= 0n &&
+  num * MIN_FLOOR_RATIO.den >= den * MIN_FLOOR_RATIO.num
 
 /** A bound a branch puts on a leaf: `op` against `to`, `to` being a constant or a leaf. */
 interface Bound {
@@ -259,7 +279,16 @@ export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
             if (canon(b.at) !== at || !(b.op === 'gte' || b.op === 'gt')) return false
             if (isSelector(b.to) && b.to[0] === 'scaled') {
               const addN = intOf(unlit(b.to[4] as Val))
-              return amounts.includes(canon(b.to[1] as Val)) && addN !== undefined && addN >= 0n
+              const num = intOf(unlit(b.to[2] as Val))
+              const den = intOf(unlit(b.to[3] as Val))
+              // A ratio OF the input amount, a non-negative add, AND a ratio that is not degenerate
+              // (num/den below the minimum admits a near-zero output: `out >= in * 1/10^18`).
+              return (
+                amounts.includes(canon(b.to[1] as Val)) &&
+                addN !== undefined &&
+                addN >= 0n &&
+                ratioOk(num, den)
+              )
             }
             const n = intOf(unlit(b.to))
             return isConstant(b.to) && n !== undefined && (b.op === 'gte' ? n > 0n : n >= 0n)
