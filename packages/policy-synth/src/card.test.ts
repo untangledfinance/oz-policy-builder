@@ -12,6 +12,25 @@ const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-6)}`
 const tokenOf = (_fns: string[]): View => ({ contract: C })
 const one = (e: Expr, v?: View) => card(e, v)[0] as string
 
+// the interpreter truncates scaled() toward zero (dsl.rs), so an exact `num / den`
+// rendering misreads a floor as nothing. lte(scaled(arg2, 1, 10^18, 0), 0) permits every amount
+// below 10^18 (floor(x / 10^18) = 0 for 0 <= x < 10^18), not only x <= 0.
+describe('scaled is rendered as truncating', () => {
+  const E18 = (10n ** 18n).toString()
+  it('marks a floor division as rounded toward zero, so it does not read as "nothing"', () => {
+    const text = one(['lte', ['scaled', ['call_arg', 2], { i128: '1' }, { i128: E18 }, { i128: '0' }], 0])
+    expect(text).toContain('rounded toward zero')
+    expect(text).toBe(
+      `argument 2 × 1 ÷ ${E18}, rounded toward zero:  must be at most  0`
+    )
+  })
+  it('a division by one cannot truncate, so it carries no note', () => {
+    const text = one(['gte', ['call_arg', 1], ['scaled', ['call_arg', 0], { i128: '5' }, { i128: '1' }, { i128: '0' }]])
+    expect(text).not.toContain('rounded toward zero')
+    expect(text).toBe('argument 1:  must be at least  argument 0 × 5 ÷ 1')
+  })
+})
+
 describe('operators and operands are words', () => {
   it.each<[Expr, string]>([
     [['eq', ['call_fn'], 'transfer'], "the function:  must be  'transfer'"],
@@ -56,7 +75,7 @@ describe('operators and operands are words', () => {
         ['call_arg', 1],
         ['scaled', ['call_arg', 0], { i128: '99' }, { i128: '100' }, { i128: '0' }],
       ],
-      'argument 1:  must be at least  argument 0 × 99 ÷ 100',
+      'argument 1:  must be at least  argument 0 × 99 ÷ 100, rounded toward zero',
     ],
     [
       [
@@ -64,7 +83,7 @@ describe('operators and operands are words', () => {
         ['call_arg', 1],
         ['scaled', ['call_arg', 0], { i128: '99' }, { i128: '100' }, ['call_arg', 3]],
       ],
-      'argument 1:  must be at least  argument 0 × 99 ÷ 100 + argument 3',
+      'argument 1:  must be at least  argument 0 × 99 ÷ 100 + argument 3, rounded toward zero',
     ],
     [
       ['gte', ['read', C, 'price', [['call_arg', 1], 'USD'], 'price'], { i128: '5' }],
@@ -102,7 +121,7 @@ describe('operators and operands are words', () => {
           ['lit', 6],
         ],
       ],
-      'argument 1:  must be at least  (argument 0 × 2 ÷ 3) × 4 ÷ 5 + 6',
+      'argument 1:  must be at least  (argument 0 × 2 ÷ 3, rounded toward zero) × 4 ÷ 5 + 6, rounded toward zero',
     ],
     [
       ['lte', ['sum', ['call_arg', 0], 'amount'], { i128: '9' }],

@@ -6,7 +6,7 @@
 
 import { INTERPRETER, type Network, safeRead, spendingLimits } from './config.ts'
 import { delegated, meetsAlone, spendingParams } from './install.ts'
-import { type Expr, isAddress, isSelector, unlit, type Val } from './wire.ts'
+import { type Expr, intOf, isAddress, isSelector, unlit, type Val } from './wire.ts'
 
 export interface Node {
   label: string
@@ -164,7 +164,14 @@ function operand(v: Val, c: View): Sub {
           ? `(${operand(x, c).name})`
           : operand(x, c).name
       const tail = operand(add as Val, c).name === '0' ? '' : ` + ${part(add as Val)}`
-      return { name: `${part(src as Val)} × ${part(num as Val)} ÷ ${part(den as Val)}${tail}` }
+      // The interpreter truncates each division toward zero (see dsl.rs); an exact `num / den`
+      // would misread a floor as nothing (lte(scaled(x, 1, 10^18, 0), 0) permits every x below
+      // 10^18, not only x <= 0). A division by one cannot truncate, so it carries no note.
+      const exact = intOf(unlit(den as Val)) === 1n
+      const note = exact ? '' : ', rounded toward zero'
+      return {
+        name: `${part(src as Val)} × ${part(num as Val)} ÷ ${part(den as Val)}${tail}${note}`,
+      }
     }
     case 'read': {
       const [target, fn, args, ...steps] = path as [string, string, Val[], ...Val[]]
