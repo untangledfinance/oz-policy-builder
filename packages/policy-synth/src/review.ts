@@ -414,6 +414,10 @@ export function reviewUnsigned(i: {
       if (scopedTo && r.authority.signers.length > 0 && !safe) {
         const kind = i.contracts?.[scopedTo]
         if (kind === 'null-gate adapter') flag(WORD_LEAK(scopedTo))
+        else if (kind === 'unverified adapter')
+          flag(
+            `the rule has signers and ${r.rule.follows ? "follows another rule's predicate, which can come to permit" : 'permits'} a call to execute on ${scopedTo} without holding its grants (argument 1) to none, and ${scopedTo} holds the adapter symbols but is not a verified adapter build for this account: if it is an execution adapter with no gate, a signer could have it hand out its word to this account's policy`
+          )
         else if (kind === undefined)
           flag(
             `the rule has signers and ${r.rule.follows ? "follows another rule's predicate, which can come to permit" : 'permits'} a call to execute on ${scopedTo} without holding its grants (argument 1) to none: if that contract is an execution adapter with no gate, a signer could have it hand out its word to this account's policy; review with readContracts`
@@ -471,7 +475,11 @@ export function reviewUnsigned(i: {
         'executor',
         kind === 'null-gate adapter'
           ? `${show(bind.executor, view)}, an execution adapter with no gate: anyone may call its execute with an immediate batch, and it vouches for every call of that batch, so the rule's predicate becomes the only fence on such a batch`
-          : `${show(bind.executor, view)}${kind ? ` (${kind})` : ''}`,
+          : kind === 'gated adapter'
+            ? `${show(bind.executor, view)}, a verified gated adapter (a pinned adapter build whose prime is this account): it vouches only for the calls its gate allows`
+            : kind === 'unverified adapter'
+              ? `${show(bind.executor, view)}: it holds the adapter symbols (prime, gate) but is not a verified adapter build for this account, read from unauthenticated instance storage, so what it would vouch for is not known`
+              : `${show(bind.executor, view)}${kind ? ` (${kind})` : ''}`,
         bind.executor
       ),
       fact(

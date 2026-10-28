@@ -87,6 +87,18 @@ export const INTERPRETER_WASM: ReadonlySet<string> = new Set(
   Object.values(INTERPRETER).flatMap((p) => (p ? [p.wasmSha256] : []))
 )
 
+/** The execution-adapter builds this package will vouch for, by the sha256 of their code (the
+ *  reproducible `build-wasm.sh` output in `contracts/build-hashes.json`, held equal to
+ *  `deployments/execution-testnet.json`). An adapter's two instance symbols (`prime` and `gate`) are
+ *  forgeable: any contract can write them in its constructor. A reproducible wasm hash is not, so a
+ *  contract is treated as a trusted execution adapter only when its live code hash is in this set and
+ *  its `prime` is the account the rule is bound to. The Prime app pins this same build (it names it as
+ *  a new gate's caller code). A contract that wears the symbols but runs another build is reported as
+ *  an unverified adapter and refused, never vouched for. */
+export const ADAPTER_WASM: ReadonlySet<string> = new Set([
+  'bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0',
+])
+
 /** The smart-account builds (OpenZeppelin) whose rules `revoke_policy` will describe, by wasm sha256
  *  (`deployments/oz-accounts.json`): any other contract could answer with whatever rules it likes.
  *  Both builds are trusted: `91a2cd56…`, the 0.7.2-line account every existing Prime runs (the seat

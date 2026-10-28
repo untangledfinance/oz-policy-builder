@@ -94,11 +94,11 @@ describe('E-38: the warning text', () => {
     expect(e38(NOGATE, [])).toContain("the followed rule's admins (its master set) can")
   })
 
-  it('a gated executor: the admins control the predicate, and the gate still limits destinations', () => {
+  it('a gated executor: the admins control the predicate, and the verified gate still bounds destinations', () => {
     const w = e38(GATED)
     expect(w.startsWith('E-38: ')).toBe(true)
     expect(w).toContain(
-      `they control the predicate, and the gate of this rule's executor ${ADAPTER} still limits destinations`
+      `this rule's executor ${ADAPTER} is a verified gated adapter, so its gate still bounds the destinations its execute allows`
     )
     expect(w).not.toMatch(/anyone/)
   })
