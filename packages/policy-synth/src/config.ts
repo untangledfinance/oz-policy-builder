@@ -182,6 +182,8 @@ export const INTERPRETERS: ReadonlySet<string> = new Set([
   'CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H', // deployed by this project; this build does not trust it
   'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT', // deployed by this project; this build does not trust it
   'CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2', // deployed by this project; this build does not trust it
+  'CDSHDZ2PJN34WIFVJG2B3AEXZBXSQAPHOT7RIKVVN6AT76IKM4Y2WFGV', // deployed by this project (grammar 7, wasm 810f53f1, same as CD46LN75); this build does not trust it
+  'CBIQGAHIGCIAC6JJBYQQBTDFNNWQCGPECWRI7NO2PHIYDQV6QDLG6I2W', // deployed by this project (grammar 5, wasm cc05ac55); this build does not trust it
   'CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM', // testnet, the pinned instance (INTERPRETER.testnet)
 ])
 
