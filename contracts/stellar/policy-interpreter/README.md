@@ -46,12 +46,13 @@ or limit change does not turn a deployed rule into one that can never run). The
 testnet values are in `evidence/soroban-network-limits-2026-10-16.txt`; fee rates and the
 per-ledger transaction-size budget differ per network, so read them before
 choosing an instance's byte limit. Measured at the ceilings
-(`evidence/worst-case-ceilings.txt`: 23 rule shapes at each of two limit sets, plus the real callees):
+(`evidence/worst-case-ceilings.txt`: 23 rule shapes at each of two limit sets, a bound self-scoped batch rule, plus the real callees):
 
 | What | Measured | Of the limit |
 | --- | --- | --- |
-| `install`, worst CPU | 64.7M | 16% of 400M |
-| `enforce`, worst CPU / memory | 62.3M / 1.58 MB | 16% / 4% of 41,943,040 |
+| `install`, worst CPU (the `cases` rule shapes) | 64.7M | 16% of 400M |
+| `enforce`, worst CPU / memory (the `cases` rule shapes) | 62.3M / 1.58 MB | 16% / 4% of 41,943,040 |
+| a bound, self-scoped batch rule (`install`, then `bind_executor`, then `enforce` of the pinned immediate batch, `pins_own`), padded to the byte and depth ceilings | 75.5M / 69.8M / 83.0M CPU | 19% / 17% / 21% of 400M |
 | `install` through OZ's real account, 15 operators and 16 admins | 69.0M CPU, 3.19 MB, 36 write entries, 48,912 write bytes | 17% / 8% / 18% / 37% |
 | the stored rule (one contract-data entry) | 41,328 B at the byte ceiling | 63% of 65,536 |
 | the install transaction, as `policy-synth` builds it (its real footprint of 6 read-only and 35 read-write keys, the account's authorisation entry and `__check_auth` entry, one signature) | 91,548 B | 69% of 132,096 |
@@ -352,8 +353,13 @@ one, without a rule per length.
   cost follows its bytes. Its length adds nothing.
 - **Worst case:** `tests/worst_case.rs` installs the largest rules each audit lens
   could build into the real wasm and asserts `enforce` (and install) stay under
-  both limits. The measured worst case without reads is **about 49M instructions
-  (12% of the limit)**: a 31.8 KB bare vec constant of 7,900 elements costs 47M
+  both limits. The worst `enforce` without reads is a bound, self-scoped batch rule
+  at the ceilings, the path `pins_own` runs on every call: **83M instructions
+  (21% of the limit)** on a shape padded to the byte and depth caps, 46M on the flat
+  98-call shape (with `install` 76M and `bind_executor` 70M). `pins_own` runs in a
+  single pass whose cost grows linearly with the rule's size. Among the
+  decode-bound shapes the worst is **about 49M
+  instructions (12% of the limit)**: a 31.8 KB bare vec constant of 7,900 elements costs 47M
   (each element is checked, about 6k instructions apiece), an `in` over 32 bare
   vecs of 246 elements 48M, and a 7,800-element bare vec as a map-key step 47M (an `any` over caller vecs against bare-vec entries measured 48.65M);
   `check` (decode as install does, then evaluate, then fail with the verdict) costs what `enforce` does plus about 1M (worst 48.6M, 1.5 MB), asserted for every shape in `worst_case.rs`;
