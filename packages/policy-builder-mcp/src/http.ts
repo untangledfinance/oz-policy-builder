@@ -61,18 +61,28 @@ export async function startHttpServer(opts: HttpOptions) {
   }
   // Behind the caller's own front end (allowExternalHost) the names are theirs to check.
   const guard = LOOPBACK.has(host)
-  const http = createServer(async (req, res) => {
-    if (new URL(req.url ?? '/', `http://${host}`).pathname !== path)
-      return send(res, 404, { error: 'not found' })
-    if (req.method !== 'POST') return send(res, 405, { error: 'method not allowed' })
-    const names = ours((http.address() as AddressInfo).port)
+  // Read once at listen time: `http.address()` is null after close, and a null port would turn
+  // the DNS-rebinding guard's name set into garbage on a late request.
+  let boundPort = opts.port
+  // The whole body runs inside one try/catch so no input can crash the process: a malformed
+  // request target, a header the guard reads, or a handler fault all answer with a status.
+  const handle = async (req: IncomingMessage, res: ServerResponse) => {
+    // The DNS-rebinding guard runs FIRST, before anything that could throw: an untrusted page may
+    // send any target or headers, and a request that fails the guard is refused unconditionally.
     const origin = req.headers.origin
-    if (
-      guard &&
-      (!names.has(req.headers.host ?? '') ||
-        (origin !== undefined && !names.has(origin.replace(/^https?:\/\//, ''))))
-    )
-      return send(res, 403, { error: 'forbidden host or origin' })
+    if (guard) {
+      const names = ours(boundPort)
+      if (
+        !names.has(req.headers.host ?? '') ||
+        (origin !== undefined && !names.has(origin.replace(/^https?:\/\//, '')))
+      )
+        return send(res, 403, { error: 'forbidden host or origin' })
+    }
+    // The path without parsing a URL: `req.url` may be a target the URL constructor rejects
+    // (`//[`, a bad port, an authority-form value), and the server must not throw on it.
+    const pathname = (req.url ?? '/').split(/[?#]/, 1)[0]
+    if (pathname !== path) return send(res, 404, { error: 'not found' })
+    if (req.method !== 'POST') return send(res, 405, { error: 'method not allowed' })
     let body: unknown
     try {
       body = await json(req)
@@ -91,19 +101,21 @@ export async function startHttpServer(opts: HttpOptions) {
       gone.abort()
       void Promise.allSettled([transport.close(), server.close()])
     })
-    try {
-      await server.connect(transport as unknown as Transport)
-      await transport.handleRequest(req as IncomingMessage & { auth?: never }, res, body)
-    } catch {
+    await server.connect(transport as unknown as Transport)
+    await transport.handleRequest(req as IncomingMessage & { auth?: never }, res, body)
+  }
+  const http = createServer((req, res) => {
+    handle(req, res).catch(() => {
       if (res.headersSent) res.end()
       else send(res, 500, { error: 'internal server error' })
-    }
+    })
   })
   await new Promise<void>((resolve, reject) =>
     http.once('error', reject).listen(opts.port, host, resolve)
   )
+  boundPort = (http.address() as AddressInfo).port
   return {
-    port: (http.address() as AddressInfo).port,
+    port: boundPort,
     host,
     path,
     close: () => new Promise<void>((r) => http.close(() => r())),

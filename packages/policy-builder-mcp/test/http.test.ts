@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from 'bun:test'
 import { request as httpRequest } from 'node:http'
+import { createConnection } from 'node:net'
 import { startHttpServer } from '../src/http.ts'
 import { MAX_TOOL_INPUT_ELEMENTS } from '../src/server.ts'
 
@@ -139,5 +140,120 @@ describe('a web page cannot drive the tools (DNS rebinding)', () => {
         origin: `http://localhost:${server.port}`,
       })
     ).toBe(200)
+  })
+})
+
+// a request target the URL constructor rejects must not crash the server. The guard
+// runs before any parse, and the path is derived without throwing.
+describe('a malformed request target cannot crash the server', () => {
+  // A raw request with an arbitrary target, written as literal HTTP bytes over a TCP socket. node:http
+  // (on some runtimes implemented over fetch) validates and rejects a malformed target client-side
+  // before it reaches the server, so the only way to deliver it is to write the request line ourselves.
+  const raw = (opts: {
+    host: string
+    port: number
+    target: string
+    method?: string
+    extra?: Record<string, string>
+    body?: unknown
+  }) =>
+    new Promise<number>((resolve, reject) => {
+      const bodyStr = JSON.stringify(opts.body ?? {})
+      // The default Host names the socket we connect to (an IPv6 literal is bracketed); `extra` overrides.
+      const hostHeader = opts.host.includes(':')
+        ? `[${opts.host}]:${opts.port}`
+        : `${opts.host}:${opts.port}`
+      const fields = { ...headers, host: hostHeader, ...(opts.extra ?? {}) }
+      const lines = [
+        `${opts.method ?? 'POST'} ${opts.target} HTTP/1.1`,
+        ...Object.entries(fields).map(([k, v]) => `${k}: ${v}`),
+        `Content-Length: ${Buffer.byteLength(bodyStr)}`,
+        'Connection: close',
+        '',
+        bodyStr,
+      ]
+      const sock = createConnection({ host: opts.host, port: opts.port }, () => {
+        sock.write(lines.join('\r\n'))
+      })
+      let data = ''
+      let settled = false
+      const done = () => {
+        if (settled) return
+        settled = true
+        const m = /^HTTP\/\d\.\d (\d{3})/.exec(data)
+        resolve(m ? Number(m[1]) : 0)
+      }
+      sock.setEncoding('utf8')
+      sock.on('data', (c) => {
+        data += c
+      })
+      sock.on('end', done)
+      sock.on('close', done)
+      // The server may answer and close before our body is flushed (a 4xx on the guard); that is not a
+      // failure if we already have a status line.
+      sock.on('error', (e) => {
+        if (data) done()
+        else if (!settled) {
+          settled = true
+          reject(e)
+        }
+      })
+    })
+
+  const targets = ['//[', '//a:99999/mcp', '//', '/\\', 'http://a:b']
+
+  it('answers a 4xx to every malformed target and stays up', async () => {
+    for (const target of targets)
+      for (const method of ['POST', 'GET'] as const) {
+        const status = await raw({
+          host: '127.0.0.1',
+          port: server.port,
+          target,
+          method,
+          extra: { host: `127.0.0.1:${server.port}`, origin: 'http://evil.example' },
+        })
+        expect(status).toBeGreaterThanOrEqual(400)
+        expect(status).toBeLessThan(500)
+      }
+    // The process is still serving after every malformed target.
+    const live = await raw({
+      host: '127.0.0.1',
+      port: server.port,
+      target: server.path,
+      extra: { host: `127.0.0.1:${server.port}` },
+      body: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+    })
+    expect(live).toBe(200)
+  })
+
+  it('still refuses a foreign host on a same-origin POST /mcp (403)', async () => {
+    const status = await raw({
+      host: '127.0.0.1',
+      port: server.port,
+      target: server.path,
+      extra: {
+        host: `rebind.attacker.example:${server.port}`,
+        origin: `http://rebind.attacker.example:${server.port}`,
+      },
+      body: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+    })
+    expect(status).toBe(403)
+  })
+
+  it('serves a request on an IPv6 (::1) bind', async () => {
+    const v6 = await startHttpServer({ port: 0, host: '::1' })
+    try {
+      // Node sets the Host header to `[::1]:port`, which the guard must accept.
+      const status = await raw({
+        host: '::1',
+        port: v6.port,
+        target: v6.path,
+        method: 'POST',
+        body: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+      })
+      expect(status).toBe(200)
+    } finally {
+      await v6.close()
+    }
   })
 })
