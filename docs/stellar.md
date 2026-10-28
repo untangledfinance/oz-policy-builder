@@ -740,6 +740,21 @@ All on Stellar testnet.
   Prime account, within the allowance. An agent's bands cannot do this. Closing
   it needs a contract change: the gate would keep the addresses it may pay
   separate from the addresses a batch may name.
+- **A gated adapter refuses venue arguments of an address length:** the address
+  walk checks every `Bytes` or `String` argument (and grant) whose length matches
+  an address encoding: 32 bytes (a raw key or contract id), 56 (a `G`/`C` strkey),
+  40, 44 or 48 (the XDR of a contract, an account or a muxed address) and 69 (a
+  muxed `M` strkey). A value of one of these lengths is refused with
+  `AddressNotAllowed` unless it is exactly how a listed address spells. This is
+  what stops a venue decoding a stranger's raw key, strkey or XDR back into an
+  address, so it stays, but it also refuses ordinary venue data of those lengths:
+  a 32-byte hash, salt, pool index or commitment, a 32-character identifier, or a
+  40-, 44-, 48- or 56-character memo cannot pass through a gated adapter even to a
+  listed venue. It fails closed, with no fund risk. Vet a venue that takes an
+  argument of one of these lengths (for example a `BytesN<32>` pool index) before
+  configuring a gate; the safe way to admit one is a per-venue argument allowlist
+  in the gate, never a looser walk. An adapter with no gate does not scan, so it
+  is unaffected. Data of any other length passes untouched.
 - **Rule 0 stands behind an open position:** a Blend position sits in the
   Prime's name, and rule 0's signers can install any rule, so while a position
   is open the Prime's own 2 of 3 signers are the control that protects it.
