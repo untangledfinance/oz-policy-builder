@@ -19,6 +19,18 @@ Three tests, each run once per Safe version:
 - `test/ConfigOnly.t.sol` holds the base checks of the Safe and Roles parts,
   with the Prime account as the gate's trading member and no move delay, and
   the STRIDE attack cases.
+- `test/LeverageYield.t.sol` builds the config-only leverage-yield execution
+  adapter for the tokenised-gold carry flow: a Zodiac Roles policy template on
+  the custody gate, plus a Safe MultiSend batch an actor signs. It opens a
+  levered position atomically (supply the gold stand-in cbETH, borrow USDC,
+  deposit the USDC into a yield source), bounds the leverage with a Roles borrow
+  cap, closes it atomically (redeem, repay-max, withdraw-max) and refuses every
+  out-of-scope call with its Roles status. The yield source is `MockVault`, a
+  test fixture, since Base Sepolia lists no liquid ERC-4626 vault for the borrow
+  stablecoin. 31 checks per Safe version, in
+  [run-leverage-2026-10-28.txt](run-leverage-2026-10-28.txt) and
+  [evidence/evm-leverage-yield.md](../../evidence/evm-leverage-yield.md). It adds
+  no contract of Prime's and changes no existing test.
 - `test/StrideTimelock.t.sol` extends `RefLineBase` with the move-timelock
   STRIDE proof-of-concept cases for
   [evidence/stride-evm.md](../../evidence/stride-evm.md) section 11: the open

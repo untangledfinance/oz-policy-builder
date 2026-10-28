@@ -1,0 +1,14 @@
+No files changed, compilation skipped
+
+Ran 2 tests for test/LeverageYield.t.sol:LeverageYieldTest
+[PASS] test_leverage_safe141() (gas: 5807965)
+Logs:
+  checks: 31
+
+[PASS] test_leverage_safe150() (gas: 5793983)
+Logs:
+  checks: 31
+
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 13.99s (26.57s CPU time)
+
+Ran 1 test suite in 14.00s (13.99s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
