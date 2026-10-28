@@ -288,12 +288,31 @@ for that key can be valid again (STRIDE D-11). Each proof carries the
 preimage of the account's digest, from which the seat reads the rule ids:
 
 - `verify`, the `External` signer interface, used in rule 0 only: `key_data`
-  must be the account's id, every rule id must be 0, and the proof is a live
-  session key's signature over `sha256(seat ‖ hash)`.
+  must equal the account id stored at construction, every rule id must be 0,
+  and the proof is a live session key's signature over `sha256(seat ‖ hash)`.
+  This is a view. Its only tie to a caller is that equality, and `key_data`
+  comes from the caller's own rule, so any account whose rule 0 lists
+  `External(seat, that stored id)` counts the seat's session-key votes in its
+  own rule 0. The binding to one account is not cryptographic on the
+  0.7.2-line digest, which carries no account field; the `Delegated` path below
+  is bound to the account by its own frame. No authority over the first account
+  is gained, the key still signs each proof, and the reference app lists a seat
+  only for the account it serves (SEAT-01).
 - `__check_auth`, the `Delegated` signer interface, used in rules other than
   rule 0: the first context must be a call on the stored account whose first
   argument is the account's digest, with only non-zero rule ids, and a live
   session key signs `sha256(seat ‖ payload)`.
+
+Three statements in the seat crate's own docs do not match this behaviour, and
+are corrected here until the crate is next built, since editing a file under
+`contracts/` would change the verified build hash. The owner key signs over
+`sha256(seat ‖ payload)`, the seat's own authorisation payload; `lib.rs:5`
+calls it the account digest. An end is accepted with any `start`; `README:16`
+expects `start = 0`. An end carries no freshness check, so anyone can re-submit
+the same end bytes and each replay refreshes the end entry's TTL; `README:66`
+expects the second submission to fail. That last point is useful: a relayer can
+keep an end marker alive past its roughly 180-day expiry at the cost of rent,
+which closes the residual of STRIDE D-11 (SEAT-02).
 
 ## Known behaviours
 
