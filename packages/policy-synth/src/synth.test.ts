@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { account, batchIntent, contract, recording, venueIntent } from '../test/fixtures.ts'
+import { Refusal } from './envelope.ts'
 import { type CallIntent, type Constraint, callExpr, intentExprs, lower } from './intent.ts'
 import type { Call } from './record.ts'
 import { identify } from './registry.ts'
@@ -510,6 +511,55 @@ describe('synthesis from what was recorded', () => {
       const s = synthesize([submit(req(0, '10'), req(1, '20'))])
       expect(s.ambiguities).toHaveLength(1)
       expect(s.ambiguities[0]?.question).toContain('requests.amount')
+    })
+
+    // a 4000-request submit whose elements carry 4000 keys each would pin 16M fields
+    // and crash the server. It is refused from the element sizes alone, before any constraint is
+    // built. (The elements share one map value, so the oversized input itself costs nothing.)
+    it('refuses an oversized vec of structs instead of building 16M constraints', () => {
+      const big = { map: Array.from({ length: 4000 }, (_, i) => [`k${i}`, { i128: '1' }]) } as Val
+      const vec = Array.from({ length: 4000 }, () => big)
+      const t0 = performance.now()
+      expect(() => synthesize([submit(...vec)], { limit: '50' })).toThrow(
+        /4000 requests of up to 4000 fields exceed the interpreter's ceilings/
+      )
+      expect(performance.now() - t0).toBeLessThan(1000)
+    })
+
+    it('still builds an honest small submit (no over-restriction)', () => {
+      const s = synthesize([submit(req(0, '10'), req(1, '20'))], { limit: '50' })
+      expect(() => propose(s.intent)).not.toThrow()
+    })
+
+    // Small elements can still name many fields between them: 4000 requests of one key each, every
+    // key different, carry 4000 distinct fields, and both forms build one constraint per distinct
+    // field (the flat form once per element, 16M in all). The per-element size passes; the distinct
+    // field count is what refuses it, before any constraint is built.
+    it('refuses one-key requests that each name a different field instead of building 16M constraints', () => {
+      const vec = Array.from({ length: 4000 }, (_, i): Val => ({ map: [[`k${i}`, { i128: '1' }]] }))
+      const t0 = performance.now()
+      let thrown: unknown
+      try {
+        synthesize([submit(...vec)], { limit: '50' })
+      } catch (e) {
+        thrown = e
+      }
+      expect(performance.now() - t0).toBeLessThan(1000)
+      expect(thrown).toBeInstanceOf(Refusal)
+      expect((thrown as Refusal).code).toBe('SYNTHESIS_ERROR')
+      expect((thrown as Refusal).message).toMatch(
+        /4000 requests with 4000 distinct fields exceed the interpreter's ceilings/
+      )
+    })
+
+    it('still builds an honest batch of many requests over a few fields', () => {
+      const vec = Array.from({ length: 20 }, (_, i) => req(i % 3, String(10 + i)))
+      const s = synthesize([submit(...vec)], { limit: '50' })
+      const [rule] = propose(s.intent)
+      const text = JSON.stringify(rule?.expr)
+      expect(text).toContain('["lte",["call_path",3,true],20]')
+      expect(text).toContain('["lte",["call_path",3,19,"amount"],{"i128":"50"}]')
+      expect(text).toContain('["eq",["call_path",3,19,"request_type"],1]')
     })
   })
 

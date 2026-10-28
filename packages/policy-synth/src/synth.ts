@@ -11,6 +11,7 @@ import { identify, type Kind, PROTOCOLS } from './registry.ts'
 import { canon, constantLast, FLIP, selectors } from './rules.ts'
 import {
   branches,
+  CEILINGS,
   conjuncts,
   DECODE_LIMITS,
   type Expr,
@@ -19,6 +20,7 @@ import {
   hashOf,
   intOf,
   isConstant,
+  isMap,
   isSelector,
   isTagged,
   unlit,
@@ -261,9 +263,39 @@ function requests(
   out: Synthesis,
   flat: boolean
 ): Constraint[] {
+  // Refuse an oversized vec of structs before building any constraint: a 4000-request submit whose
+  // elements carry 4000 keys each would pin 16M fields and exhaust memory. Both forms the builder
+  // can take are bounded by the ceilings (the most any interpreter allows): a quantifier body
+  // weighs one leaf per field times `max_elems`, and the flat form one leaf per recorded field in
+  // all. When neither can fit `max_leaves`, the rule can never install, so it is refused here from
+  // the element sizes alone (an O(n) count, never the fields themselves), not built and then
+  // rejected. The real per-interpreter limits are still enforced by `validate` on the result.
+  const perElem = vec.map((el) => (isMap(el) ? el.map.length : 0))
+  const flatLeaves = perElem.reduce((n, k) => n + k, 0)
+  const maxKeys = perElem.reduce((n, k) => Math.max(n, k), 0)
+  if (maxKeys * CEILINGS.max_elems > CEILINGS.max_leaves && flatLeaves > CEILINGS.max_leaves)
+    throw new Refusal(
+      'SYNTHESIS_ERROR',
+      `${c.fn}.${name}: ${vec.length} requests of up to ${maxKeys} fields exceed the interpreter's ceilings (at most ${CEILINGS.max_leaves} leaves, ${CEILINGS.max_elems} per quantified element); record a smaller batch`
+    )
   // Every element is a map: that is the shape `requests` is recognised by.
   const maps = vec.map(fields)
   const names = [...new Set(maps.flatMap((m) => Object.keys(m)))]
+  // Small elements can still name many fields between them: 4000 requests of one key each, every
+  // key different, pass the check above, yet both forms build one constraint per distinct field
+  // (the flat form once per element too, 16M here). So the same test is made again on the distinct
+  // field count, which is what the builder iterates: a quantifier body of `names` leaves times
+  // `max_elems`, and the flat form `names` leaves per element. Every field but an uncapped amount
+  // compiles to a comparison of two leaves, so each bound is under the real weight once there are
+  // two fields or more (and refusing needs 13): this never refuses a rule `validate` would accept.
+  if (
+    names.length * CEILINGS.max_elems > CEILINGS.max_leaves &&
+    vec.length * names.length > CEILINGS.max_leaves
+  )
+    throw new Refusal(
+      'SYNTHESIS_ERROR',
+      `${c.fn}.${name}: ${vec.length} requests with ${names.length} distinct fields exceed the interpreter's ceilings (at most ${CEILINGS.max_leaves} leaves, ${CEILINGS.max_elems} per quantified element); record a smaller batch`
+    )
   const bound = a.limits?.[`${name}.amount`] ?? a.limit
   if (names.includes('amount') && bound === undefined)
     out.ambiguities.push(missing(c, `${name}.amount`))
