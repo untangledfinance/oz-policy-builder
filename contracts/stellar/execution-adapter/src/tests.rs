@@ -232,6 +232,77 @@ fn permits_data_that_cannot_denote_an_address() {
     .is_ok());
 }
 
+/// A `Bytes` of `len` bytes, none of them an address spelling.
+fn bytes_of(e: &Env, len: usize) -> Bytes {
+    let mut b = Bytes::new(e);
+    for _ in 0..len {
+        b.push_back(7u8);
+    }
+    b
+}
+
+/// A `String` of `len` ASCII characters, not a strkey.
+fn string_of(e: &Env, len: usize) -> SString {
+    let s = "a".repeat(len);
+    SString::from_str(e, &s)
+}
+
+/// One single-argument call to the listed gate.
+fn one_arg_to_gate(w: &World, arg: Val) -> Vec<Call> {
+    Vec::from_array(
+        &w.e,
+        [call_to(&w.e, &w.gate, "one", Vec::from_array(&w.e, [arg]))],
+    )
+}
+
+/// A gated adapter refuses a non-address `Bytes` whose length matches an address
+/// encoding (32, 40, 44, 48 or 56 bytes) even to a listed venue: the address
+/// walk cannot tell a 32-byte hash, a salt, a pool id or a same-length memo
+/// apart from the raw bytes, strkey or XDR of an address, so it fails CLOSED.
+/// This is deliberate and documented as a limitation (see `scan_data`,
+/// `docs/stellar.md` "Limits" and the adapter README); these cases pin the
+/// trade-off so a later change cannot quietly loosen the walk.
+#[test]
+fn a_non_address_bytes_of_an_address_length_is_refused() {
+    let w = world();
+    for len in [32usize, 40, 44, 48, 56] {
+        let calls = one_arg_to_gate(&w, bytes_of(&w.e, len).to_val());
+        refused(&w, calls, E::AddressNotAllowed);
+    }
+}
+
+/// The same for a `String` argument: a 32-, 40-, 44-, 48- or 56-character memo
+/// or identifier that is not an allowed strkey is refused.
+#[test]
+fn a_non_address_string_of_an_address_length_is_refused() {
+    let w = world();
+    for len in [32usize, 40, 44, 48, 56] {
+        let calls = one_arg_to_gate(&w, string_of(&w.e, len).to_val());
+        refused(&w, calls, E::AddressNotAllowed);
+    }
+}
+
+/// A 69-byte value is refused outright: no allowed address is ever spelled that
+/// way (only a muxed `M` strkey is 69 bytes).
+#[test]
+fn a_69_byte_value_is_refused_outright() {
+    let w = world();
+    let calls = one_arg_to_gate(&w, bytes_of(&w.e, 69).to_val());
+    refused(&w, calls, E::AddressNotAllowed);
+}
+
+/// The refusal is by exact length: a value one byte either side of an address
+/// length passes untouched, which is what makes it an undocumented surprise for
+/// a venue whose argument happens to be 32 or 56 bytes.
+#[test]
+fn a_value_just_off_an_address_length_passes() {
+    let w = world();
+    for len in [31usize, 33, 55, 57] {
+        let calls = one_arg_to_gate(&w, bytes_of(&w.e, len).to_val());
+        assert!(run(&w, calls).is_ok(), "length {len} should pass");
+    }
+}
+
 #[test]
 fn refuses_an_authorization_it_cannot_check() {
     let w = world();

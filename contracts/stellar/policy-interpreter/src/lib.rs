@@ -395,28 +395,28 @@ fn run_fn() -> Symbol {
 /// bound. A gated executor never vouches for its own `execute`, so there a
 /// rule of this shape binds but never passes.
 fn pins_own(e: &Env, root: &dsl::Node) -> bool {
-    use dsl::PathStep::{Index, Key, Len};
+    use dsl::PathStep::{Index, Len};
     if dsl::pins_call_fn(e, root, &run_fn()) {
         return true;
     }
     let pinned = |steps: &[dsl::PathStep], ok: &dyn Fn(&Val) -> bool, set: bool| {
         dsl::pins(root, &|l| dsl::is_call_path(e, l, steps), ok, set)
     };
-    let any = |_: &Val| true;
     let zero = |v: &Val| dsl::number(e, v) == Some(0);
     let execute = dsl::pins_call_fn(e, root, &symbol_short!("execute"));
     if !(execute && pinned(&[Index(2)], &zero, false)) {
         return false;
     }
-    // Count the leading calls whose target and function are both pinned; the
-    // length must be pinned to no more than that. Each one pinned takes a leaf
-    // of its own, so the count stops within `max_leaves`.
+    // Count the leading calls whose target AND function name are both pinned:
+    // `m` is the length of the prefix from zero that both sets cover. Collecting
+    // the pinned indices in one traversal each (see `dsl::pinned_call_indices`)
+    // keeps this LINEAR in the rule's size; walking the whole tree once per
+    // index was quadratic. The length must then be pinned to no more than `m`.
     let (target, function) = (symbol_short!("target"), Symbol::new(e, "function_name"));
+    let targets = dsl::pinned_call_indices(e, root, &target.to_val());
+    let functions = dsl::pinned_call_indices(e, root, &function.to_val());
     let mut m: u32 = 0;
-    while [&target, &function].iter().all(|field| {
-        let at = [Index(0), Index(m), Key(field.to_val())];
-        pinned(&at, &any, true)
-    }) {
+    while targets.binary_search(&m).is_ok() && functions.binary_search(&m).is_ok() {
         m += 1;
     }
     let short = |v: &Val| dsl::number(e, v).is_some_and(|n| n <= i128::from(m));
