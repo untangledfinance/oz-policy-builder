@@ -550,12 +550,12 @@ describe('the install review says what the interpreter allows', () => {
 
   it('names each limit beside the interpreter', () => {
     expect(line(text(CUSTOM_CAPS))).toBe(
-      `└─ interpreter:  ${INT.slice(0, 6)}…${INT.slice(-6)} (reads ≤ 6, leaves ≤ 300, predicate_bytes ≤ 40000, elems ≤ 50, in_operands ≤ 40, depth ≤ 7)`
+      `└─ interpreter:  ${INT} (reads ≤ 6, leaves ≤ 300, predicate_bytes ≤ 40000, elems ≤ 50, in_operands ≤ 40, depth ≤ 7)`
     )
   })
 
   it('and, with no limits to name, is the address alone', () => {
-    expect(line(text())).toBe(`└─ interpreter:  ${INT.slice(0, 6)}…${INT.slice(-6)}`)
+    expect(line(text())).toBe(`└─ interpreter:  ${INT}`)
   })
 })
 

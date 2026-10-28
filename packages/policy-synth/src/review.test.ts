@@ -168,7 +168,7 @@ describe('reviewUnsigned: an honest build, read back from its bytes', () => {
     expect(r.review[0]).toBe('Transaction')
     expect(r.review).toContain('Authority')
     const text = r.review.join('\n')
-    expect(text).toContain('calls:  CASJ5G…GMGM5P ([smart account])  add_context_rule')
+    expect(text).toContain('calls:  CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P ([smart account])  add_context_rule')
     expect(text).toContain('expires:  never expires')
     expect(text).toContain('total:  no total limit')
     expect(text).toMatch(/authorisation: {2}by rule 0, valid through ledger \d+/)

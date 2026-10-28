@@ -4,6 +4,7 @@
 // wire leaf or subtree it was read from, and an operand reads as where it is on the wire
 // (`argument 2 › amount`). Nothing a label says can change what the rule enforces.
 
+import { StrKey } from '@stellar/stellar-sdk'
 import { INTERPRETER, type Network, safeRead, spendingLimits } from './config.ts'
 import { delegated, meetsAlone, spendingParams } from './install.ts'
 import { type Expr, intOf, isAddress, isSelector, unlit, type Val } from './wire.ts'
@@ -71,8 +72,28 @@ const LABEL = /^[A-Za-z][\w .-]{0,23}$/
  *  ones are not numbers to it, and inside a vector or a map every type is its own. */
 const NUMBER = /^(i32|i64|u64|i128|u128|timepoint|duration)$/
 
-/** An address shortened, or whole under `raw`. */
-const short = (a: string, c: View) => (c.raw ? a : `${a.slice(0, 6)}…${a.slice(-6)}`)
+/** A muxed address (M...) as its underlying account and id: two muxed addresses, or a muxed one
+ *  and the base account, that would collide in any shortened form are told apart here. Undefined
+ *  for an address that is not muxed, or one that does not decode. */
+const muxed = (a: string): { account: string; id: string } | undefined => {
+  if (!a.startsWith('M')) return undefined
+  try {
+    const raw = Buffer.from(StrKey.decodeMed25519PublicKey(a))
+    return {
+      account: StrKey.encodeEd25519PublicKey(raw.subarray(0, 32)),
+      id: raw.readBigUInt64BE(32).toString(),
+    }
+  } catch {
+    return undefined
+  }
+}
+/** An address shown in FULL. Shortening to a fixed prefix and suffix let a look-alike (a ground
+ *  vanity address, or a muxed M... account) render the same as a real one; the whole address, and
+ *  for a muxed one the underlying account and id apart, is what the owner must read. */
+const short = (a: string, _c: View) => {
+  const m = muxed(a)
+  return m ? `${m.account} (muxed, id ${m.id})` : a
+}
 /** The package's own name for an address ([role]), else the request's, marked as the caller's («...»). */
 const named = (a: string, c: View) => {
   const [role, given] = [KNOWN[a] ?? c.roles?.[a], c.labels?.[a]]

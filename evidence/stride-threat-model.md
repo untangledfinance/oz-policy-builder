@@ -231,7 +231,7 @@ Lines are in `contracts/stellar/prime-seat/src/lib.rs`.
 |---|---|---|---|---|---|
 | S-10 | S | On a network for which the package pins no interpreter, the interpreter address is agent input, and a lying RPC can report a trusted code hash for another contract | testnet has a pinned address (`INTERPRETER` in `config.ts`); on a network with none, the address must run a build whose code hash the package trusts, as the RPC reports it | code read | Open, Medium |
 | S-11 | S | Any local process, or a web page, calls the MCP HTTP tools | loopback bind and a `Host` and `Origin` guard (`policy-builder-mcp/src/http.ts:55-73`); no authentication | MCP suite | Open, Medium on a shared host |
-| S-12 | S | A contract's parameter names mislead, a fake token claims a known symbol, or an address is ground to look like another | names are display only; the review prints addresses in full | code read | Open, Low |
+| S-12 | S | A contract's parameter names mislead, a fake token claims a known symbol, or an address is ground to look like another | names are display only; the review prints each address in full, and a muxed `M...` address as its underlying account and id apart, so a ground vanity or muxed look-alike cannot render the same as a real address (`card.ts` `short`/`muxed`) | `card.ts` tests | Holds |
 | T-16 | T | A lying RPC adds a sub-invocation to the account's authorisation, so the owner signs more than the review shows | the simulated root invocation must equal the built call with nothing under it (`install.ts:230-244`) | `install.test.ts` | Holds |
 | T-17 | T | A lying RPC records another transaction under the hash asked for | the returned envelope is hashed under the network passphrase and compared (`record.ts`) | `record.test.ts` | Holds |
 | T-18 | T | A lying RPC sets the signed authorisation expiry or the resource fee | expiry from the recording pass plus `POLICY_BUILDER_AUTH_LEDGERS` (at most 17,280), the two passes within 20 ledgers, a time bound from the builder's clock, a fee ceiling (`POLICY_BUILDER_MAX_RESOURCE_FEE`) | `install.test.ts`; `review_unsigned` checks the same bounds | Holds; residual Low (section 9) |
@@ -242,7 +242,7 @@ Lines are in `contracts/stellar/prime-seat/src/lib.rs`.
 | E-26 | E | The agent sets an override flag to waive a refusal | every flag used comes back in `overrides` and opens the review; outside testnet a flag is refused unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1` (`install.ts:403-410`) | `install.test.ts`, `tools.test.ts` | Holds |
 | E-27 | E | A contract signer or admin whose `__check_auth` answers anyone opens the mandate to anyone | `install_policy` reads each contract signer's instance and refuses an adapter with no gate, a gated adapter signing a rule scoped to itself that does not pin `run`, and a contract that is not deployed (`install.ts:597-604`); `review_unsigned` flags a contract signer unless `readContracts` reads it. Every other contract passes unvetted | `install.test.ts`, `review.test.ts`, `contracts.test.ts` | Open, Medium |
 | E-28 | E | An agent rule never expires unless someone revokes it | `validUntilLedger` defaults to none (`install.ts:556`); the review header says "never expires" | code read | Open, Medium |
-| E-29 | E | The review hides who gains authority (signers, admins, expiry, roles) | the authority header lists signers in full, who can act alone, admins, expiry and totals | `card.ts` tests | Holds |
+| E-29 | E | The review hides who gains authority (signers, admins, expiry, roles) | the authority header lists each signer in full (the whole address, never a shortened prefix and suffix), who can act alone, admins, expiry and totals | `card.ts` tests | Holds |
 | E-30 | E | The agent cites a looser rule it also holds | `authorityScan` reads every live rule; `allowOverlap` is echoed | `install.test.ts` | Holds |
 | E-31 | E | `spending_limit` attached to a predicate that permits more than `transfer` | refused | `install.test.ts` | Holds |
 | E-32 | E | The agent writes outside the output directory | a bare file name and an exclusive create (`tools.ts`) | `tools.test.ts` | Holds |
@@ -404,7 +404,7 @@ All 16 assertion rows matched. E38-1 to E38-4 are the on-chain proof of E-38: a 
 | T-26 | Medium | Account code provenance | record the source commit and build of each account build, or pin a tagged 0.8.0 release |
 | E-27 | Medium | Contract signers pass unvetted, beyond the three refused kinds | refuse a contract signer or admin unless its code is a pinned seat or account build; refuse a seat as admin (D-06) |
 | E-28 | Medium | Agent rules default to no expiry | require `validUntilLedger` or a seat signer |
-| S-12, T-04, T-15, T-20, T-24, D-01, D-02, D-06, D-08, D-12, E-05 (0.7.2-line account), E-08, E-09, E-10, E-16, E-23, R-01 | Low | as in the tables above | |
+| T-04, T-15, T-20, T-24, D-01, D-02, D-06, D-08, D-12, E-05 (0.7.2-line account), E-08, E-09, E-10, E-16, E-23, R-01 | Low | as in the tables above | |
 
 Three more open points concern the account builds and the deployment:
 
