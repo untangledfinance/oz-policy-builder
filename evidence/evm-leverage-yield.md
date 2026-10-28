@@ -2,8 +2,8 @@
 
 **Date:** 28 October 2026.
 **Status:** verified on a fork of Base Sepolia against the live Safe, Zodiac
-Roles v2.1.1 and Aave v3 contracts. The live on-chain run is pending a funded
-key (see [The on-chain run](#the-on-chain-run)).
+Roles v2.1.1 and Aave v3 contracts, and run live on Base Sepolia on 28 October
+2026 (see [The on-chain run](#the-on-chain-run)).
 **Scope:** the config-only execution adapter for Mr. Quan's tokenised-gold
 leveraged-yield flow. It adds no contract of Prime's. The adapter is a Zodiac
 Roles policy template on the same custody gate the custody-yield reference line
@@ -199,18 +199,63 @@ FORK_URL=https://sepolia.base.org forge test --match-contract LeverageYieldTest 
 
 ## The on-chain run
 
-The live run on Base Sepolia is pending a funded key. The throwaway deployer the
-reference line used (`0x00ccd1A17fD215d8104e712a220AbA6aA6D5F901`) still holds
-about 0.0144 test ETH on Base Sepolia, enough for the run, but its key file was
-removed in a disk cleanup and cannot be recovered. A Base Sepolia faucet needs a
-login or a CAPTCHA, so the run cannot fund a fresh key on its own. A fresh
-throwaway deployer is ready at `0x41524EF4C574377c4e780f409337Bf03C52Faa11`; once
-it holds test ETH, or the original key is restored, the live run follows the
-same shape as the fork test: write the template, mint the test assets through
-the Aave faucet (`0xD9145b5F45Ad4519c7ACcD6E0A4A82e83bB8A6Dc`,
-`mint(token, to, amount)`), run a real open and a real close, send a batch of
-refusals, and read every transaction back on a second RPC, the way the reference
-line did.
+The line ran on Base Sepolia (chain 84532) on 28 October 2026. The deployer is a
+throwaway key funded for the run, 0.05 Ethereum Sepolia ETH from the Google
+Cloud faucet, bridged to Base Sepolia through the Base L1 standard bridge
+(`bridgeETHTo`, 0.03 ETH, tx
+`0x9a27bb18707a776fca4c86a97ac4548f5ba3e45171d5d329af3a22a54f6686cb` on
+Ethereum Sepolia). The deployer is the gate's `leverage-yield` member, the
+scoped-agent path; the Prime-account member path is proven on the fork. The
+whole run cost about 0.001 test ETH. Every transaction below was read back on a
+second RPC (`https://base-sepolia-rpc.publicnode.com`), status and block
+included.
+[`script/LeverageYieldLive.s.sol`](../scripts/evm-config-check/script/LeverageYieldLive.s.sol)
+builds the run; its encoders are copied from the fork test.
+
+**Addresses:**
+
+| Role | Address |
+|---|---|
+| Deployer / scoped-agent member | `0x41524EF4C574377c4e780f409337Bf03C52Faa11` |
+| Custody Safe (3 of 3) | `0x77286247F668c1a7f57100649fCebf130cDCA127` |
+| Custody gate (Roles v2.1.1 proxy) | `0x0a66a3c6B539474526A279B82A6F90717089a718` |
+| MockVault (yield fixture) | `0x6Bf85659745daFE2fd8622c1e49d346d0f62D460` |
+| Non-member (refusal) | `0x7199e355F9A23368D8d6a71AC60303D4E11de4BD` |
+
+**Setup, open and close, each succeeded (status 1):**
+
+| Step | Transaction |
+|---|---|
+| Create the custody Safe | `0xd929b8131f84380afb8221af1d3d414657e18d4a4f92c13656aa7ab585e08652` |
+| Deploy the MockVault fixture | `0x80f1f750687c365fa90726e0f090ce4cf08cb27b56de369d9a7a3f8738ca9f40` |
+| Write the leverage-yield template | `0x577e92b27783cf183d257bad8cb8f7767a8c475696d6e17efec50dce0622a1f1` |
+| Mint the gold stand-in to custody | `0x3e86fa2ef0482a064d05c1fcb1c9dfcf0246b6196eb5ed41269cd74cc98000e4` |
+| Mint the vault's standing yield | `0xfa30e605695d841639833700b69416f73c504cf1b5f6304d4f6c85a1dc67ba3c` |
+| **OPEN** (supply gold + borrow USDC + deposit yield, one MultiSend) | `0x26ebb00d2a1d9a7c3c8fc2a9de5e8845a656d36d70bdc9f4b47d70c1f83635c4` (block 51454790) |
+| **CLOSE** (redeem + repay-max + withdraw-max, one MultiSend) | `0xce463825420814defdb8281fb51465e93983a4486e4bc116ae51e174a8734a8e` (block 51454800) |
+
+The open supplied 0.5 cbETH, borrowed 500 USDC and deposited the 500 USDC into
+the vault, in one atomic transaction. After the close the position reads: Aave
+debt 0, custody cbETH 1.000000000042348464 (all the gold back, plus supply
+dust), custody USDC 99.999998 (the carry the vault paid). The debt is cleared,
+the collateral is back and the carry is kept.
+
+**Refusals, each reverted on chain (status 0) with its Roles status:**
+
+| Refusal | Roles status | Transaction |
+|---|---|---|
+| A call to an unscoped target | `ConditionViolation` 2 (target) | `0x27f828d379b9b215144db1085267ae66e49ac4f006df0a802a708b1791c10353` |
+| A borrow over the signed cap | `ConditionViolation` 17 (allowance, `leverage-borrow`) | `0xc62211cb5cc5da54cdcbfa7e6098f80be465b9b3bee1324e69de8227e7ffa8fc` |
+| A supply for a stranger | `ConditionViolation` 7 (parameter) | `0xa3e84243547f96223802fe02f977929211e1255814a6af387754c96b5327bfaf` |
+| A plain transfer of the gold | `ConditionViolation` 3 (function) | `0x0bcfe4dbda2c033b29ee5750dcfa41d2de3063e36e83e211424e893def0fce89` |
+| A delegatecall to the pool | `ConditionViolation` 1 (delegatecall) | `0x65c50e785620e67f73d57f9d2f569a3dadefbf0a50d44399ea9b790bd3222913` |
+| A borrow of an unlisted asset | `ConditionViolation` 7 (parameter) | `0xc080bf939973ba5913b1a26faf0fe2941a66b4b85456d99c94db34f7d46b0bec` |
+| A non-member | `NotAuthorized` | `0xbd2bb6c10d247200dc24739a5d20daf338a0fcde9cb0b37b023a02d22e3fe640` |
+
+Each refusal's revert data, read by `eth_call`, carried the same Roles status
+the fork test asserts for the same call. Every transaction above, the successes
+and the refusals, was confirmed on both `https://sepolia.base.org` and
+`https://base-sepolia-rpc.publicnode.com`.
 
 ## Config-only confirmation
 

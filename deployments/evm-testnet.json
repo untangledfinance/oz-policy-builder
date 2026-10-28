@@ -44,7 +44,7 @@
     "log": "scripts/evm-config-check/run-2026-10-27.txt"
   },
   "leverageYield": {
-    "status": "fork-verified on Base Sepolia against the live contracts; the live on-chain run is pending a funded key",
+    "status": "fork-verified against the live contracts and run live on Base Sepolia on 28 October 2026 (open, close and a batch of refusals, each read back on a second RPC)",
     "date": "2026-10-28",
     "note": "the config-only leverage-yield execution adapter for the tokenised-gold carry flow: a Zodiac Roles policy template on the custody gate plus a Safe MultiSend batch, no contract of Prime's. It adds no production contract, no wasm and no build-hashes.json entry. The gate registers the Roles MultiSend unwrapper for MultiSendCallOnly, so one batch is split and each inner call checked against the leverage-yield role, then the custody Safe runs the batch atomically.",
     "suite": "scripts/evm-config-check/test/LeverageYield.t.sol",
@@ -60,9 +60,36 @@
       "faucet": "0xD9145b5F45Ad4519c7ACcD6E0A4A82e83bB8A6Dc (mint(token, to, amount))"
     },
     "onChainRun": {
-      "status": "pending a funded key",
-      "reason": "the throwaway deployer the reference line used (0x00ccd1A17fD215d8104e712a220AbA6aA6D5F901) still holds about 0.0144 test ETH on Base Sepolia, but its key file was removed in a disk cleanup; a Base Sepolia faucet needs a login or CAPTCHA, so a fresh key cannot be funded without a human",
-      "freshDeployer": "0x41524EF4C574377c4e780f409337Bf03C52Faa11"
+      "status": "on chain: Base Sepolia, 28 October 2026; every transaction read back from a second RPC (base-sepolia-rpc.publicnode.com), status and block",
+      "date": "2026-10-28",
+      "network": "Base Sepolia (84532) via https://sepolia.base.org",
+      "explorer": "https://sepolia.basescan.org",
+      "script": "scripts/evm-config-check/script/LeverageYieldLive.s.sol",
+      "funding": "throwaway deployer funded with 0.05 Ethereum Sepolia ETH (Google Cloud faucet), 0.03 bridged to Base Sepolia via the Base L1 standard bridge (bridgeETHTo, tx 0x9a27bb18707a776fca4c86a97ac4548f5ba3e45171d5d329af3a22a54f6686cb on Ethereum Sepolia); the whole run cost about 0.001 test ETH",
+      "deployer": "0x41524EF4C574377c4e780f409337Bf03C52Faa11",
+      "custody": "0x77286247F668c1a7f57100649fCebf130cDCA127",
+      "gate": "0x0a66a3c6B539474526A279B82A6F90717089a718",
+      "vault": "0x6Bf85659745daFE2fd8622c1e49d346d0f62D460",
+      "member": "0x41524EF4C574377c4e780f409337Bf03C52Faa11 (the scoped-agent path; the Prime-account member is fork-proven)",
+      "transactions": {
+        "createCustody": "0xd929b8131f84380afb8221af1d3d414657e18d4a4f92c13656aa7ab585e08652",
+        "deployVault": "0x80f1f750687c365fa90726e0f090ce4cf08cb27b56de369d9a7a3f8738ca9f40",
+        "writeTemplate": "0x577e92b27783cf183d257bad8cb8f7767a8c475696d6e17efec50dce0622a1f1",
+        "mintGold": "0x3e86fa2ef0482a064d05c1fcb1c9dfcf0246b6196eb5ed41269cd74cc98000e4",
+        "mintVaultYield": "0xfa30e605695d841639833700b69416f73c504cf1b5f6304d4f6c85a1dc67ba3c",
+        "open": "0x26ebb00d2a1d9a7c3c8fc2a9de5e8845a656d36d70bdc9f4b47d70c1f83635c4",
+        "close": "0xce463825420814defdb8281fb51465e93983a4486e4bc116ae51e174a8734a8e"
+      },
+      "refusals": {
+        "unscopedTarget": "0x27f828d379b9b215144db1085267ae66e49ac4f006df0a802a708b1791c10353 (ConditionViolation 2, target)",
+        "overBorrowCap": "0xc62211cb5cc5da54cdcbfa7e6098f80be465b9b3bee1324e69de8227e7ffa8fc (ConditionViolation 17, allowance)",
+        "wrongRecipient": "0xa3e84243547f96223802fe02f977929211e1255814a6af387754c96b5327bfaf (ConditionViolation 7, parameter)",
+        "goldTransfer": "0x0bcfe4dbda2c033b29ee5750dcfa41d2de3063e36e83e211424e893def0fce89 (ConditionViolation 3, function)",
+        "delegatecall": "0x65c50e785620e67f73d57f9d2f569a3dadefbf0a50d44399ea9b790bd3222913 (ConditionViolation 1, delegatecall)",
+        "borrowUnlisted": "0xc080bf939973ba5913b1a26faf0fe2941a66b4b85456d99c94db34f7d46b0bec (ConditionViolation 7, parameter)",
+        "nonMember": "0xbd2bb6c10d247200dc24739a5d20daf338a0fcde9cb0b37b023a02d22e3fe640 (NotAuthorized; from 0x7199e355F9A23368D8d6a71AC60303D4E11de4BD)"
+      },
+      "finalPosition": "Aave debt 0; custody cbETH 1.000000000042348464 (all the gold back plus supply dust); custody USDC 99.999998 (the carry); debt cleared, collateral back, carry kept"
     }
   },
   "referenceLine": {
