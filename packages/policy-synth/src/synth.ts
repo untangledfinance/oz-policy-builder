@@ -97,6 +97,7 @@ function callIntent(c: Call, a: Answers, out: Synthesis): CallIntent {
         else where.push({ constraint: 'cap', at: [i], max: bound })
       } else if (kind === 'min') out.ambiguities.push(slippage(c, name))
       else if (kind === 'requests') where.push(...requests([i], v as Val[], a, c, name, out, flat))
+      else if (kind === 'loan') where.push(...loan([i], v, a, c, name, out))
     })
     return { contract: c.contract, fn: c.fn, where }
   }
@@ -122,6 +123,27 @@ function callIntent(c: Call, a: Answers, out: Synthesis): CallIntent {
 /** The registry row for a function name, in whichever protocol has it. */
 const rowOf = (fn: string) =>
   Object.values(PROTOCOLS).find((fns) => Object.hasOwn(fns, fn))?.[fn] ?? []
+
+/** The execution adapter's own interface, whose calls are bounded by the batch-shape pins (221) and
+ *  the adapter word mechanics, not by the amount gate: a rule scoped to one of these is not warned
+ *  about as an unmodelled value mover. */
+const GATE_EXEMPT = new Set(['execute', 'run', 'cancel'])
+
+/** The safety net for a predicate the gate judges without a recording: a branch that names a function
+ *  the registry does not model has no amount question derived for it (the recording path pins its
+ *  arguments tight, but a hand-built or followed predicate does not), so warn that the gate cannot
+ *  confirm what it moves is capped (SYNTH-CORE-01). The adapter's own interface is exempt: its shape
+ *  is pinned by the interpreter (221), not by this gate. */
+export function unmodeledWarnings(expr: Expr): string[] {
+  const fns = new Set<string>()
+  for (const branch of branches(expr))
+    for (const s of selectors(and(branch)))
+      if (s.fn && s.fn !== '*' && !GATE_EXEMPT.has(s.fn) && rowOf(s.fn).length === 0) fns.add(s.fn)
+  return [...fns].map(
+    (fn) =>
+      `${fn} is not a function the amount gate models, so it cannot confirm the amounts it moves are capped: pin or cap its arguments in the rule, or allow it deliberately`
+  )
+}
 
 /** The amount questions an intent leaves open: a function the registry knows by name,
  *  one of whose arguments is an amount (or a vec of structs that carries one), and no
@@ -154,8 +176,11 @@ export function unbounded(intent: Intent): Synthesis['ambiguities'] {
       const whole = (ps: Path[]) => ps.some((p) => p.length === 1 && p[0] === i)
       if (kind === 'amount') return whole(caps) ? [] : [missing(asked, name)]
       if (kind === 'min') return whole(floored) ? [] : [slippage(asked, name)]
-      return kind === 'requests' && !caps.some((p) => p[0] === i && p.at(-1) === 'amount')
-        ? [missing(asked, name)]
+      // A `loan` carries its amount one field deep, a `requests` one element deep: either needs a cap
+      // whose path ends in `amount`, else the amount it moves is open (SYNTH-CORE-01).
+      return (kind === 'requests' || kind === 'loan') &&
+        !caps.some((p) => p[0] === i && p.at(-1) === 'amount')
+        ? [missing(asked, kind === 'loan' ? `${name}.amount` : name)]
         : []
     })
   })
@@ -240,6 +265,11 @@ export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
             return isConstant(b.to) && n !== undefined && (b.op === 'gte' ? n > 0n : n >= 0n)
           }
           q = got.top.some(floor) ? undefined : slippage(ask, name)
+        } else if (kind === 'loan') {
+          // The borrowed amount lives one field deep (`flash_loan.amount`): an upper bound on that
+          // leaf, else it is open (SYNTH-CORE-01).
+          const amt = canon(['call_path', i, 'amount'])
+          q = upper.some((b) => canon(b.at) === amt) ? undefined : missing(ask, `${name}.amount`)
         } else if (kind === 'requests') {
           // Every request is capped: by an `all` over the vec, or by a length bound and a cap on each.
           const len = upper.find((b) => canon(b.at) === canon(['call_path', i, true]))
@@ -351,6 +381,23 @@ function requests(
   }
   const one = maps.flatMap((m, i) => names.flatMap((f) => field(f, [m[f] as Val], [...at, i, f])))
   return [...rules, ...one]
+}
+
+/** Blend's `FlashLoan` struct: the lender (`contract`) and `asset` pinned to what was recorded (or
+ *  an allow-list), the `amount` capped. A recorded amount is bounded by the cap, not left open; with
+ *  no cap the question is asked, as for `transfer`'s amount (SYNTH-CORE-01). */
+function loan(at: Path, v: Val, a: Answers, c: Call, name: string, out: Synthesis): Constraint[] {
+  const m = fields(v)
+  const res: Constraint[] = []
+  for (const f of ['contract', 'asset']) {
+    const listed = a.allow?.[`${name}.${f}`]
+    if (listed) res.push({ constraint: 'allow', at: [...at, f], in: listed })
+    else if (m[f] !== undefined) res.push({ constraint: 'pin', at: [...at, f], to: m[f] as Val })
+  }
+  const bound = a.limits?.[`${name}.amount`] ?? a.limit
+  if (bound === undefined) out.ambiguities.push(missing(c, `${name}.amount`))
+  else res.push({ constraint: 'cap', at: [...at, 'amount'], max: bound })
+  return res
 }
 
 export interface ProposedRule {
