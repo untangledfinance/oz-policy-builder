@@ -69,12 +69,25 @@ export const isMap = (v: unknown): v is { map: [Val, Val][] } => isTagged(v) && 
 export const fields = (v: Val | undefined): Record<string, Val> =>
   Object.fromEntries(isMap(v) ? v.map.map(([k, x]) => [String(k), x]) : [])
 
-/** The integer a value carries (a u32, or a tagged integer, timepoint or duration), else undefined. */
+/** The most decimal digits a magnitude of a given bit width can have (2^256 has 78). */
+const DIGITS: Record<number, number> = { 32: 10, 64: 20, 128: 39, 256: 78 }
+
+/** The integer a value carries (a u32, or a tagged integer, timepoint or duration), else undefined.
+ *  A magnitude too long for the type is rejected before `BigInt` parses it: parsing a million-digit
+ *  string is quadratic, and an out-of-range value is `undefined` anyway, so a caller never spends
+ *  that time on input the contract could not read. Leading zeros (and a sign) do not count. */
 export function intOf(v: Val | undefined): bigint | undefined {
   if (typeof v === 'number') return BigInt(v)
   const [tag, x] = isTagged(v) ? (Object.entries(v)[0] as [string, unknown]) : []
-  const known = tag !== undefined && (tag in BITS || tag === 'i32')
-  return known && /^-?\d+$/.test(String(x)) ? BigInt(String(x)) : undefined
+  if (tag === undefined || !(tag in BITS || tag === 'i32')) return undefined
+  const s = String(x)
+  if (!/^-?\d+$/.test(s)) return undefined
+  const width = tag === 'i32' ? 32 : (BITS[tag]?.[0] as number)
+  // The significant digits: drop a sign and any leading zeros without allocating the whole string.
+  let i = s.charCodeAt(0) === 45 ? 1 : 0
+  while (i < s.length - 1 && s.charCodeAt(i) === 48) i++
+  if (s.length - i > (DIGITS[width] as number)) return undefined
+  return BigInt(s)
 }
 
 export function toScVal(v: Val): xdr.ScVal {

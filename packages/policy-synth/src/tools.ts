@@ -81,9 +81,15 @@ const account = z.string().refine(StrKey.isValidEd25519PublicKey, 'a G... accoun
 const contractId = z.string().refine(StrKey.isValidContract, 'a C... contract')
 const anyAddress = z.union([account, contractId])
 const u32 = z.number().int().positive().max(0xffffffff)
+const I128_MAX = 2n ** 127n - 1n
+// An amount is a positive i128 in the smallest unit. The length cap keeps a 900k-digit string from
+// reaching the BigInt parse (and the 512 call intents it would be copied into) before it is refused;
+// the range check then holds it to a signed 128-bit integer.
 const amount = z
   .string()
   .regex(/^[1-9]\d*$/, 'a positive integer in the smallest unit, as a string')
+  .max(39, 'too many digits for an i128 amount')
+  .refine((s) => BigInt(s) <= I128_MAX, 'an amount must fit a signed 128-bit integer')
 const val: z.ZodType<unknown> = z.lazy(() =>
   z.union([z.null(), z.boolean(), z.number(), z.string(), z.array(val), z.record(z.string(), val)])
 )
@@ -102,7 +108,17 @@ const rule: z.ZodType<unknown> = z.lazy(() =>
     row('allow', { at: path, in: list }),
     row('deny', { at: path, nin: list }),
     row('cap', { at: path, max: amount }),
-    row('floor', { at: path, min: z.string().regex(/^-?\d+$/) }),
+    row('floor', {
+      at: path,
+      min: z
+        .string()
+        .regex(/^-?\d+$/)
+        .max(40, 'too many digits for an i128 floor')
+        .refine((s) => {
+          const n = BigInt(s)
+          return n >= -(I128_MAX + 1n) && n <= I128_MAX
+        }, 'a floor must fit a signed 128-bit integer'),
+    }),
     row('length', { at: path, max: z.number().int().nonnegative() }),
     row('count', { at: path, is: z.number().int().nonnegative().max(0xffffffff) }),
     row('same', { at: path, as: path }),
@@ -122,6 +138,20 @@ const rule: z.ZodType<unknown> = z.lazy(() =>
     row('from', { ts: z.number().int().positive() }),
   ])
 )
+/** How deep `each`/`some` bodies nest: the interpreter forbids a quantifier inside a quantifier, so
+ *  a legitimate intent never nests beyond one, but a deeply nested one is cheap to send and used to
+ *  drive the lowering and the amount walk into quadratic time before it was ever rejected. Bounded
+ *  here, from the parsed shape, before any of that runs. */
+const MAX_INTENT_DEPTH = 16
+const nesting = (where: unknown, depth = 1): number => {
+  if (!Array.isArray(where)) return depth
+  let max = depth
+  for (const r of where) {
+    const inner = (r as { where?: unknown }).where
+    if (Array.isArray(inner)) max = Math.max(max, nesting(inner, depth + 1))
+  }
+  return max
+}
 const intent = z
   .object({
     calls: z
@@ -134,6 +164,14 @@ const intent = z
       .max(32),
   })
   .strict()
+  .superRefine((i, ctx) => {
+    for (const c of i.calls)
+      if (nesting(c.where) > MAX_INTENT_DEPTH)
+        ctx.addIssue({
+          code: 'custom',
+          message: `${c.fn}: constraints nested deeper than ${MAX_INTENT_DEPTH}`,
+        })
+  })
 
 const call = z.object({ contract: contractId, fn: z.string().min(1), args: z.array(val) }).strict()
 /** A rule to follow instead of a predicate: `ruleId` of `smartAccount`, on the same interpreter. */

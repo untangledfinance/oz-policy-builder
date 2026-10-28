@@ -157,7 +157,12 @@ function walk(v: Val | undefined, steps: Val[]): Val | undefined {
     if (cur === undefined) return undefined
     if (s === true) return Array.isArray(cur) ? cur.length : undefined
     if (Array.isArray(cur)) return typeof s === 'number' ? cur[s] : undefined
-    if (isMap(cur)) return cur.map.find(([k]) => same(k, unlit(s)))?.[1]
+    if (isMap(cur)) {
+      // Serialise the key being looked for once, not once per map entry: a huge (zero-padded) key
+      // against a map of thousands of entries would otherwise re-stringify it thousands of times.
+      const want = JSON.stringify(unlit(s))
+      return cur.map.find(([k]) => JSON.stringify(k) === want)?.[1]
+    }
     return undefined
   }, v)
 }
@@ -182,11 +187,13 @@ function put(v: Val, steps: Val[], x: Val): Val | undefined {
     failed ||= r === undefined
     return r as Val
   }
+  // The key to replace, serialised once rather than once per entry (a huge key over a large map).
+  const want = isMap(v) ? JSON.stringify(unlit(s)) : ''
   const out: Val =
     Array.isArray(v) && typeof s === 'number'
       ? v.map((e, i) => (i === s ? into(e) : e))
       : isMap(v)
-        ? { map: v.map.map(([k, e]) => [k, same(k, unlit(s)) ? into(e) : e]) }
+        ? { map: v.map.map(([k, e]) => [k, JSON.stringify(k) === want ? into(e) : e]) }
         : v
   return failed ? undefined : out
 }
