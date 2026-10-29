@@ -112,10 +112,7 @@ interface IPool {
     function withdraw(address, uint256, address) external returns (uint256);
     function borrow(address, uint256, uint256, uint16, address) external;
     function repay(address, uint256, uint256, address) external returns (uint256);
-    function getUserAccountData(address)
-        external
-        view
-        returns (uint256, uint256, uint256, uint256, uint256, uint256);
+    function getUserAccountData(address) external view returns (uint256, uint256, uint256, uint256, uint256, uint256);
 }
 
 interface IVault {
@@ -415,12 +412,24 @@ contract LeverageYieldTest {
         bytes memory tokens = abi.encodePacked(
             // the Roles MultiSend unwrapper, so one batch is split and each inner call checked
             entry(
-                0, gate, abi.encodeCall(IRoles.setTransactionUnwrapper, (MULTISEND_CALL_ONLY, IMultiSend.multiSend.selector, UNWRAPPER))
+                0,
+                gate,
+                abi.encodeCall(
+                    IRoles.setTransactionUnwrapper, (MULTISEND_CALL_ONLY, IMultiSend.multiSend.selector, UNWRAPPER)
+                )
             ),
             entry(0, gate, abi.encodeCall(IRoles.scopeTarget, (LEVERAGE, GOLD_TOKEN))),
-            entry(0, gate, abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, GOLD_TOKEN, IERC20.approve.selector, goldApprove, 0))),
+            entry(
+                0,
+                gate,
+                abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, GOLD_TOKEN, IERC20.approve.selector, goldApprove, 0))
+            ),
             entry(0, gate, abi.encodeCall(IRoles.scopeTarget, (LEVERAGE, USDC))),
-            entry(0, gate, abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, USDC, IERC20.approve.selector, stableApprove, 0)))
+            entry(
+                0,
+                gate,
+                abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, USDC, IERC20.approve.selector, stableApprove, 0))
+            )
         );
         bytes memory poolScopes = abi.encodePacked(
             entry(0, gate, abi.encodeCall(IRoles.scopeTarget, (LEVERAGE, POOL))),
@@ -431,10 +440,22 @@ contract LeverageYieldTest {
         );
         bytes memory vaultScopes = abi.encodePacked(
             entry(0, gate, abi.encodeCall(IRoles.scopeTarget, (LEVERAGE, address(vault)))),
-            entry(0, gate, abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, address(vault), IVault.deposit.selector, deposit, 0))),
-            entry(0, gate, abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, address(vault), IVault.redeem.selector, redeem, 0))),
+            entry(
+                0,
+                gate,
+                abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, address(vault), IVault.deposit.selector, deposit, 0))
+            ),
+            entry(
+                0,
+                gate,
+                abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, address(vault), IVault.redeem.selector, redeem, 0))
+            ),
             // the borrow cap = the signed LTV ceiling, and the role members: the Prime account and its agent
-            entry(0, gate, abi.encodeCall(IRoles.setAllowance, (BORROW_CAP, uint128(CAP), uint128(CAP), uint128(CAP), 1 days, 0))),
+            entry(
+                0,
+                gate,
+                abi.encodeCall(IRoles.setAllowance, (BORROW_CAP, uint128(CAP), uint128(CAP), uint128(CAP), 1 days, 0))
+            ),
             entry(0, gate, abi.encodeCall(IRoles.assignRoles, (prime, one(LEVERAGE), yes()))),
             entry(0, gate, abi.encodeCall(IRoles.assignRoles, (agent, one(LEVERAGE), yes())))
         );
@@ -525,7 +546,10 @@ contract LeverageYieldTest {
         check(IERC20(GOLD_TOKEN).balanceOf(custody) == gold0 - GOLD_AMT, "custody supplied the gold");
         check(vault.balanceOf(custody) == BORROW, "custody holds the yield shares");
         check(IERC20(USDC).balanceOf(custody) == 0, "the borrowed stablecoin went into the vault, none idle");
-        check(IERC20(USDC).balanceOf(prime) == 0 && IERC20(GOLD_TOKEN).balanceOf(prime) == 0, "Prime account holds nothing");
+        check(
+            IERC20(USDC).balanceOf(prime) == 0 && IERC20(GOLD_TOKEN).balanceOf(prime) == 0,
+            "Prime account holds nothing"
+        );
         (, uint256 debt,,,, uint256 hf) = IPool(POOL).getUserAccountData(custody);
         check(debt > 0, "custody carries the Aave debt");
         check(hf > 1e18, "the position is healthy after the open");

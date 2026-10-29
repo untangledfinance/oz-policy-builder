@@ -117,7 +117,13 @@ contract StrideTimelockTest is RefLineBase {
             "custody cancels f1 after it already ran",
             "deployer",
             custody,
-            safeCall(custody, address(moves), abi.encodeCall(moves.cancel, (moveId(trade(POOL, supply(10e6)), "f1"))), 0, all(custodyKeys)),
+            safeCall(
+                custody,
+                address(moves),
+                abi.encodeCall(moves.cancel, (moveId(trade(POOL, supply(10e6)), "f1"))),
+                0,
+                all(custodyKeys)
+            ),
             false
         );
 
@@ -190,8 +196,7 @@ contract StrideTimelockTest is RefLineBase {
         uint256 before = IERC20(USDC).balanceOf(custody);
         stranger_runs(trade(POOL, supply(10e6)), "br", true);
         check(
-            IERC20(USDC).balanceOf(custody) == before - 10e6,
-            "a move scheduled before the band was revoked still runs"
+            IERC20(USDC).balanceOf(custody) == before - 10e6, "a move scheduled before the band was revoked still runs"
         );
     }
 
