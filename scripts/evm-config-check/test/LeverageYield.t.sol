@@ -1,26 +1,34 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-// Prime on EVM, the leverage-yield execution adapter, configuration only. It
-// adds no contract of Prime's: the leverage-yield policy template is a set of
-// Zodiac Roles v2.1.1 scopes on the same custody gate the custody-yield
-// reference line uses (docs/evm.md, test/ConfigOnly.t.sol and test/RefLine.t.sol).
-// Every contract this test deploys is an unmodified deployment of existing
-// code: Safe proxies of the canonical Safe singletons and ERC-1167 proxies of
-// the canonical Zodiac Roles v2.1.1 mastercopy. Venues and tokens are the live
-// Aave v3 Base Sepolia ones. The one exception is MockVault below, a minimal
-// ERC-4626-shaped yield source deployed as a TEST FIXTURE only (like the
-// reference line's mock router): Base Sepolia has no liquid 4626 vault that
-// lists the borrow stablecoin, so the fixture stands in for one. It is never
-// deployed on a network and is not a Prime production contract.
+import {
+    ConditionFlat,
+    IRoles,
+    IMultiSend,
+    IERC20,
+    IPool,
+    IVault,
+    LeverageYieldParams,
+    LeverageYieldTemplate as T
+} from "./LeverageYieldTemplate.sol";
+
+// Prime on EVM, the leverage-yield policy template, configuration only. The
+// scopes are not written here: they come from LeverageYieldTemplate.sol, the
+// one source of truth the live and install scripts also use. This test runs
+// the template on a Base Sepolia fork for two market configurations, each
+// under Safe 1.4.1 and 1.5.0:
 //
-// The flow (Mr. Quan, 28 October 2026): a user holds tokenised gold in the
-// custody Safe, borrows a stablecoin on Aave against it, and deploys the
-// borrowed stablecoin into a yield source that pays more than the borrow cost,
-// in one atomic batch. The gold stand-in on Base Sepolia is cbETH, an Aave v3
-// reserve the market lists as collateral (LTV 82.5%), supplied and withdrawn
-// only, the same role gold plays. The borrow stablecoin is the market's test
-// USDC. Run with FORK_URL set to a Base Sepolia RPC.
+// - A: collateral cbETH, borrow USDC, agents de-risk only (no withdraw);
+// - B: collateral WETH, borrow USDT, agents may also withdraw to custody.
+//
+// cbETH and WETH stand in for tokenised gold (Base Sepolia lists no gold);
+// both are Aave v3 collateral, supplied and withdrawn only. Every contract the
+// test deploys is an unmodified deployment of existing code (Safe proxies of
+// the canonical singletons, ERC-1167 proxies of the Zodiac Roles v2.1.1
+// mastercopy), except MockVault below: a minimal ERC-4626-shaped yield source,
+// a TEST FIXTURE only, since Base Sepolia lists no liquid 4626 vault for the
+// borrow stablecoins. Run with FORK_URL set to a Base Sepolia RPC; without it
+// only the offline validation test runs.
 
 interface Vm {
     function sign(uint256, bytes32) external returns (uint8, bytes32, bytes32);
@@ -30,8 +38,7 @@ interface Vm {
     function prank(address) external;
     function warp(uint256) external;
     function skip(bool) external;
-    function snapshotState() external returns (uint256);
-    function revertToState(uint256) external returns (bool);
+    function deal(address, uint256) external;
 }
 
 interface ISafe {
@@ -63,8 +70,6 @@ interface ISafe {
     ) external payable returns (bool);
     function enableModule(address) external;
     function isModuleEnabled(address) external view returns (bool);
-    function execTransactionFromModule(address, uint256, bytes calldata, uint8) external returns (bool);
-    function VERSION() external view returns (string memory);
 }
 
 interface IProxyFactory {
@@ -75,49 +80,12 @@ interface ICreateCall {
     function performCreate2(uint256, bytes memory, bytes32) external returns (address);
 }
 
-interface IMultiSend {
-    function multiSend(bytes memory) external payable;
-}
-
-struct ConditionFlat {
-    uint8 parent;
-    uint8 paramType;
-    uint8 operator;
-    bytes compValue;
-}
-
-interface IRoles {
-    function setUp(bytes memory) external;
-    function owner() external view returns (address);
-    function avatar() external view returns (address);
-    function target() external view returns (address);
-    function assignRoles(address, bytes32[] calldata, bool[] calldata) external;
-    function scopeTarget(bytes32, address) external;
-    function scopeFunction(bytes32, address, bytes4, ConditionFlat[] memory, uint8) external;
-    function setAllowance(bytes32, uint128, uint128, uint128, uint64, uint64) external;
-    function setTransactionUnwrapper(address, bytes4, address) external;
-    function execTransactionWithRole(address, uint256, bytes calldata, uint8, bytes32, bool) external returns (bool);
-}
-
-interface IERC20 {
-    function balanceOf(address) external view returns (uint256);
-    function approve(address, uint256) external returns (bool);
-    function transfer(address, uint256) external returns (bool);
-    function transferFrom(address, address, uint256) external returns (bool);
+interface ITestToken {
     function mint(address, uint256) external returns (bool);
 }
 
-interface IPool {
-    function supply(address, uint256, address, uint16) external;
-    function withdraw(address, uint256, address) external returns (uint256);
-    function borrow(address, uint256, uint256, uint16, address) external;
-    function repay(address, uint256, uint256, address) external returns (uint256);
-    function getUserAccountData(address) external view returns (uint256, uint256, uint256, uint256, uint256, uint256);
-}
-
-interface IVault {
-    function deposit(uint256, address) external returns (uint256);
-    function redeem(uint256, address, address) external returns (uint256);
+interface IWETH {
+    function deposit() external payable;
 }
 
 /// A minimal ERC-4626-shaped yield source, TEST FIXTURE only. Shares are 1:1
@@ -143,11 +111,18 @@ contract MockVault {
         require(balanceOf[owner] >= shares, "shares");
         balanceOf[owner] -= shares;
         totalSupply -= shares;
-        // 1:1 plus a pro-rata share of any yield top-up held above totalSupply
+        // 1:1, and the last redeemer takes the yield top-up held above totalSupply
         uint256 bal = IERC20(asset).balanceOf(address(this));
         assets = totalSupply == 0 && shares > 0 ? bal : shares;
         if (assets > bal) assets = bal;
         require(IERC20(asset).transfer(receiver, assets), "pay");
+    }
+}
+
+/// Lets the offline test catch a library revert.
+contract TemplateProbe {
+    function validate(LeverageYieldParams memory p) external pure {
+        T.validate(p);
     }
 }
 
@@ -160,48 +135,39 @@ contract LeverageYieldTest {
     address constant SAFE_150 = 0xEdd160fEBBD92E350D4D398fb636302fccd67C7e; // SafeL2 1.5.0
     address constant FACTORY_150 = 0x14F2982D601c9458F93bd70B218933A6f8165e7b;
     address constant MULTISEND = 0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526; // 1.4.1
-    address constant MULTISEND_CALL_ONLY = 0x9641d764fc13c8B624c04430C7356C1C7C8102e2; // 1.4.1
     address constant CREATE_CALL = 0x9b35Af71d77eaf8d7e40252370304687390A1A52; // 1.4.1
     address constant ROLES = 0xF2964CE6161ce0e75964Fe7927cE114cb0B283D5; // Zodiac Roles v2.1.1 mastercopy
-    address constant UNWRAPPER = 0x93B7fCbc63ED8a3a24B59e1C3e6649D50B7427c0; // Roles MultiSend unwrapper
 
-    // Aave v3 test market on Base Sepolia
+    // Aave v3 test market on Base Sepolia, and its test tokens (minted by the faucet, their owner)
     address constant POOL = 0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27;
-    // gold stand-in: a collateral reserve the market lists. First choice was WBTC (borrowing disabled, the most
-    // gold-like store of value), but the test market's WBTC supply cap is full (175 of 175). cbETH is the
-    // practical stand-in: an Aave v3 collateral (LTV 82.5%), no supply cap, faucet-mintable. The template never
-    // scopes a borrow of it, so the collateral is only ever supplied and withdrawn, as gold would be.
-    address constant GOLD_TOKEN = 0xD171b9694f7A2597Ed006D41f7509aaD4B485c4B; // cbETH (18 decimals)
-    address constant USDC = 0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f; // borrow stablecoin (6 decimals)
-    address constant FAUCET_OWNER = 0xD9145b5F45Ad4519c7ACcD6E0A4A82e83bB8A6Dc; // the tokens' owner, mints test tokens
+    address constant CBETH = 0xD171b9694f7A2597Ed006D41f7509aaD4B485c4B; // 18 decimals, LTV 82.5%
+    address constant LINK = 0x810D46F9a9027E28F9B01F75E2bdde839dA61115; // a listed asset the template never lists
+    address constant USDC = 0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f; // 6 decimals
+    address constant USDT = 0x0a215D8ba66387DCA84B284D18c3B4ec3de6E54a; // 6 decimals
+    address constant WETH = 0x4200000000000000000000000000000000000006; // 18 decimals, LTV 83.5%
+    address constant FAUCET_OWNER = 0xD9145b5F45Ad4519c7ACcD6E0A4A82e83bB8A6Dc;
 
-    // ParameterType
-    uint8 constant NONE = 0;
-    uint8 constant STATIC = 1;
-    uint8 constant CALLDATA = 5;
-    // Operator
-    uint8 constant PASS = 0;
-    uint8 constant OR = 2;
-    uint8 constant MATCHES = 5;
-    uint8 constant EQUAL_TO_AVATAR = 15;
-    uint8 constant EQUAL_TO = 16;
-    uint8 constant LESS_THAN = 18;
-    uint8 constant WITHIN_ALLOWANCE = 28;
     // Roles Status codes inside ConditionViolation(uint8,bytes32)
     uint8 constant S_DELEGATECALL = 1;
     uint8 constant S_TARGET = 2;
     uint8 constant S_FUNCTION = 3;
-    uint8 constant S_PARAM = 7;
+    uint8 constant S_SEND = 4;
     uint8 constant S_OR = 5;
+    uint8 constant S_PARAM = 7;
     uint8 constant S_ALLOWANCE = 17;
+    bytes4 constant CONDITION_VIOLATION = bytes4(keccak256("ConditionViolation(uint8,bytes32)"));
+    bytes4 constant NOT_AUTHORIZED = bytes4(keccak256("NotAuthorized(address)"));
+    bytes4 constant NO_MEMBERSHIP = bytes4(keccak256("NoMembership()"));
+    bytes4 constant NOT_OWNER = bytes4(keccak256("OwnableUnauthorizedAccount(address)"));
 
-    bytes32 constant LEVERAGE = "leverage-yield"; // custody's role for the leverage-yield adapter
-    bytes32 constant BORROW_CAP = "leverage-borrow"; // the borrow budget, the LTV-at-signing control
-
-    uint256 constant VARIABLE = 2; // Aave v3 variable interest rate mode
-    uint256 constant GOLD_AMT = 5e17; // 0.5 cbETH (18 decimals), the collateral supplied (about $1,338)
-    uint256 constant BORROW = 500e6; // the stablecoin the user signs to borrow (about 37% LTV)
-    uint256 constant CAP = 2_000e6; // the Roles borrow cap = the signed LTV ceiling
+    struct Cfg {
+        address collateral;
+        address borrowAsset;
+        uint256 collateralAmount; // supplied by the open
+        uint256 borrowAmount; // the borrow the user signs
+        uint128 cap; // the borrow budget = the LTV signed at setup
+        bool agentWithdraw;
+    }
 
     uint256[3] custodyKeys = [uint256(0xC1), 0xC2, 0xC3];
     uint256[3] primeKeys = [uint256(0xB1), 0xB2, 0xB3];
@@ -209,20 +175,33 @@ contract LeverageYieldTest {
     address agent;
     address stranger = address(0x5757);
 
-    address custody; // the custody Safe: holds the gold, the debt and the yield shares
+    address custody; // the custody Safe: holds the collateral, the debt and the yield shares
     address gate; // the custody gate: a Roles modifier on the custody Safe
     address prime; // the Prime account: a Safe, 2 of 3, holds nothing
     MockVault vault; // the yield source fixture
+    LeverageYieldParams p; // the template's parameters for this run
+    Cfg cfg;
 
     uint256 passed;
     bool forked;
 
     function setUp() public {
+        agent = vm.addr(AGENT_KEY);
         string memory url = vm.envOr("FORK_URL", "");
         if (bytes(url).length == 0) return;
         vm.createSelectFork(url);
         forked = true;
-        agent = vm.addr(AGENT_KEY);
+    }
+
+    function configA() internal pure returns (Cfg memory) {
+        // 0.5 cbETH (about $1,330), borrow 500 USDC (about 38% LTV), cap 600 USDC (about 45%)
+        return Cfg(CBETH, USDC, 5e17, 500e6, 600e6, false);
+    }
+
+    function configB() internal pure returns (Cfg memory) {
+        // 0.5 WETH (about $1,160), borrow 500 USDT (about 43% LTV), cap 700 USDT (about 60%)
+        // (LINK was the first choice, but the test market's LINK supply cap is all but full)
+        return Cfg(WETH, USDT, 5e17, 500e6, 700e6, true);
     }
 
     // ---------------------------------------------------------------- helpers
@@ -243,12 +222,14 @@ contract LeverageYieldTest {
         return IProxyFactory(factory).createProxyWithNonce(singleton, init, salt);
     }
 
-    function execSafe(address safe, address to, bytes memory data, uint8 op, uint256[] memory keys)
-        internal
-        returns (bool)
-    {
-        bytes32 h = ISafe(safe)
-            .getTransactionHash(to, 0, data, op, 0, 0, 0, address(0), address(0), ISafe(safe).nonce());
+    /// custody signs (all three signers) a call or a MultiSend
+    function execCustody(address to, bytes memory data, uint8 op) internal returns (bool) {
+        bytes32 h =
+            ISafe(custody).getTransactionHash(to, 0, data, op, 0, 0, 0, address(0), address(0), ISafe(custody).nonce());
+        uint256[] memory keys = new uint256[](3);
+        for (uint256 i; i < 3; i++) {
+            keys[i] = custodyKeys[i];
+        }
         for (uint256 i; i < keys.length; i++) {
             for (uint256 j = i + 1; j < keys.length; j++) {
                 if (vm.addr(keys[j]) < vm.addr(keys[i])) (keys[i], keys[j]) = (keys[j], keys[i]);
@@ -259,25 +240,7 @@ contract LeverageYieldTest {
             (uint8 v, bytes32 r, bytes32 s) = vm.sign(keys[i], h);
             sigs = abi.encodePacked(sigs, r, s, v);
         }
-        return ISafe(safe).execTransaction(to, 0, data, op, 0, 0, 0, address(0), address(0), sigs);
-    }
-
-    function all(uint256[3] storage keys) internal view returns (uint256[] memory k) {
-        k = new uint256[](3);
-        for (uint256 i; i < 3; i++) {
-            k[i] = keys[i];
-        }
-    }
-
-    function some(uint256[3] storage keys, uint256 n) internal view returns (uint256[] memory k) {
-        k = new uint256[](n);
-        for (uint256 i; i < n; i++) {
-            k[i] = keys[i];
-        }
-    }
-
-    function entry(uint8 op, address to, bytes memory data) internal pure returns (bytes memory) {
-        return abi.encodePacked(op, to, uint256(0), data.length, data);
+        return ISafe(custody).execTransaction(to, 0, data, op, 0, 0, 0, address(0), address(0), sigs);
     }
 
     function proxyCode() internal pure returns (bytes memory) {
@@ -285,31 +248,22 @@ contract LeverageYieldTest {
             abi.encodePacked(hex"3d602d80600a3d3981f3363d3d373d3d3d363d73", ROLES, hex"5af43d82803e903d91602b57fd5bf3");
     }
 
-    function predict(address deployer, bytes32 salt) internal pure returns (address) {
-        return
-            address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), deployer, salt, keccak256(proxyCode()))))));
-    }
-
-    function deployRoles(address safe, bytes32 salt) internal pure returns (address roles, bytes memory batch) {
-        roles = predict(safe, salt);
+    /// custody's gate: an ERC-1167 proxy of the Roles mastercopy, made through CreateCall, set up and
+    /// enabled in the same custody transaction that installs the template
+    function deployRoles(bytes32 salt) internal view returns (address roles, bytes memory batch) {
+        roles =
+            address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), custody, salt, keccak256(proxyCode()))))));
+        bytes memory create = abi.encodeCall(ICreateCall.performCreate2, (0, proxyCode(), salt));
         batch = abi.encodePacked(
-            entry(1, CREATE_CALL, abi.encodeCall(ICreateCall.performCreate2, (0, proxyCode(), salt))),
-            entry(0, roles, abi.encodeCall(IRoles.setUp, (abi.encode(safe, safe, safe)))),
-            entry(0, safe, abi.encodeCall(ISafe.enableModule, (roles)))
+            abi.encodePacked(uint8(1), CREATE_CALL, uint256(0), create.length, create), // delegatecall, by custody
+            T.entry(roles, abi.encodeCall(IRoles.setUp, (abi.encode(custody, custody, custody)))),
+            T.entry(custody, abi.encodeCall(ISafe.enableModule, (roles)))
         );
-    }
-
-    function c(uint8 parent, uint8 paramType, uint8 op, bytes memory comp)
-        internal
-        pure
-        returns (ConditionFlat memory)
-    {
-        return ConditionFlat(parent, paramType, op, comp);
     }
 
     function status(bytes memory err) internal pure returns (uint8 s) {
         require(err.length == 68, "not a ConditionViolation");
-        require(bytes4(err) == bytes4(keccak256("ConditionViolation(uint8,bytes32)")), "other error");
+        require(bytes4(err) == CONDITION_VIOLATION, "other error");
         assembly {
             s := mload(add(err, 36))
         }
@@ -326,339 +280,370 @@ contract LeverageYieldTest {
         passed++;
     }
 
-    function one(bytes32 k) internal pure returns (bytes32[] memory l) {
-        l = new bytes32[](1);
-        l[0] = k;
+    function refusedSel(bool ok, bytes memory err, bytes4 want, string memory what) internal {
+        require(!ok, what);
+        require(err.length >= 4 && bytes4(err) == want, what);
+        passed++;
     }
 
-    function one(address a) internal pure returns (address[] memory l) {
-        l = new address[](1);
-        l[0] = a;
-    }
-
-    function yes() internal pure returns (bool[] memory l) {
-        l = new bool[](1);
-        l[0] = true;
-    }
-
-    // --------------------------------------------- the leverage-yield template
-
-    /// The leverage-yield policy template: the Roles scopes that let the custody
-    /// gate run exactly the open and close of Mr. Quan's flow and nothing else.
-    /// Written to the gate by custody (3 of 3). Mirrors how ConfigOnly writes
-    /// the custody-yield trading role; it adds no contract.
-    function leverageConfig() internal view returns (bytes memory) {
-        // approve(spender, amount) on the gold (cbETH): spender is pinned to the Aave pool; the amount is open,
-        // so a repay or deposit can use an infinite approve. The spender pin is the control: an approval can
-        // never reach a stranger, and the funds themselves are bounded by the supply, borrow and deposit scopes.
-        ConditionFlat[] memory goldApprove = new ConditionFlat[](3);
-        goldApprove[0] = c(0, CALLDATA, MATCHES, "");
-        goldApprove[1] = c(0, STATIC, EQUAL_TO, abi.encode(POOL));
-        goldApprove[2] = c(0, STATIC, PASS, "");
-
-        // approve(spender, amount) on the stablecoin (USDC): spender is the pool OR the yield vault, amount open
-        ConditionFlat[] memory stableApprove = new ConditionFlat[](5);
-        stableApprove[0] = c(0, CALLDATA, MATCHES, "");
-        stableApprove[1] = c(0, NONE, OR, ""); // spender: one of the two pinned venues
-        stableApprove[2] = c(0, STATIC, PASS, "");
-        stableApprove[3] = c(1, STATIC, EQUAL_TO, abi.encode(POOL));
-        stableApprove[4] = c(1, STATIC, EQUAL_TO, abi.encode(address(vault)));
-
-        // supply(asset, amount, onBehalfOf, referral): the gold, on behalf of custody
-        ConditionFlat[] memory supply = new ConditionFlat[](5);
-        supply[0] = c(0, CALLDATA, MATCHES, "");
-        supply[1] = c(0, STATIC, EQUAL_TO, abi.encode(GOLD_TOKEN));
-        supply[2] = c(0, STATIC, PASS, ""); // amount: custody's own gold
-        supply[3] = c(0, STATIC, EQUAL_TO_AVATAR, ""); // onBehalfOf = custody
-        supply[4] = c(0, STATIC, PASS, ""); // referral
-
-        // borrow(asset, amount, rateMode, referral, onBehalfOf): the stablecoin, capped, variable, to custody
-        ConditionFlat[] memory borrow = new ConditionFlat[](6);
-        borrow[0] = c(0, CALLDATA, MATCHES, "");
-        borrow[1] = c(0, STATIC, EQUAL_TO, abi.encode(USDC));
-        borrow[2] = c(0, STATIC, WITHIN_ALLOWANCE, abi.encode(BORROW_CAP)); // the LTV-at-signing bound
-        borrow[3] = c(0, STATIC, EQUAL_TO, abi.encode(VARIABLE));
-        borrow[4] = c(0, STATIC, PASS, ""); // referral
-        borrow[5] = c(0, STATIC, EQUAL_TO_AVATAR, ""); // onBehalfOf = custody
-
-        // deposit(assets, receiver) on the yield vault: receiver is custody
-        ConditionFlat[] memory deposit = new ConditionFlat[](3);
-        deposit[0] = c(0, CALLDATA, MATCHES, "");
-        deposit[1] = c(0, STATIC, PASS, ""); // assets
-        deposit[2] = c(0, STATIC, EQUAL_TO_AVATAR, ""); // receiver = custody
-
-        // redeem(shares, receiver, owner) on the yield vault: receiver and owner are custody
-        ConditionFlat[] memory redeem = new ConditionFlat[](4);
-        redeem[0] = c(0, CALLDATA, MATCHES, "");
-        redeem[1] = c(0, STATIC, PASS, ""); // shares
-        redeem[2] = c(0, STATIC, EQUAL_TO_AVATAR, ""); // receiver = custody
-        redeem[3] = c(0, STATIC, EQUAL_TO_AVATAR, ""); // owner = custody
-
-        // repay(asset, amount, rateMode, onBehalfOf): the stablecoin, max allowed, variable, for custody
-        ConditionFlat[] memory repay = new ConditionFlat[](5);
-        repay[0] = c(0, CALLDATA, MATCHES, "");
-        repay[1] = c(0, STATIC, EQUAL_TO, abi.encode(USDC));
-        repay[2] = c(0, STATIC, PASS, ""); // amount: type(uint256).max repays the whole debt
-        repay[3] = c(0, STATIC, EQUAL_TO, abi.encode(VARIABLE));
-        repay[4] = c(0, STATIC, EQUAL_TO_AVATAR, ""); // onBehalfOf = custody
-
-        // withdraw(asset, amount, to): the gold, max allowed, to custody
-        ConditionFlat[] memory withdraw = new ConditionFlat[](4);
-        withdraw[0] = c(0, CALLDATA, MATCHES, "");
-        withdraw[1] = c(0, STATIC, EQUAL_TO, abi.encode(GOLD_TOKEN));
-        withdraw[2] = c(0, STATIC, PASS, ""); // amount: type(uint256).max withdraws all the gold
-        withdraw[3] = c(0, STATIC, EQUAL_TO_AVATAR, ""); // to = custody
-
-        bytes memory tokens = abi.encodePacked(
-            // the Roles MultiSend unwrapper, so one batch is split and each inner call checked
-            entry(
-                0,
-                gate,
-                abi.encodeCall(
-                    IRoles.setTransactionUnwrapper, (MULTISEND_CALL_ONLY, IMultiSend.multiSend.selector, UNWRAPPER)
-                )
-            ),
-            entry(0, gate, abi.encodeCall(IRoles.scopeTarget, (LEVERAGE, GOLD_TOKEN))),
-            entry(
-                0,
-                gate,
-                abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, GOLD_TOKEN, IERC20.approve.selector, goldApprove, 0))
-            ),
-            entry(0, gate, abi.encodeCall(IRoles.scopeTarget, (LEVERAGE, USDC))),
-            entry(
-                0,
-                gate,
-                abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, USDC, IERC20.approve.selector, stableApprove, 0))
-            )
-        );
-        bytes memory poolScopes = abi.encodePacked(
-            entry(0, gate, abi.encodeCall(IRoles.scopeTarget, (LEVERAGE, POOL))),
-            entry(0, gate, abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, POOL, IPool.supply.selector, supply, 0))),
-            entry(0, gate, abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, POOL, IPool.borrow.selector, borrow, 0))),
-            entry(0, gate, abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, POOL, IPool.repay.selector, repay, 0))),
-            entry(0, gate, abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, POOL, IPool.withdraw.selector, withdraw, 0)))
-        );
-        bytes memory vaultScopes = abi.encodePacked(
-            entry(0, gate, abi.encodeCall(IRoles.scopeTarget, (LEVERAGE, address(vault)))),
-            entry(
-                0,
-                gate,
-                abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, address(vault), IVault.deposit.selector, deposit, 0))
-            ),
-            entry(
-                0,
-                gate,
-                abi.encodeCall(IRoles.scopeFunction, (LEVERAGE, address(vault), IVault.redeem.selector, redeem, 0))
-            ),
-            // the borrow cap = the signed LTV ceiling, and the role members: the Prime account and its agent
-            entry(
-                0,
-                gate,
-                abi.encodeCall(IRoles.setAllowance, (BORROW_CAP, uint128(CAP), uint128(CAP), uint128(CAP), 1 days, 0))
-            ),
-            entry(0, gate, abi.encodeCall(IRoles.assignRoles, (prime, one(LEVERAGE), yes()))),
-            entry(0, gate, abi.encodeCall(IRoles.assignRoles, (agent, one(LEVERAGE), yes())))
-        );
-        return abi.encodePacked(tokens, poolScopes, vaultScopes);
-    }
-
-    // ---------------------------------------------------------------- the setup
-
-    function build(address singleton, address factory) internal {
-        // T1: the custody Safe (3 of 3) and the Prime account (2 of 3).
-        custody = createSafe(singleton, factory, owners(custodyKeys), 3, 11);
-        prime = createSafe(singleton, factory, owners(primeKeys), 2, 12);
-        vault = new MockVault(USDC);
-
-        // T3: custody deploys its gate and writes the leverage-yield template, signed by all three signers.
-        bytes memory batch;
-        (gate, batch) = deployRoles(custody, "leverage-gate");
-        batch = abi.encodePacked(batch, leverageConfig());
-        check(
-            execSafe(custody, MULTISEND, abi.encodeCall(IMultiSend.multiSend, (batch)), 1, all(custodyKeys)),
-            "custody writes the leverage-yield template"
-        );
-
-        // Fund custody with the gold stand-in, and the yield vault with a small carry top-up.
-        vm.prank(FAUCET_OWNER);
-        IERC20(GOLD_TOKEN).mint(custody, 1e18); // 1 cbETH
-        vm.prank(FAUCET_OWNER);
-        IERC20(USDC).mint(address(vault), 100e6); // the vault's standing yield, so a close nets a spread
-    }
-
-    // batch the inner venue calls into one MultiSend the gate unwraps and checks
-    function openBatch() internal view returns (bytes memory) {
-        return abi.encodePacked(
-            entry(0, GOLD_TOKEN, abi.encodeCall(IERC20.approve, (POOL, GOLD_AMT))),
-            entry(0, POOL, abi.encodeCall(IPool.supply, (GOLD_TOKEN, GOLD_AMT, custody, 0))),
-            entry(0, POOL, abi.encodeCall(IPool.borrow, (USDC, BORROW, VARIABLE, 0, custody))),
-            entry(0, USDC, abi.encodeCall(IERC20.approve, (address(vault), BORROW))),
-            entry(0, address(vault), abi.encodeCall(IVault.deposit, (BORROW, custody)))
-        );
-    }
-
-    function closeBatch(uint256 shares) internal view returns (bytes memory) {
-        return abi.encodePacked(
-            entry(0, address(vault), abi.encodeCall(IVault.redeem, (shares, custody, custody))),
-            entry(0, USDC, abi.encodeCall(IERC20.approve, (POOL, type(uint256).max))),
-            entry(0, POOL, abi.encodeCall(IPool.repay, (USDC, type(uint256).max, VARIABLE, custody))),
-            entry(0, POOL, abi.encodeCall(IPool.withdraw, (GOLD_TOKEN, type(uint256).max, custody)))
-        );
-    }
-
-    /// Run a MultiSend batch through the gate's leverage-yield role, as the given member.
-    function viaGate(address member, bytes memory batchEntries) internal returns (bool ok, bytes memory err) {
+    /// a MultiSend batch through the gate, as `member` under `role`
+    function viaGate(address member, bytes32 role, bytes memory batch) internal returns (bool ok, bytes memory err) {
         vm.prank(member);
-        (ok, err) = gate.call(
-            abi.encodeCall(
-                IRoles.execTransactionWithRole,
-                (MULTISEND_CALL_ONLY, 0, abi.encodeCall(IMultiSend.multiSend, (batchEntries)), 1, LEVERAGE, true)
-            )
-        );
+        (ok, err) = gate.call(T.execCall(role, batch));
     }
 
-    /// Run a single inner call through the gate (for the refusal cases), as the given member.
-    function oneCall(address member, address to, bytes memory data, uint8 op)
+    /// a single inner call through the gate, as `member` under `role`
+    function oneCall(address member, bytes32 role, address to, bytes memory data, uint8 op)
         internal
         returns (bool ok, bytes memory err)
     {
         vm.prank(member);
-        (ok, err) = gate.call(abi.encodeCall(IRoles.execTransactionWithRole, (to, 0, data, op, LEVERAGE, true)));
+        (ok, err) = gate.call(abi.encodeCall(IRoles.execTransactionWithRole, (to, 0, data, op, role, true)));
+    }
+
+    function debtOf() internal view returns (uint256 debt, uint256 hf) {
+        (, debt,,,, hf) = IPool(POOL).getUserAccountData(custody);
+    }
+
+    function mint(address token, address to, uint256 amount) internal {
+        if (token == WETH) {
+            vm.deal(address(this), amount);
+            IWETH(WETH).deposit{value: amount}();
+            require(IERC20(WETH).transfer(to, amount), "weth");
+            return;
+        }
+        vm.prank(FAUCET_OWNER);
+        ITestToken(token).mint(to, amount);
+    }
+
+    // ---------------------------------------------------------------- the setup
+
+    function build(address singleton, address factory, Cfg memory k) internal {
+        cfg = k;
+        custody = createSafe(singleton, factory, owners(custodyKeys), 3, 11);
+        prime = createSafe(singleton, factory, owners(primeKeys), 2, 12);
+        vault = new MockVault(k.borrowAsset);
+
+        bytes memory batch;
+        (gate, batch) = deployRoles("leverage-gate");
+
+        address[] memory users = new address[](1);
+        users[0] = prime;
+        address[] memory agents = new address[](1);
+        agents[0] = agent;
+        p = LeverageYieldParams({
+            avatar: custody,
+            gate: gate,
+            collateral: k.collateral,
+            pool: POOL,
+            borrowAsset: k.borrowAsset,
+            yieldVault: address(vault),
+            borrowCap: k.cap,
+            users: users,
+            agents: agents,
+            agentWithdraw: k.agentWithdraw
+        });
+
+        // custody deploys its gate and installs the template, one transaction signed by all three signers
+        batch = abi.encodePacked(batch, T.install(p));
+        check(
+            execCustody(MULTISEND, abi.encodeCall(IMultiSend.multiSend, (batch)), 1),
+            "custody installs the template in one transaction"
+        );
+        T.verify(p); // the gate is wired to and owned by custody, the vault takes the borrow asset
+        check(ISafe(custody).isModuleEnabled(gate), "gate enabled on custody");
+
+        mint(k.collateral, custody, 2 * k.collateralAmount);
+        mint(k.borrowAsset, address(vault), 100e6); // the vault's standing yield, so a close nets a spread
     }
 
     // ---------------------------------------------------------------- the run
 
-    function run_(address singleton, address factory) internal {
-        build(singleton, factory);
+    function run_(address singleton, address factory, Cfg memory k) internal {
+        build(singleton, factory, k);
+        uint256 coll0 = IERC20(k.collateral).balanceOf(custody);
 
-        check(
-            IRoles(gate).owner() == custody && IRoles(gate).avatar() == custody && IRoles(gate).target() == custody,
-            "gate wired to custody"
+        // === 1. a batch with one bad leg is refused whole: nothing moves ===
+        bytes memory bad = abi.encodePacked(
+            T.entry(k.collateral, abi.encodeCall(IERC20.approve, (POOL, k.collateralAmount))),
+            T.entry(POOL, abi.encodeCall(IPool.supply, (k.collateral, k.collateralAmount, custody, 0))),
+            T.entry(POOL, abi.encodeCall(IPool.borrow, (k.borrowAsset, k.borrowAmount, T.VARIABLE, 0, custody))),
+            T.entry(k.borrowAsset, abi.encodeCall(IERC20.approve, (address(vault), k.borrowAmount))),
+            T.entry(address(vault), abi.encodeCall(IVault.deposit, (k.borrowAmount, stranger)))
         );
-        check(ISafe(custody).isModuleEnabled(gate), "gate enabled on custody");
-        string memory ver = ISafe(custody).VERSION();
-        ver;
+        (bool ok, bytes memory err) = viaGate(prime, T.OPEN_ROLE, bad);
+        refusedWith(ok, err, S_PARAM, "an open batch whose last leg pays a stranger is refused whole");
+        (uint256 debt, uint256 hf) = debtOf();
+        check(IERC20(k.collateral).balanceOf(custody) == coll0 && debt == 0, "the refused batch moved nothing");
 
-        // === 1. OPEN atomically: supply gold + borrow stable + deposit yield, one tx, all-or-nothing ===
-        uint256 gold0 = IERC20(GOLD_TOKEN).balanceOf(custody);
-        (bool ok, bytes memory err) = viaGate(prime, openBatch());
-        check(ok, "OPEN batch runs atomically through Roles MultiSend");
-        check(IERC20(GOLD_TOKEN).balanceOf(custody) == gold0 - GOLD_AMT, "custody supplied the gold");
-        check(vault.balanceOf(custody) == BORROW, "custody holds the yield shares");
-        check(IERC20(USDC).balanceOf(custody) == 0, "the borrowed stablecoin went into the vault, none idle");
+        // === 2. OPEN atomically, as the user (the Prime account) ===
+        (ok, err) = viaGate(prime, T.OPEN_ROLE, T.openBatch(p, k.collateralAmount, k.borrowAmount));
+        check(ok, "OPEN: approve, supply, borrow, approve, deposit in one batch");
+        check(IERC20(k.collateral).balanceOf(custody) == coll0 - k.collateralAmount, "custody supplied the collateral");
+        check(vault.balanceOf(custody) == k.borrowAmount, "custody holds the yield shares");
+        check(IERC20(k.borrowAsset).balanceOf(custody) == 0, "no borrowed stablecoin left idle");
         check(
-            IERC20(USDC).balanceOf(prime) == 0 && IERC20(GOLD_TOKEN).balanceOf(prime) == 0,
-            "Prime account holds nothing"
+            IERC20(k.borrowAsset).balanceOf(prime) == 0 && IERC20(k.collateral).balanceOf(prime) == 0,
+            "the Prime account holds nothing"
         );
-        (, uint256 debt,,,, uint256 hf) = IPool(POOL).getUserAccountData(custody);
-        check(debt > 0, "custody carries the Aave debt");
-        check(hf > 1e18, "the position is healthy after the open");
+        (debt, hf) = debtOf();
+        check(debt > 0 && hf > 1e18, "custody carries a healthy Aave debt");
 
-        // === 2. The borrow cap bounds the LTV: a second borrow over the cap is refused ===
-        (ok, err) = oneCall(prime, POOL, abi.encodeCall(IPool.borrow, (USDC, CAP, VARIABLE, 0, custody)), 0);
-        refusedWith(ok, err, S_ALLOWANCE, "a borrow over the signed cap is refused");
+        // === 3. the borrow cap bounds the leverage, exactly, and does not refill ===
+        uint256 left = k.cap - k.borrowAmount;
+        bytes memory over = abi.encodeCall(IPool.borrow, (k.borrowAsset, left + 1, T.VARIABLE, 0, custody));
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, POOL, over, 0);
+        refusedWith(ok, err, S_ALLOWANCE, "a borrow one unit over the cap is refused");
+        (ok,) = oneCall(
+            prime, T.OPEN_ROLE, POOL, abi.encodeCall(IPool.borrow, (k.borrowAsset, left, T.VARIABLE, 0, custody)), 0
+        );
+        check(ok, "a borrow up to the cap exactly runs");
+        vm.warp(block.timestamp + 30 days);
+        (ok, err) = oneCall(
+            prime, T.OPEN_ROLE, POOL, abi.encodeCall(IPool.borrow, (k.borrowAsset, 1, T.VARIABLE, 0, custody)), 0
+        );
+        refusedWith(ok, err, S_ALLOWANCE, "the spent cap does not refill, 30 days on");
 
-        // === 3. Aave's own health factor still applies, within the cap ===
-        // Within the Roles cap but far beyond what the collateral supports: Aave reverts (collateral check).
-        (ok, err) = oneCall(prime, POOL, abi.encodeCall(IPool.borrow, (USDC, 1_500e6, VARIABLE, 0, custody)), 0);
-        check(!ok, "Aave refuses a borrow the collateral cannot support, even within the Roles cap");
+        // === 4. the agent cannot add risk or move funds out ===
+        agentRefusals();
 
-        // === 4. CLOSE atomically: redeem all shares, repay-max, withdraw-max ===
+        // === 5. the agent de-risks: redeem half the shares, repay that much ===
+        uint256 half = vault.balanceOf(custody) / 2;
+        (uint256 debtBefore, uint256 hfBefore) = debtOf();
+        (ok, err) = viaGate(agent, T.CLOSE_ROLE, T.deleverageBatch(p, half, half));
+        check(ok, "the agent de-risks in one batch: redeem, approve, repay");
+        (debt, hf) = debtOf();
+        check(debt < debtBefore && hf > hfBefore, "the debt fell and the health factor rose");
+
+        // === 6. CLOSE atomically ===
         uint256 shares = vault.balanceOf(custody);
-        (ok, err) = viaGate(agent, closeBatch(shares)); // the monitoring agent can close when the spread turns
-        check(ok, "CLOSE batch runs atomically: redeem, repay-max, withdraw-max");
-        (, uint256 debtAfter,,,,) = IPool(POOL).getUserAccountData(custody);
-        check(debtAfter == 0, "the debt is fully repaid");
-        uint256 goldBack = IERC20(GOLD_TOKEN).balanceOf(custody);
-        check(goldBack + 10 >= gold0 && goldBack <= gold0 + 1e15, "all the gold is back in custody, within dust");
+        if (k.agentWithdraw) {
+            (ok, err) = viaGate(agent, T.CLOSE_ROLE, T.closeBatch(p, shares, true));
+            check(ok, "the agent closes in one batch: redeem, repay-max, withdraw-max");
+        } else {
+            (ok, err) = viaGate(agent, T.CLOSE_ROLE, T.closeBatch(p, shares, true));
+            refusedWith(ok, err, S_FUNCTION, "the agent's close with a withdraw is refused whole (no withdraw)");
+            (ok, err) = viaGate(agent, T.CLOSE_ROLE, T.closeBatch(p, shares, false));
+            check(ok, "the agent clears the debt in one batch: redeem, repay-max");
+            (debt,) = debtOf();
+            check(debt == 0, "the debt is gone, the collateral stays supplied for custody");
+            (ok, err) = viaGate(prime, T.OPEN_ROLE, T.withdrawEntry(p));
+            check(ok, "the user withdraws the collateral to custody");
+        }
+        (debt,) = debtOf();
+        check(debt == 0, "the debt is fully repaid");
+        uint256 back = IERC20(k.collateral).balanceOf(custody);
+        check(back + 10 >= coll0 && back <= coll0 + 1e16, "all the collateral is back in custody, within dust");
         check(vault.balanceOf(custody) == 0, "no yield shares left");
-        check(IERC20(USDC).balanceOf(custody) > 0, "custody keeps the carry spread");
+        check(IERC20(k.borrowAsset).balanceOf(custody) > 0, "custody keeps the carry spread");
 
-        // === 5. Gating: every out-of-scope call is refused with its Roles status ===
+        // === 7. the cap is a budget: a re-open needs custody to re-arm it ===
+        (ok, err) = viaGate(prime, T.OPEN_ROLE, T.openBatch(p, k.collateralAmount, k.borrowAmount));
+        refusedWith(ok, err, S_ALLOWANCE, "a re-open on a spent cap is refused whole");
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, gate, T.rearmCall(k.cap), 0);
+        refusedWith(ok, err, S_TARGET, "the user cannot re-arm the cap through the gate");
+        vm.prank(prime);
+        (ok, err) = gate.call(T.rearmCall(type(uint128).max));
+        refusedSel(ok, err, NOT_OWNER, "the user cannot write the cap on the gate directly");
+        check(execCustody(gate, T.rearmCall(10 * k.cap), 0), "custody re-arms the cap");
+        (ok, err) = viaGate(prime, T.OPEN_ROLE, T.openBatch(p, k.collateralAmount, k.borrowAmount));
+        check(ok, "the re-armed open runs");
+
+        // === 8. Aave's own max LTV is the backstop inside the cap ===
+        bytes memory deep = abi.encodeCall(IPool.borrow, (k.borrowAsset, 9 * k.cap, T.VARIABLE, 0, custody));
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, POOL, deep, 0);
+        check(!ok && bytes4(err) != CONDITION_VIOLATION, "Aave refuses a borrow the collateral cannot carry");
+
+        // === 9. the user's refusals ===
         refusals();
     }
 
-    function refusals() internal {
-        bytes memory sup = abi.encodeCall(IPool.supply, (GOLD_TOKEN, GOLD_AMT, custody, 0));
+    function agentRefusals() internal {
+        Cfg memory k = cfg;
         bool ok;
         bytes memory err;
 
-        // wrong target: a token or contract the template never scopes
-        (ok, err) = oneCall(prime, address(0xBEEF), abi.encodeCall(IERC20.transfer, (stranger, 1)), 0);
+        (ok, err) = viaGate(agent, T.OPEN_ROLE, T.openBatch(p, k.collateralAmount, 1));
+        refusedSel(ok, err, NO_MEMBERSHIP, "the agent is not a member of the open role");
+        (ok, err) = viaGate(agent, T.CLOSE_ROLE, T.openBatch(p, k.collateralAmount, 1));
+        refusedWith(ok, err, S_TARGET, "an open batch under the close role is refused whole");
+        bytes memory b = abi.encodeCall(IPool.borrow, (k.borrowAsset, 1, T.VARIABLE, 0, custody));
+        (ok, err) = oneCall(agent, T.CLOSE_ROLE, POOL, b, 0);
+        refusedWith(ok, err, S_FUNCTION, "the agent cannot borrow");
+        (ok, err) = oneCall(agent, T.CLOSE_ROLE, POOL, abi.encodeCall(IPool.supply, (k.collateral, 1, custody, 0)), 0);
+        refusedWith(ok, err, S_FUNCTION, "the agent cannot supply");
+        (ok, err) = oneCall(agent, T.CLOSE_ROLE, address(vault), abi.encodeCall(IVault.deposit, (1, custody)), 0);
+        refusedWith(ok, err, S_FUNCTION, "the agent cannot deposit");
+        (ok, err) = oneCall(agent, T.CLOSE_ROLE, k.borrowAsset, abi.encodeCall(IERC20.approve, (address(vault), 1)), 0);
+        refusedWith(ok, err, S_PARAM, "the agent cannot approve the vault");
+        (ok, err) = oneCall(agent, T.CLOSE_ROLE, k.borrowAsset, abi.encodeCall(IERC20.transfer, (agent, 1)), 0);
+        refusedWith(ok, err, S_FUNCTION, "the agent cannot transfer the stablecoin");
+        (ok, err) = oneCall(agent, T.CLOSE_ROLE, k.collateral, abi.encodeCall(IERC20.transfer, (agent, 1)), 0);
+        refusedWith(ok, err, S_TARGET, "the agent cannot touch the collateral token");
+        (ok, err) = oneCall(agent, T.CLOSE_ROLE, address(vault), abi.encodeCall(IVault.redeem, (1, agent, custody)), 0);
+        refusedWith(ok, err, S_PARAM, "the agent cannot redeem to itself");
+        (ok, err) = oneCall(
+            agent, T.CLOSE_ROLE, POOL, abi.encodeCall(IPool.repay, (k.borrowAsset, 1, T.VARIABLE, stranger)), 0
+        );
+        refusedWith(ok, err, S_PARAM, "the agent cannot repay a stranger's debt");
+        bytes memory w = abi.encodeCall(IPool.withdraw, (k.collateral, 1, agent));
+        (ok, err) = oneCall(agent, T.CLOSE_ROLE, POOL, w, 0);
+        refusedWith(ok, err, k.agentWithdraw ? S_PARAM : S_FUNCTION, "the agent cannot withdraw to itself");
+    }
+
+    function refusals() internal {
+        Cfg memory k = cfg;
+        bytes memory sup = abi.encodeCall(IPool.supply, (k.collateral, 1, custody, 0));
+        bool ok;
+        bytes memory err;
+
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, address(0xBEEF), abi.encodeCall(IERC20.transfer, (stranger, 1)), 0);
         refusedWith(ok, err, S_TARGET, "a call to an unscoped target");
-
-        // a plain transfer of the gold out of custody: approve is scoped on the gold, transfer is not
-        (ok, err) = oneCall(prime, GOLD_TOKEN, abi.encodeCall(IERC20.transfer, (stranger, 1)), 0);
-        refusedWith(ok, err, S_FUNCTION, "a plain transfer of the gold");
-
-        // approve to a stranger (not the pool or the vault)
-        (ok, err) = oneCall(prime, USDC, abi.encodeCall(IERC20.approve, (stranger, 1)), 0);
-        refusedWith(ok, err, S_OR, "an approval to a stranger");
-        (ok, err) = oneCall(prime, GOLD_TOKEN, abi.encodeCall(IERC20.approve, (stranger, 1)), 0);
-        refusedWith(ok, err, S_PARAM, "a gold approval to a stranger");
-
-        // supply on behalf of a stranger
-        (ok, err) = oneCall(prime, POOL, abi.encodeCall(IPool.supply, (GOLD_TOKEN, GOLD_AMT, stranger, 0)), 0);
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, k.collateral, abi.encodeCall(IERC20.transfer, (stranger, 1)), 0);
+        refusedWith(ok, err, S_FUNCTION, "a plain transfer of the collateral");
+        (ok, err) =
+            oneCall(prime, T.OPEN_ROLE, k.collateral, abi.encodeCall(IERC20.transferFrom, (custody, stranger, 1)), 0);
+        refusedWith(ok, err, S_FUNCTION, "a transferFrom of the collateral");
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, k.borrowAsset, abi.encodeCall(IERC20.transfer, (stranger, 1)), 0);
+        refusedWith(ok, err, S_FUNCTION, "a plain transfer of the stablecoin");
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, k.borrowAsset, abi.encodeCall(IERC20.approve, (stranger, 1)), 0);
+        refusedWith(ok, err, S_OR, "a stablecoin approval to a stranger");
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, k.collateral, abi.encodeCall(IERC20.approve, (stranger, 1)), 0);
+        refusedWith(ok, err, S_PARAM, "a collateral approval to a stranger");
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, POOL, abi.encodeCall(IPool.supply, (k.collateral, 1, stranger, 0)), 0);
         refusedWith(ok, err, S_PARAM, "supply on behalf of a stranger");
-
-        // borrow for someone else
-        (ok, err) = oneCall(prime, POOL, abi.encodeCall(IPool.borrow, (USDC, 1e6, VARIABLE, 0, stranger)), 0);
+        (ok, err) = oneCall(
+            prime, T.OPEN_ROLE, POOL, abi.encodeCall(IPool.borrow, (k.borrowAsset, 1, T.VARIABLE, 0, stranger)), 0
+        );
         refusedWith(ok, err, S_PARAM, "borrow on behalf of a stranger");
-
-        // borrow a different asset than the signed stablecoin
-        (ok, err) = oneCall(prime, POOL, abi.encodeCall(IPool.borrow, (GOLD_TOKEN, 1, VARIABLE, 0, custody)), 0);
+        (ok, err) =
+            oneCall(prime, T.OPEN_ROLE, POOL, abi.encodeCall(IPool.borrow, (k.borrowAsset, 1, 1, 0, custody)), 0);
+        refusedWith(ok, err, S_PARAM, "borrow at a rate mode the template does not list");
+        (ok, err) =
+            oneCall(prime, T.OPEN_ROLE, POOL, abi.encodeCall(IPool.borrow, (LINK, 1, T.VARIABLE, 0, custody)), 0);
         refusedWith(ok, err, S_PARAM, "borrow an asset the template does not list");
-
-        // deposit the yield to a stranger
-        (ok, err) = oneCall(prime, address(vault), abi.encodeCall(IVault.deposit, (1e6, stranger)), 0);
+        (ok, err) = oneCall(
+            prime, T.OPEN_ROLE, POOL, abi.encodeCall(IPool.borrow, (k.collateral, 1, T.VARIABLE, 0, custody)), 0
+        );
+        refusedWith(ok, err, S_PARAM, "borrow the collateral token");
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, POOL, abi.encodeCall(IPool.supply, (LINK, 1, custody, 0)), 0);
+        refusedWith(ok, err, S_PARAM, "supply an asset the template does not list");
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, address(vault), abi.encodeCall(IVault.deposit, (1, stranger)), 0);
         refusedWith(ok, err, S_PARAM, "deposit the yield for a stranger");
-
-        // redeem the yield to a stranger
-        (ok, err) = oneCall(prime, address(vault), abi.encodeCall(IVault.redeem, (1, stranger, custody)), 0);
+        (ok, err) =
+            oneCall(prime, T.OPEN_ROLE, address(vault), abi.encodeCall(IVault.redeem, (1, stranger, custody)), 0);
         refusedWith(ok, err, S_PARAM, "redeem the yield to a stranger");
-
-        // withdraw the gold to a stranger
-        (ok, err) = oneCall(prime, POOL, abi.encodeCall(IPool.withdraw, (GOLD_TOKEN, 1, stranger)), 0);
-        refusedWith(ok, err, S_PARAM, "withdraw the gold to a stranger");
-
-        // a delegatecall to a venue (delegatecall is off; only the MultiSend unwrapper path is allowed)
-        (ok, err) = oneCall(prime, POOL, sup, 1);
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, POOL, abi.encodeCall(IPool.withdraw, (k.collateral, 1, stranger)), 0);
+        refusedWith(ok, err, S_PARAM, "withdraw the collateral to a stranger");
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, POOL, sup, 1);
         refusedWith(ok, err, S_DELEGATECALL, "a delegatecall to the pool");
-
-        // a call to the custody Safe's own settings, and to the gate itself
-        (ok, err) = oneCall(prime, custody, abi.encodeCall(ISafe.enableModule, (stranger)), 0);
+        vm.prank(prime);
+        (ok, err) = gate.call(abi.encodeCall(IRoles.execTransactionWithRole, (POOL, 1, sup, 0, T.OPEN_ROLE, true)));
+        refusedWith(ok, err, S_SEND, "a call that sends value");
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, custody, abi.encodeCall(ISafe.enableModule, (stranger)), 0);
         refusedWith(ok, err, S_TARGET, "a call to the custody Safe itself");
-        (ok, err) = oneCall(prime, gate, abi.encodeCall(IRoles.assignRoles, (stranger, one(LEVERAGE), yes())), 0);
+        (ok, err) = oneCall(prime, T.OPEN_ROLE, gate, abi.encodeCall(IRoles.scopeTarget, (T.OPEN_ROLE, stranger)), 0);
         refusedWith(ok, err, S_TARGET, "a call to the gate itself");
-
-        // a non-member cannot act
+        (ok, err) = viaGate(prime, T.CLOSE_ROLE, T.deleverageBatch(p, 0, 0));
+        refusedSel(ok, err, NO_MEMBERSHIP, "the user is not a member of the agent's role");
         vm.prank(stranger);
-        (ok,) = gate.call(abi.encodeCall(IRoles.execTransactionWithRole, (POOL, 0, sup, 0, LEVERAGE, true)));
-        check(!ok, "a stranger is not a member of the leverage-yield role");
+        (ok, err) = gate.call(abi.encodeCall(IRoles.execTransactionWithRole, (POOL, 0, sup, 0, T.OPEN_ROLE, true)));
+        refusedSel(ok, err, NOT_AUTHORIZED, "a stranger is not a member of the open role");
+        vm.prank(stranger);
+        (ok, err) = gate.call(T.execCall(T.CLOSE_ROLE, T.deleverageBatch(p, 0, 0)));
+        refusedSel(ok, err, NOT_AUTHORIZED, "a stranger is not a member of the close role");
     }
 
     // ---------------------------------------------------------------- entrypoints
 
-    function test_leverage_safe141() public {
+    function runOn(address singleton, address factory, Cfg memory k) internal {
         if (!forked) {
             vm.skip(true);
             return;
         }
-        run_(SAFE_141, FACTORY_141);
+        run_(singleton, factory, k);
         emit log_named_uint("checks", passed);
-        require(passed > 25, "count");
+        require(passed >= (k.agentWithdraw ? 59 : 62), "count");
     }
 
-    function test_leverage_safe150() public {
-        if (!forked) {
-            vm.skip(true);
-            return;
+    function test_template_A_safe141() public {
+        runOn(SAFE_141, FACTORY_141, configA());
+    }
+
+    function test_template_A_safe150() public {
+        runOn(SAFE_150, FACTORY_150, configA());
+    }
+
+    function test_template_B_safe141() public {
+        runOn(SAFE_141, FACTORY_141, configB());
+    }
+
+    function test_template_B_safe150() public {
+        runOn(SAFE_150, FACTORY_150, configB());
+    }
+
+    /// Offline: the builder refuses a parameter set it cannot install safely.
+    function test_template_validation() public {
+        TemplateProbe probe = new TemplateProbe();
+        LeverageYieldParams memory good = sample();
+        probe.validate(good);
+        passed++;
+
+        LeverageYieldParams memory q = sample();
+        q.collateral = address(0);
+        refusedParams(probe, q, "collateral is zero");
+        q = sample();
+        q.borrowAsset = q.collateral;
+        refusedParams(probe, q, "collateral is the borrow asset");
+        q = sample();
+        q.borrowCap = 0;
+        refusedParams(probe, q, "borrow cap is zero");
+        q = sample();
+        q.yieldVault = q.pool;
+        refusedParams(probe, q, "two roles share one address");
+        q = sample();
+        q.users = new address[](0);
+        refusedParams(probe, q, "no user member");
+        q = sample();
+        q.agents[0] = q.users[0];
+        refusedParams(probe, q, "a member is both user and agent");
+        q = sample();
+        q.users[0] = q.avatar;
+        refusedParams(probe, q, "member is the custody Safe or the gate");
+        q = sample();
+        q.agents[0] = q.pool;
+        refusedParams(probe, q, "member is a venue or token");
+        q = sample();
+        q.agents = new address[](0);
+        q.agentWithdraw = true;
+        refusedParams(probe, q, "agentWithdraw without an agent");
+
+        // the install is deterministic, and grows by the agent's role only when there is an agent
+        LeverageYieldParams memory noAgent = sample();
+        noAgent.agents = new address[](0);
+        check(keccak256(T.install(good)) == keccak256(T.install(sample())), "the install is deterministic");
+        check(T.install(noAgent).length < T.install(good).length, "no agent, no close role");
+        emit log_named_uint("checks", passed);
+    }
+
+    function sample() internal view returns (LeverageYieldParams memory s) {
+        address[] memory users = new address[](1);
+        users[0] = address(0xB0B);
+        address[] memory agents = new address[](1);
+        agents[0] = agent;
+        s = LeverageYieldParams(
+            address(0xC05), address(0x6A7E), CBETH, POOL, USDC, address(0xFA17), 600e6, users, agents, false
+        );
+    }
+
+    function refusedParams(TemplateProbe probe, LeverageYieldParams memory q, string memory reason) internal {
+        try probe.validate(q) {
+            revert(string.concat("accepted: ", reason));
+        } catch (bytes memory err) {
+            require(keccak256(err) == keccak256(abi.encodeWithSelector(T.InvalidParams.selector, reason)), reason);
         }
-        run_(SAFE_150, FACTORY_150);
-        emit log_named_uint("checks", passed);
-        require(passed > 25, "count");
+        passed++;
     }
 
-    event log_count(uint256);
     event log_named_uint(string, uint256);
 }

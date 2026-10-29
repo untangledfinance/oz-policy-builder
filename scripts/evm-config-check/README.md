@@ -9,7 +9,7 @@ TimelockController 5.6.0 compiled from the npm package. Prime has no contract
 of its own on EVM, and this folder adds none: the `.sol` files are tests and a
 forge script.
 
-Three tests, each run once per Safe version:
+Four tests, each run once per Safe version:
 
 - `test/RefLine.t.sol` builds the design of docs/evm.md, where every move waits
   in a move timelock, and runs it phase by phase with the clock moved past each
@@ -19,18 +19,25 @@ Three tests, each run once per Safe version:
 - `test/ConfigOnly.t.sol` holds the base checks of the Safe and Roles parts,
   with the Prime account as the gate's trading member and no move delay, and
   the STRIDE attack cases.
-- `test/LeverageYield.t.sol` builds the config-only leverage-yield execution
-  adapter for the tokenised-gold carry flow: a Zodiac Roles policy template on
-  the custody gate, plus a Safe MultiSend batch an actor signs. It opens a
-  levered position atomically (supply the gold stand-in cbETH, borrow USDC,
-  deposit the USDC into a yield source), bounds the leverage with a Roles borrow
-  cap, closes it atomically (redeem, repay-max, withdraw-max) and refuses every
-  out-of-scope call with its Roles status. The yield source is `MockVault`, a
-  test fixture, since Base Sepolia lists no liquid ERC-4626 vault for the borrow
-  stablecoin. 31 checks per Safe version, in
+- `test/LeverageYield.t.sol` runs the leverage-yield policy template for the
+  tokenised-gold carry flow, built by `test/LeverageYieldTemplate.sol`: a
+  library of pure functions that, from a few parameters (custody Safe, gate,
+  collateral, Aave pool, borrow asset, yield vault, borrow cap, user and agent
+  members), returns the Roles scopes custody installs and the batches a member
+  signs. It is never deployed. The test holds no scopes of its own; it runs two
+  configurations (cbETH and USDC, WETH and USDT): an atomic open, a borrow cap
+  that bounds the leverage exactly and does not refill, the agent's de-risk and
+  close, an atomic close, the re-arm of the cap, and every refusal with its
+  Roles status. The yield source is `MockVault`, a test fixture, since Base
+  Sepolia lists no liquid ERC-4626 vault for the stablecoins. 62 and 59 checks
+  per Safe version, plus 12 offline checks of the parameter validation, in
+  [run-leverage-template-2026-10-29.txt](run-leverage-template-2026-10-29.txt)
+  and [docs/evm-leverage-yield-template.md](../../docs/evm-leverage-yield-template.md).
+  `script/LeverageYieldTemplate.s.sol` prints the install transaction for any
+  account from environment parameters. The first proof of the flow, 31 checks
+  per Safe version with hand-written scopes, is in
   [run-leverage-2026-10-28.txt](run-leverage-2026-10-28.txt) and
-  [evidence/evm-leverage-yield.md](../../evidence/evm-leverage-yield.md). It adds
-  no contract of Prime's and changes no existing test.
+  [evidence/evm-leverage-yield.md](../../evidence/evm-leverage-yield.md).
 - `test/StrideTimelock.t.sol` extends `RefLineBase` with the move-timelock
   STRIDE proof-of-concept cases for
   [evidence/stride-evm.md](../../evidence/stride-evm.md) section 11: the open

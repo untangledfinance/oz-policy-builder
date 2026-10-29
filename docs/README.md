@@ -13,6 +13,7 @@ that writes the Stellar rules.
 | [architecture.md](architecture.md) | the use case, the components, trust boundaries, owners and Prime seats, the main flows and why each part is built the way it is |
 | [stellar.md](stellar.md) | the custody gate, execution adapter, policy interpreter and Prime seat on an OpenZeppelin smart account; the policy builder's checks |
 | [evm.md](evm.md) | Prime on EVM as configuration only: custody's Safe and its Roles gate, the Prime account's bands, the move and recovery timelocks, the policy model, permissioned assets and the limits |
+| [evm-leverage-yield-template.md](evm-leverage-yield-template.md) | the leverage-yield policy template on EVM: its parameters, the open and close roles, each scope, the borrow cap as the leverage bound and what it leaves open |
 | [solana.md](solana.md) | Prime on Solana by configuration only: the Squads Smart Account as custody gate and Prime account, Token-2022 for permissioned assets, and the venue's programs |
 
 The contracts' own READMEs hold the interfaces and test detail:

@@ -1,0 +1,19 @@
+No files changed, compilation skipped
+Ran 5 tests for test/LeverageYield.t.sol:LeverageYieldTest
+[PASS] test_template_A_safe141() (gas: 10493785)
+Logs:
+  checks: 62
+[PASS] test_template_A_safe150() (gas: 10488093)
+Logs:
+  checks: 62
+[PASS] test_template_B_safe141() (gas: 10486896)
+Logs:
+  checks: 59
+[PASS] test_template_B_safe150() (gas: 10478694)
+Logs:
+  checks: 59
+[PASS] test_template_validation() (gas: 1494437)
+Logs:
+  checks: 12
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 19.71s (75.71s CPU time)
+Ran 1 test suite in 19.72s (19.71s CPU time): 5 tests passed, 0 failed, 0 skipped (5 total tests)

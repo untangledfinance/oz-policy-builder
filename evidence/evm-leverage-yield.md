@@ -11,6 +11,13 @@ uses ([docs/evm.md](../docs/evm.md)), plus the batch an actor signs. The source
 of the use case is the Gemini note of 28 October 2026 and the local analysis
 `my-wiki/plans/prime-evm-execution-adapter-analysis-2026-10-28.md`.
 
+**Template:** the scopes below are now built by a parameterised template,
+[docs/evm-leverage-yield-template.md](../docs/evm-leverage-yield-template.md),
+which the fork test and the live script use as their one source. The template
+changes two things from this proof: the agent gets its own close-only role
+(`leverage-close`), so it can no longer open, and the borrow cap no longer
+refills each day. The on-chain run below predates the template.
+
 ## The flow
 
 A user holds tokenised gold in the custody Safe, borrows a stablecoin on Aave
