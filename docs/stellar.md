@@ -373,7 +373,11 @@ limits and the install checks are documented in
   value but void, so `eq(read(REGISTRY, contains, [call_arg(1)]), lit(true))`
   asks a registry contract whether the receiver is on its list. `now` is the
   ledger timestamp, and `scaled(src, num, den, add)` computes
-  `src * num / den + add`, with every step checked. A predicate may make at
+  `src * num / den + add`, with every step checked. The division truncates
+  toward zero, so `scaled(x, 1, 10^18, 0)` is `0` for every `x` from `0` up to
+  `10^18 - 1`: a floor written this way permits a whole band of amounts up to
+  that bound, and the review card marks such a term "rounded toward zero" so the
+  owner reads the bound as the interpreter applies it. A predicate may make at
   most the instance's `max_reads` distinct reads, so `enforce` never makes more
   than `max_reads` external calls, quantifiers included. Soroban has no
   read-only call, so read targets must be contracts the owner trusts, ideally

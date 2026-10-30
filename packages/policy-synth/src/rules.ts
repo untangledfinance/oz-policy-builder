@@ -406,14 +406,33 @@ interface Sel {
 const ANY = '*'
 const WILD: Sel = { contract: ANY, fn: ANY }
 
+/** The most (contract, function) pairs any selector set is enumerated to. An `and` of k two-way
+ *  `or`s would otherwise expand to 2^k pairs (one per subset), which `check` and the overlap scan
+ *  each walk per rule: review_unsigned with readContracts turned a k=26 predicate into millions of
+ *  pairs. Past the budget the set collapses to a single wildcard, which over-approximates (every
+ *  caller treats more pairs as permitted, never fewer), so the result still fails closed. */
+const SEL_BUDGET = 1 << 14
+
+/** A selector set with contract+fn duplicates removed: an `and` of overlapping `or`s, or an `or`
+ *  that repeats a pin, would otherwise carry the same pair many times. */
+function dedup(sels: Sel[]): Sel[] {
+  const seen = new Map<string, Sel>()
+  for (const s of sels) seen.set(`${s.contract}\u0000${s.fn}`, s)
+  return [...seen.values()]
+}
+
 function meet(a: Sel[], b: Sel[]): Sel[] {
+  // A wildcard once either side grows past the budget: the product would blow up, and the
+  // over-approximation is sound for every caller (an install, a verify, review_unsigned).
+  if (a.length * b.length > SEL_BUDGET) return [WILD]
   const pick = (x: string, y: string) => (x === ANY ? y : y === ANY || x === y ? x : null)
-  return a.flatMap((x) =>
+  const out = a.flatMap((x) =>
     b.flatMap((y) => {
       const [contract, fn] = [pick(x.contract, y.contract), pick(x.fn, y.fn)]
       return contract !== null && fn !== null ? [{ contract, fn }] : []
     })
   )
+  return out.length > SEL_BUDGET ? [WILD] : dedup(out)
 }
 
 /** The (contract, function) pairs an expression can permit, over-approximated:
@@ -422,7 +441,10 @@ export function selectors(e: Expr): Sel[] {
   if (!isSelector(e)) return [WILD]
   const [op, a, b] = constantLast(e) as [string, Val, Val]
   if (op === 'and') return (a as Expr[]).reduce<Sel[]>((acc, c) => meet(acc, selectors(c)), [WILD])
-  if (op === 'or') return (a as Expr[]).flatMap(selectors)
+  if (op === 'or') {
+    const out = (a as Expr[]).flatMap(selectors)
+    return out.length > SEL_BUDGET ? [WILD] : dedup(out)
+  }
   const leaf = isSelector(a) ? a[0] : undefined
   // Only a constant names a call: `eq(call_fn, read(...))` serves any function.
   const values = op === 'eq' && isConstant(b) ? [b] : op === 'in' ? (b as Val[]) : []

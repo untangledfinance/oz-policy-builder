@@ -15,6 +15,7 @@ import {
   xdr,
 } from '@stellar/stellar-sdk'
 import {
+  ADAPTER_WASM,
   GRAMMAR_VERSION,
   INTERPRETER,
   INTERPRETER_WASM,
@@ -239,32 +240,63 @@ export async function codeHash(server: rpc.Server, address: string): Promise<str
     : undefined
 }
 
-/** What a contract signer is, from its instance on the ledger: an execution adapter created with no
- *  gate (its instance holds `prime`, and `gate` as void), one bound to a gate (`prime`, and `gate`
- *  an address), a contract that is not deployed, or any other contract. Read from storage, not
- *  from a code hash: every adapter build this project deployed keeps these keys, whatever its hash. */
-export type ContractKind = 'null-gate adapter' | 'gated adapter' | 'absent' | 'contract'
+/** What a contract signer is, from its instance on the ledger: a trusted execution adapter created
+ *  with no gate (its instance holds `prime`, and `gate` as void) or one bound to a gate (`prime`, and
+ *  `gate` an address) - but only when it also runs a pinned adapter build and its `prime` is this
+ *  account; a contract that wears those two symbols but runs another build (or vouches for another
+ *  account) is an `unverified adapter`, refused and never vouched for; a contract that is not deployed
+ *  (`absent`); or any other contract. The two symbols are read from storage, but the trust in them
+ *  rests on the reproducible code hash and the account match, because any contract can write the
+ *  symbols in its constructor (SYNTH-IO-01). */
+export type ContractKind =
+  | 'null-gate adapter'
+  | 'gated adapter'
+  | 'unverified adapter'
+  | 'absent'
+  | 'contract'
 
 const PRIME_KEY = xdr.ScVal.scvSymbol('prime').toXDR('base64')
 const GATE_KEY = xdr.ScVal.scvSymbol('gate').toXDR('base64')
 
-export function kindOf(instance: xdr.ScVal | undefined): ContractKind {
+/** The kind of a contract from its instance. When `account` is given, a contract is vouched for as an
+ *  adapter only if its `prime` equals that account; a code hash outside the pinned adapter set, or a
+ *  `prime` that is not this account, downgrades an adapter-shaped contract to `unverified adapter`. */
+export function kindOf(instance: xdr.ScVal | undefined, account?: string): ContractKind {
   if (instance === undefined) return 'absent'
-  const storage = instance.instance().storage() ?? []
+  const inst = instance.instance()
+  const storage = inst.storage() ?? []
   const at = (k: string) => storage.find((e) => e.key().toXDR('base64') === k)
+  const primeEntry = at(PRIME_KEY)
   const gate = at(GATE_KEY)?.val().switch().name
-  if (!at(PRIME_KEY) || gate === undefined) return 'contract'
-  return gate === 'scvVoid'
-    ? 'null-gate adapter'
-    : gate === 'scvAddress'
-      ? 'gated adapter'
-      : 'contract'
+  if (!primeEntry || gate === undefined) return 'contract'
+  const shape =
+    gate === 'scvVoid' ? 'null-gate adapter' : gate === 'scvAddress' ? 'gated adapter' : undefined
+  if (shape === undefined) return 'contract'
+  // Adapter-shaped, so the trust check: it must run a pinned adapter build (its two symbols are
+  // forgeable, its reproducible code hash is not), and a genuine adapter's `prime` is the Prime it
+  // serves. Either miss leaves it an unverified adapter, which the builder refuses.
+  const exec = inst.executable()
+  const wasm =
+    exec.switch().name === 'contractExecutableWasm'
+      ? Buffer.from(exec.wasmHash()).toString('hex')
+      : undefined
+  if (wasm === undefined || !ADAPTER_WASM.has(wasm)) return 'unverified adapter'
+  if (account !== undefined) {
+    const primeVal = primeEntry.val()
+    const prime =
+      primeVal.switch().name === 'scvAddress' ? Address.fromScVal(primeVal).toString() : undefined
+    if (prime !== account) return 'unverified adapter'
+  }
+  return shape
 }
 
-/** The kind of each contract address, in one ledger read. A failed read throws: it never passes. */
+/** The kind of each contract address, in one ledger read. `account` ties an adapter's `prime` to the
+ *  account a rule is bound to (omit it only where that account is not known). A failed read throws:
+ *  it never passes. */
 export async function contractKinds(
   server: rpc.Server,
-  addresses: string[]
+  addresses: string[],
+  account?: string
 ): Promise<Record<string, ContractKind>> {
   const keys = addresses.map((a) => dataKey(a, xdr.ScVal.scvLedgerKeyContractInstance()))
   let got: (xdr.ScVal | undefined)[]
@@ -275,7 +307,7 @@ export async function contractKinds(
       retryable: true,
     })
   }
-  return Object.fromEntries(addresses.map((a, n) => [a, kindOf(got[n])]))
+  return Object.fromEntries(addresses.map((a, n) => [a, kindOf(got[n], account)]))
 }
 
 /** The refusal for an interpreter that is not a trusted build. */

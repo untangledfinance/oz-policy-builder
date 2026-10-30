@@ -213,12 +213,12 @@ Lines are in `contracts/stellar/prime-seat/src/lib.rs`.
 |---|---|---|---|---|---|
 | S-07 | S | A session key votes in rule 0 as `Delegated`, or acts in another rule as `External`, so one session passes rule 0 alone | `verify` serves rule ids that are all 0 (`:96`); `__check_auth` serves only non-zero ids and only the account's own frame (`:116-123`) | `cargo test` (21) | Holds |
 | S-08 | S | A key's signature made for one seat is used under another | the key signs `sha256(seat id ‖ digest)` (`:44-51`) | `cargo test` | Holds |
-| S-09 | S | The seat is used by a second account | `key_data` must equal the stored account (`:97`) | `cargo test` | Holds |
+| S-09 | S | A second account counts the seat's votes in its own rule 0 | the `Delegated` path binds to the account by its own frame; the `External` path (`verify`) is a view tied to the account only through the caller-supplied `key_data` (`:97`), so any account whose rule 0 lists `External(seat, the stored id)` counts the seat's session-key votes. No authority over the first account is gained: the key signs each proof, and the enlisting owners chose to list the seat. A real binding needs the 0.8.0 digest's account field (T-15) | testnet (SEAT-01) | Open, Info |
 | T-13 | T | A grant replayed after an End, or an older grant after a newer one | an End stores 0 and blocks every later grant; a grant needs a later end than the stored one (`:72-77`) | `cargo test` | Holds |
 | T-14 | T | A grant that starts in the future or lasts over 7 days | `start <= now <= end`, `end - start <= 604,800` (`:73`) | `cargo test` | Holds |
 | T-15 | T | The account's digest format changes under the seat | the seat reads rule ids out of `sha256(payload ‖ XDR(rule ids))`, the 0.7.2-line form; under the 0.8.0 digest every seat signature fails until new seats are deployed | code read | Open, Low (fails closed) |
 | R-04 | R | Grants and Ends emit no event | transaction history | | Accepted |
-| D-11 | D | A temporary End expires after about 180 days | an old grant cannot return: a grant starts no later than now and lasts at most 7 days | code read | Accepted, Low |
+| D-11 | D | A temporary End expires after about 180 days | an old grant cannot return: a grant starts no later than now and lasts at most 7 days. An end has no freshness check, so anyone can re-submit the same end bytes and each replay refreshes the end entry's TTL (SEAT-02), which lets a relayer keep an end marker alive past 180 days at the cost of rent and closes this residual | code read, testnet (SEAT-02) | Accepted, Low |
 | E-21 | E | A session key is compromised during its window | the window, at most 7 days, and an End by the owner or the key | `cargo test` | Holds |
 | E-22 | E | The seat checks only the first context of its own entry | the key must sign the whole entry's payload, so further contexts gain the key nothing it lacked | code read | Accepted, Info |
 | E-23 | E | A seat removed from rule 0 keeps acting in other rules that list it | the seat reads nothing about the owner list; the Prime app rewrites rules that list a removed seat | code read | Open, Low |
@@ -231,7 +231,7 @@ Lines are in `contracts/stellar/prime-seat/src/lib.rs`.
 |---|---|---|---|---|---|
 | S-10 | S | On a network for which the package pins no interpreter, the interpreter address is agent input, and a lying RPC can report a trusted code hash for another contract | testnet has a pinned address (`INTERPRETER` in `config.ts`); on a network with none, the address must run a build whose code hash the package trusts, as the RPC reports it | code read | Open, Medium |
 | S-11 | S | Any local process, or a web page, calls the MCP HTTP tools | loopback bind and a `Host` and `Origin` guard (`policy-builder-mcp/src/http.ts:55-73`); no authentication | MCP suite | Open, Medium on a shared host |
-| S-12 | S | A contract's parameter names mislead, a fake token claims a known symbol, or an address is ground to look like another | names are display only; the review prints addresses in full | code read | Open, Low |
+| S-12 | S | A contract's parameter names mislead, a fake token claims a known symbol, or an address is ground to look like another | names are display only; the review prints each address in full, and a muxed `M...` address as its underlying account and id apart, so a ground vanity or muxed look-alike cannot render the same as a real address (`card.ts` `short`/`muxed`) | `card.ts` tests | Holds |
 | T-16 | T | A lying RPC adds a sub-invocation to the account's authorisation, so the owner signs more than the review shows | the simulated root invocation must equal the built call with nothing under it (`install.ts:230-244`) | `install.test.ts` | Holds |
 | T-17 | T | A lying RPC records another transaction under the hash asked for | the returned envelope is hashed under the network passphrase and compared (`record.ts`) | `record.test.ts` | Holds |
 | T-18 | T | A lying RPC sets the signed authorisation expiry or the resource fee | expiry from the recording pass plus `POLICY_BUILDER_AUTH_LEDGERS` (at most 17,280), the two passes within 20 ledgers, a time bound from the builder's clock, a fee ceiling (`POLICY_BUILDER_MAX_RESOURCE_FEE`) | `install.test.ts`; `review_unsigned` checks the same bounds | Holds; residual Low (section 9) |
@@ -242,7 +242,7 @@ Lines are in `contracts/stellar/prime-seat/src/lib.rs`.
 | E-26 | E | The agent sets an override flag to waive a refusal | every flag used comes back in `overrides` and opens the review; outside testnet a flag is refused unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1` (`install.ts:403-410`) | `install.test.ts`, `tools.test.ts` | Holds |
 | E-27 | E | A contract signer or admin whose `__check_auth` answers anyone opens the mandate to anyone | `install_policy` reads each contract signer's instance and refuses an adapter with no gate, a gated adapter signing a rule scoped to itself that does not pin `run`, and a contract that is not deployed (`install.ts:597-604`); `review_unsigned` flags a contract signer unless `readContracts` reads it. Every other contract passes unvetted | `install.test.ts`, `review.test.ts`, `contracts.test.ts` | Open, Medium |
 | E-28 | E | An agent rule never expires unless someone revokes it | `validUntilLedger` defaults to none (`install.ts:556`); the review header says "never expires" | code read | Open, Medium |
-| E-29 | E | The review hides who gains authority (signers, admins, expiry, roles) | the authority header lists signers in full, who can act alone, admins, expiry and totals | `card.ts` tests | Holds |
+| E-29 | E | The review hides who gains authority (signers, admins, expiry, roles) | the authority header lists each signer in full (the whole address, never a shortened prefix and suffix), who can act alone, admins, expiry and totals | `card.ts` tests | Holds |
 | E-30 | E | The agent cites a looser rule it also holds | `authorityScan` reads every live rule; `allowOverlap` is echoed | `install.test.ts` | Holds |
 | E-31 | E | `spending_limit` attached to a predicate that permits more than `transfer` | refused | `install.test.ts` | Holds |
 | E-32 | E | The agent writes outside the output directory | a bare file name and an exclusive create (`tools.ts`) | `tools.test.ts` | Holds |
@@ -404,7 +404,7 @@ All 16 assertion rows matched. E38-1 to E38-4 are the on-chain proof of E-38: a 
 | T-26 | Medium | Account code provenance | record the source commit and build of each account build, or pin a tagged 0.8.0 release |
 | E-27 | Medium | Contract signers pass unvetted, beyond the three refused kinds | refuse a contract signer or admin unless its code is a pinned seat or account build; refuse a seat as admin (D-06) |
 | E-28 | Medium | Agent rules default to no expiry | require `validUntilLedger` or a seat signer |
-| S-12, T-04, T-15, T-20, T-24, D-01, D-02, D-06, D-08, D-12, E-05 (0.7.2-line account), E-08, E-09, E-10, E-16, E-23, R-01 | Low | as in the tables above | |
+| T-04, T-15, T-20, T-24, D-01, D-02, D-06, D-08, D-12, E-05 (0.7.2-line account), E-08, E-09, E-10, E-16, E-23, R-01 | Low | as in the tables above | |
 
 Three more open points concern the account builds and the deployment:
 

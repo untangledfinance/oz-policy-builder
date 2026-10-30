@@ -462,6 +462,12 @@ export const buildBind = (a: BuildArgs, interpreter: string, ruleId: number, exe
 export const NULL_ADAPTER_SIGNER = (signer: string) =>
   `signer ${signer} is an execution adapter bound to no gate: whoever the account lets call its execute (an agent) could cite this rule for a call the adapter makes, and move the account's funds past that agent's own capped rules`
 
+/** Why a rule a contract that merely wears the adapter symbols signs is refused (SYNTH-IO-01): the
+ *  two instance symbols (`prime`, `gate`) are forgeable, and the builder vouches for an adapter only
+ *  when it also runs a pinned adapter build whose `prime` is this account. */
+export const UNVERIFIED_ADAPTER_SIGNER = (signer: string) =>
+  `signer ${signer} holds the adapter symbols (prime, gate) but does not run a pinned execution-adapter build this account can verify (or its prime is not this account): what it would run and hand out cannot be checked, so a rule it signs is refused`
+
 /** Why a rule an execution adapter signs, scoped to that same adapter, is refused unless every
  *  branch pins `call_fn = run` (review-opb28 L1). The adapter's signature holds whenever it is the
  *  one asking the account, which it is for its own `execute`, `run` and `cancel`: such a rule
@@ -548,6 +554,7 @@ export function signerProblem(
   expr: Expr | null
 ): string | undefined {
   if (kind === 'null-gate adapter') return NULL_ADAPTER_SIGNER(signer)
+  if (kind === 'unverified adapter') return UNVERIFIED_ADAPTER_SIGNER(signer)
   if (kind === 'gated adapter' && signer === scopedTo && !pinsRun(expr))
     return ADAPTER_SELF_RULE(signer)
   if (kind === 'absent')
@@ -618,7 +625,7 @@ export function KEYLESS_FOLLOWER(
   const head = `E-38: this keyless rule's entire fence is the followed rule (rule ${f.ruleId} of ${f.account}); ${who} can re-install it with that account at will, without this account's signature`
   const tail =
     executor?.kind === 'gated adapter'
-      ? `: they control the predicate, and the gate of this rule's executor ${executor.address} still limits destinations`
+      ? `: they control the predicate, and this rule's executor ${executor.address} is a verified gated adapter, so its gate still bounds the destinations its execute allows - but only to the set that gate was configured with, and those admins choose any call within it`
       : `, and loosen it to allow anyone to move funds through ${
           executor === undefined
             ? 'the adapter this rule is bound to'
@@ -652,6 +659,8 @@ export function executorProblem(
     return `executor ${executor} is not deployed, so what it will vouch for cannot be checked`
   if (kind === 'contract')
     return `executor ${executor} is not an execution adapter (its instance holds no prime and gate), so what it will vouch for is not known`
+  if (kind === 'unverified adapter')
+    return `executor ${executor} holds the adapter symbols (prime, gate) but does not run a pinned execution-adapter build this account can verify (or its prime is not this account): binding a keyless rule to it would let its own code vouch for any call the rule's predicate still allows, so it is refused (SYNTH-IO-01)`
   if (scopedTo === executor && !pinsOwn(expr)) return EXECUTOR_SELF_RULE(executor)
   if (kind === 'gated adapter' && scopedTo === executor && !pinsRun(expr))
     return `executor ${executor} is an adapter with a gate, which never vouches for its own execute: a rule scoped to it that does not pin call_fn = run would never permit`

@@ -54,6 +54,7 @@ import {
   synthesize,
   unbounded,
   unboundedExpr,
+  unmodeledWarnings,
 } from './synth.ts'
 import {
   type Caps,
@@ -81,9 +82,15 @@ const account = z.string().refine(StrKey.isValidEd25519PublicKey, 'a G... accoun
 const contractId = z.string().refine(StrKey.isValidContract, 'a C... contract')
 const anyAddress = z.union([account, contractId])
 const u32 = z.number().int().positive().max(0xffffffff)
+const I128_MAX = 2n ** 127n - 1n
+// An amount is a positive i128 in the smallest unit. The length cap keeps a 900k-digit string from
+// reaching the BigInt parse (and the 512 call intents it would be copied into) before it is refused;
+// the range check then holds it to a signed 128-bit integer.
 const amount = z
   .string()
   .regex(/^[1-9]\d*$/, 'a positive integer in the smallest unit, as a string')
+  .max(39, 'too many digits for an i128 amount')
+  .refine((s) => BigInt(s) <= I128_MAX, 'an amount must fit a signed 128-bit integer')
 const val: z.ZodType<unknown> = z.lazy(() =>
   z.union([z.null(), z.boolean(), z.number(), z.string(), z.array(val), z.record(z.string(), val)])
 )
@@ -102,7 +109,17 @@ const rule: z.ZodType<unknown> = z.lazy(() =>
     row('allow', { at: path, in: list }),
     row('deny', { at: path, nin: list }),
     row('cap', { at: path, max: amount }),
-    row('floor', { at: path, min: z.string().regex(/^-?\d+$/) }),
+    row('floor', {
+      at: path,
+      min: z
+        .string()
+        .regex(/^-?\d+$/)
+        .max(40, 'too many digits for an i128 floor')
+        .refine((s) => {
+          const n = BigInt(s)
+          return n >= -(I128_MAX + 1n) && n <= I128_MAX
+        }, 'a floor must fit a signed 128-bit integer'),
+    }),
     row('length', { at: path, max: z.number().int().nonnegative() }),
     row('count', { at: path, is: z.number().int().nonnegative().max(0xffffffff) }),
     row('same', { at: path, as: path }),
@@ -122,6 +139,30 @@ const rule: z.ZodType<unknown> = z.lazy(() =>
     row('from', { ts: z.number().int().positive() }),
   ])
 )
+/** How deep `each`/`some` bodies nest: the interpreter forbids a quantifier inside a quantifier, so
+ *  a legitimate intent never nests beyond one, but a deeply nested one is cheap to send and used to
+ *  drive the lowering and the amount walk into quadratic time before it was ever rejected. Bounded
+ *  here, from the parsed shape, before any of that runs. */
+const MAX_INTENT_DEPTH = 16
+const nesting = (where: unknown, depth = 1): number => {
+  if (!Array.isArray(where)) return depth
+  let max = depth
+  for (const r of where) {
+    const inner = (r as { where?: unknown }).where
+    if (Array.isArray(inner)) max = Math.max(max, nesting(inner, depth + 1))
+  }
+  return max
+}
+/** Whether any `minOut` in a constraint tree bounds an output by itself (`at` equals `of`): such a
+ *  floor permits a trade at any price, so it is refused rather than mistaken for a slippage bound
+ */
+const selfMinOut = (where: unknown): boolean =>
+  Array.isArray(where) &&
+  where.some((r) => {
+    const c = r as { constraint?: string; at?: unknown; of?: unknown; where?: unknown }
+    if (c.constraint === 'minOut' && JSON.stringify(c.at) === JSON.stringify(c.of)) return true
+    return selfMinOut(c.where)
+  })
 const intent = z
   .object({
     calls: z
@@ -134,6 +175,20 @@ const intent = z
       .max(32),
   })
   .strict()
+  .superRefine((i, ctx) => {
+    for (const c of i.calls) {
+      if (nesting(c.where) > MAX_INTENT_DEPTH)
+        ctx.addIssue({
+          code: 'custom',
+          message: `${c.fn}: constraints nested deeper than ${MAX_INTENT_DEPTH}`,
+        })
+      if (selfMinOut(c.where))
+        ctx.addIssue({
+          code: 'custom',
+          message: `${c.fn}: minOut bounds an output by itself (\`at\` equals \`of\`), which is no floor; bound it by the input amount or a constant`,
+        })
+    }
+  })
 
 const call = z.object({ contract: contractId, fn: z.string().min(1), args: z.array(val) }).strict()
 /** A rule to follow instead of a predicate: `ruleId` of `smartAccount`, on the same interpreter. */
@@ -271,6 +326,12 @@ const questions = (as: Synthesis['ambiguities']) => ({
   unanswered: as.find((a) => a.code === 'AMOUNT_BOUND_MISSING')?.question,
   openSlippage: as.find((a) => a.code === 'SLIPPAGE_FLOOR_MISSING')?.question,
 })
+
+/** The questions a set carries, each once: the recorded ones and those the FINISHED predicate still
+ *  leaves open are merged, so the gate is judged on the rule produced, not on the input shape. */
+const uniqueQuestions = (as: Synthesis['ambiguities']): Synthesis['ambiguities'] => [
+  ...new Map(as.map((a) => [a.question, a])).values(),
+]
 
 const present = (r: ReturnType<typeof propose>[number]) => ({
   contract: r.contract,
@@ -410,13 +471,20 @@ const synthesize_policy = tool(
     // Proposing needs no live interpreter: the pin's recorded limits are its limits.
     const pin = INTERPRETER[i.network]
     const rules = propose(s.intent, pin?.limits)
+    // The gate is judged on the FINISHED rule: walk each produced predicate and merge what it still
+    // leaves open with what the recording asked, so a cap under `some`, a cap on one index, or a
+    // self-referential minOut (which the input-shape check misses) is still a question here.
+    const ambiguities = uniqueQuestions([
+      ...s.ambiguities,
+      ...rules.flatMap((r) => unboundedExpr(r.expr)),
+    ])
     return {
       intent: s.intent,
       rules: rules.map((r) => ({ ...present(r), ...explain(i, r) })),
       heldTo: pin
         ? `the limits recorded for ${pin.address}`
         : `the default limits (no interpreter is pinned for ${i.network})`,
-      ambiguities: s.ambiguities,
+      ambiguities,
       warnings: s.warnings,
       ...(s.recording ? { recording: s.recording } : {}),
     }
@@ -597,7 +665,13 @@ const install_policy = tool(
       }
     } else {
       const s = await sourceOf(i)
-      rule = { ...pick(propose(s.intent, caps), i.contract), ...questions(s.ambiguities) }
+      const chosen = pick(propose(s.intent, caps), i.contract)
+      // The amount and slippage gate is judged on the predicate actually being installed, walked the
+      // same way as an encoded or followed one, so a source cannot slip an uncapped rule past it.
+      rule = {
+        ...chosen,
+        ...questions(uniqueQuestions([...s.ambiguities, ...unboundedExpr(chosen.expr)])),
+      }
     }
     const server = connect(i)
     const chain: Chain = {
@@ -606,17 +680,21 @@ const install_policy = tool(
         readRules(server, i.network, account, interpreter, signal),
       build: (draft, interpreter) => buildInstall({ ...i, server }, draft, interpreter),
       token: (c) => isToken(server, c),
-      contracts: (a) => contractKinds(server, a),
+      contracts: (a) => contractKinds(server, a, i.smartAccount),
     }
     const plan = await planInstall(i, rule, chain)
+    // The gate models some functions; for any other the predicate names, warn that it cannot confirm
+    // the amounts are capped (SYNTH-CORE-01). A recording pins such a call's arguments, but a
+    // hand-built or followed predicate reaches here without that warning.
+    const warnings = [...plan.warnings, ...unmodeledWarnings(rule.expr)]
     // Only a rule that passed every refusal is described.
     const shown = explain(i, {
       ...rule,
       authority: plan.authority,
       overrides: plan.overrides,
-      warnings: plan.warnings,
+      warnings,
     })
-    return { ...plan, rule: { ...plan.rule, ...shown } }
+    return { ...plan, warnings, rule: { ...plan.rule, ...shown } }
   }
 )
 
@@ -666,7 +744,7 @@ const revoke_policy = tool(
 
 const bind_policy = tool(
   'bind_policy',
-  "Build the UNSIGNED transaction that binds a rule to an executor: the interpreter's `bind_executor((smartAccount, ruleId), executor)`. A bound rule permits a call only with that executor's grant for it (the executor's own `run` excepted), and a keyless rule (installed with no signers and `executor`) permits nothing until it is bound. The rule is read first, with its stored predicate, executor and admins; the build is REFUSED unless the rule is policed by the pinned interpreter with a predicate the package can read, the executor is an execution adapter (read off the ledger), a rule scoped to the executor pins `call_fn = run` or a whole immediate batch (`execute`, wait 0, the number of calls, each call's target and function_name; the interpreter refuses anything else with 221), and the rule's admins are the source account alone (each admin signs `bind_executor`). With no gate, the adapter vouches for every call of an immediate batch anyone runs through it, so the rule's predicate is the only fence: the review says so. A keyless rule that follows another comes back with the E-38 warning in `warnings` (its followed rule's admins can loosen that only fence at will; worded for the executor's kind). The rule comes back as `binds` with its review; `rebinds` names an executor it replaces. The wallet signs the returned XDR.",
+  "Build the UNSIGNED transaction that binds a rule to an executor: the interpreter's `bind_executor((smartAccount, ruleId), executor)`. A bound rule permits a call only with that executor's grant for it (the executor's own `run` excepted), and a keyless rule (installed with no signers and `executor`) permits nothing until it is bound. The rule is read first, with its stored predicate, executor and admins; the build is REFUSED unless the rule is policed by the pinned interpreter with a predicate the package can read, the executor is a verified execution adapter (a pinned adapter build whose `prime` is this account, read off the ledger; a contract that only wears the adapter symbols is refused), a rule scoped to the executor pins `call_fn = run` or a whole immediate batch (`execute`, wait 0, the number of calls, each call's target and function_name; the interpreter refuses anything else with 221), and the rule's admins are the source account alone (each admin signs `bind_executor`). With no gate, the adapter vouches for every call of an immediate batch anyone runs through it, so the rule's predicate is the only fence: the review says so. A keyless rule that follows another comes back with the E-38 warning in `warnings` (its followed rule's admins can loosen that only fence at will; worded for the executor's kind). The rule comes back as `binds` with its review; `rebinds` names an executor it replaces. The wallet signs the returned XDR.",
   {
     ...net,
     ...display,
@@ -683,7 +761,7 @@ const bind_policy = tool(
     const plan = await planBind(i, interpreter, {
       readRule: (id) => readRule(server, i.network, i.smartAccount, id, interpreter),
       readRules: () => readRules(server, i.network, i.smartAccount, interpreter),
-      kind: async (a) => (await contractKinds(server, [a]))[a] ?? 'absent',
+      kind: async (a) => (await contractKinds(server, [a], i.smartAccount))[a] ?? 'absent',
       fingerprint: (a) => fingerprint(server, i.network, a),
       build: () => buildBind({ ...i, server }, interpreter, i.ruleId, i.executor),
     })
@@ -770,7 +848,7 @@ const get_interpreter_info = tool(
 
 const review_unsigned = tool(
   'review_unsigned',
-  "Review an UNSIGNED transaction from `install_policy`, `revoke_policy` or `bind_policy` from its bytes alone, with no RPC: for the account owner's side (a wallet or the Prime app) to run on the XDR it is about to sign, with `smartAccount` naming the account the owner means to change. `problems` lists what is wrong in the bytes themselves: a shape the builder never makes (an authorisation for anything but the call, a rule other than 0, a `__check_auth` argument that does not match on this network (either form: the 0.7.2-line account's digest bytes or the OpenZeppelin 0.8.0 account's preimage struct; `auth.form` says which), a signer other than the source, no time bound or a longer one, a fee above the ceiling, a precondition or memo, an External signer or admin) or a value it can check offline (an interpreter other than the pin, a predicate whose hash does not match its bytes, a policy the package does not know), and an envelope that already carries a signature. With `readContracts: true` (through the operator's RPC, the one exception to no RPC) the account's code is read too: an account that runs no OpenZeppelin build the package signs for, or an authorisation in another form than its build asks for, is a problem. A contract signer is a problem unless `readContracts: true` reads it off the ledger: then only an execution adapter bound to no gate, an execution adapter signing a rule scoped to itself that does not pin call_fn = run, or a contract that is not deployed, is a problem. A binding (`bind_executor` on the interpreter) names an executor: it is a problem unless `readContracts: true` shows it to be an execution adapter, and one with no gate is described as what it is (anyone may run an immediate batch through it, so the bound rule's predicate is the only fence). An install that follows another rule (`follow`) carries no predicate: it is a problem unless `readContracts: true` also reads that rule's predicate and nonce now off the pinned interpreter, which the review then shows under Follows, with the warning that its admins can change it without this account. `warnings` lists what is allowed but must be known before signing, none of it a problem: a keyless install that follows another rule (E-38: the followed rule's admins can loosen its only fence at will, and anyone could then move funds through the adapter it is bound to; with `readContracts` the warning names those admins). Every other contract (a seat, a smart account, an adapter with a gate signing any other rule, any contract an agent deployed) then reads signable unvetted: the owner checks who controls it. `signable` means no problem was found; it does NOT mean safe to sign. An agent can rewrite the unsigned bytes consistently (itself as admin or signer, a threshold dropped, a cap raised with a matching hash) and they come back signable; so do installs that used an override and rules the builder would refuse for reasons it does not check from the bytes (overlap, read safety, 1-of-n). The owner must read `review`/`reviewTree`: the problems first, then the transaction (call, source, fee, time bound, authorisation expiry), then for an install the Authority node (signers, who can act alone, admins, expiry, total, interpreter) and the predicate, all read from the bytes.",
+  "Review an UNSIGNED transaction from `install_policy`, `revoke_policy` or `bind_policy` from its bytes alone, with no RPC: for the account owner's side (a wallet or the Prime app) to run on the XDR it is about to sign, with `smartAccount` naming the account the owner means to change. `problems` lists what is wrong in the bytes themselves: a shape the builder never makes (an authorisation for anything but the call, a rule other than 0, a `__check_auth` argument that does not match on this network (either form: the 0.7.2-line account's digest bytes or the OpenZeppelin 0.8.0 account's preimage struct; `auth.form` says which), a signer other than the source, no time bound or a longer one, a fee above the ceiling, a precondition or memo, an External signer or admin) or a value it can check offline (an interpreter other than the pin, a predicate whose hash does not match its bytes, a policy the package does not know), and an envelope that already carries a signature. With `readContracts: true` (through the operator's RPC, the one exception to no RPC) the account's code is read too: an account that runs no OpenZeppelin build the package signs for, or an authorisation in another form than its build asks for, is a problem. A contract signer is a problem unless `readContracts: true` reads it off the ledger: then only an execution adapter bound to no gate, an execution adapter signing a rule scoped to itself that does not pin call_fn = run, a contract that wears the adapter symbols but is not a verified adapter build for this account, or a contract that is not deployed, is a problem. A binding (`bind_executor` on the interpreter) names an executor: it is a problem unless `readContracts: true` shows it to be a verified execution adapter (a pinned adapter build whose `prime` is this account; a contract that only wears the adapter symbols is an unverified adapter and a problem), and one with no gate is described as what it is (anyone may run an immediate batch through it, so the bound rule's predicate is the only fence). An install that follows another rule (`follow`) carries no predicate: it is a problem unless `readContracts: true` also reads that rule's predicate and nonce now off the pinned interpreter, which the review then shows under Follows, with the warning that its admins can change it without this account. `warnings` lists what is allowed but must be known before signing, none of it a problem: a keyless install that follows another rule (E-38: the followed rule's admins can loosen its only fence at will, and anyone could then move funds through the adapter it is bound to; with `readContracts` the warning names those admins). Every other contract (a seat, a smart account, an adapter with a gate signing any other rule, any contract an agent deployed) then reads signable unvetted: the owner checks who controls it. `signable` means no problem was found; it does NOT mean safe to sign. An agent can rewrite the unsigned bytes consistently (itself as admin or signer, a threshold dropped, a cap raised with a matching hash) and they come back signable; so do installs that used an override and rules the builder would refuse for reasons it does not check from the bytes (overlap, read safety, 1-of-n). The owner must read `review`/`reviewTree`: the problems first, then the transaction (call, source, fee, time bound, authorisation expiry), then for an install the Authority node (signers, who can act alone, admins, expiry, total, interpreter) and the predicate, all read from the bytes.",
   {
     ...net,
     ...display,
@@ -801,8 +879,10 @@ const review_unsigned = tool(
     // A signer that cannot be read refuses the review; a scope or an account code that cannot be
     // read stays a problem. The account's code says which authorisation form it asks for.
     const [contracts, scopeKind, followed, accountCode] = await Promise.all([
-      signers.length ? contractKinds(server, signers) : undefined,
-      asked ? contractKinds(server, [asked]).catch(() => undefined) : undefined,
+      signers.length ? contractKinds(server, signers, offline.smartAccount) : undefined,
+      asked
+        ? contractKinds(server, [asked], offline.smartAccount).catch(() => undefined)
+        : undefined,
       ref && followedFor(server, i.network, offline.authority?.interpreter, ref),
       codeHash(server, offline.smartAccount).then(
         (wasmSha256) => ({ wasmSha256 }),

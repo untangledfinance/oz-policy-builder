@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
+import { StrKey } from '@stellar/stellar-sdk'
 import { account, contract } from '../test/fixtures.ts'
 import { type Authority, authority, card, lines, type Node, tree, type View } from './card.ts'
 import { INTERPRETER, SAFE_READS, SPENDING_LIMIT } from './config.ts'
@@ -8,9 +9,34 @@ import { propose, synthesize } from './synth.ts'
 import { decode, type Expr, validate } from './wire.ts'
 
 const [A, B, C, D] = [account(1), account(2), contract(1), contract(2)]
-const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-6)}`
+const short = (a: string) => a
 const tokenOf = (_fns: string[]): View => ({ contract: C })
 const one = (e: Expr, v?: View) => card(e, v)[0] as string
+
+// the interpreter truncates scaled() toward zero (dsl.rs), so an exact `num / den`
+// rendering misreads a floor as nothing. lte(scaled(arg2, 1, 10^18, 0), 0) permits every amount
+// below 10^18 (floor(x / 10^18) = 0 for 0 <= x < 10^18), not only x <= 0.
+describe('scaled is rendered as truncating', () => {
+  const E18 = (10n ** 18n).toString()
+  it('marks a floor division as rounded toward zero, so it does not read as "nothing"', () => {
+    const text = one([
+      'lte',
+      ['scaled', ['call_arg', 2], { i128: '1' }, { i128: E18 }, { i128: '0' }],
+      0,
+    ])
+    expect(text).toContain('rounded toward zero')
+    expect(text).toBe(`argument 2 × 1 ÷ ${E18}, rounded toward zero:  must be at most  0`)
+  })
+  it('a division by one cannot truncate, so it carries no note', () => {
+    const text = one([
+      'gte',
+      ['call_arg', 1],
+      ['scaled', ['call_arg', 0], { i128: '5' }, { i128: '1' }, { i128: '0' }],
+    ])
+    expect(text).not.toContain('rounded toward zero')
+    expect(text).toBe('argument 1:  must be at least  argument 0 × 5 ÷ 1')
+  })
+})
 
 describe('operators and operands are words', () => {
   it.each<[Expr, string]>([
@@ -56,7 +82,7 @@ describe('operators and operands are words', () => {
         ['call_arg', 1],
         ['scaled', ['call_arg', 0], { i128: '99' }, { i128: '100' }, { i128: '0' }],
       ],
-      'argument 1:  must be at least  argument 0 × 99 ÷ 100',
+      'argument 1:  must be at least  argument 0 × 99 ÷ 100, rounded toward zero',
     ],
     [
       [
@@ -64,7 +90,7 @@ describe('operators and operands are words', () => {
         ['call_arg', 1],
         ['scaled', ['call_arg', 0], { i128: '99' }, { i128: '100' }, ['call_arg', 3]],
       ],
-      'argument 1:  must be at least  argument 0 × 99 ÷ 100 + argument 3',
+      'argument 1:  must be at least  argument 0 × 99 ÷ 100 + argument 3, rounded toward zero',
     ],
     [
       ['gte', ['read', C, 'price', [['call_arg', 1], 'USD'], 'price'], { i128: '5' }],
@@ -102,7 +128,7 @@ describe('operators and operands are words', () => {
           ['lit', 6],
         ],
       ],
-      'argument 1:  must be at least  (argument 0 × 2 ÷ 3) × 4 ÷ 5 + 6',
+      'argument 1:  must be at least  (argument 0 × 2 ÷ 3, rounded toward zero) × 4 ÷ 5 + 6, rounded toward zero',
     ],
     [
       ['lte', ['sum', ['call_arg', 0], 'amount'], { i128: '9' }],
@@ -829,12 +855,33 @@ describe('what a person cannot see is escaped', () => {
   })
 })
 
-describe('shortened addresses keep six and six', () => {
+describe('addresses are shown in full', () => {
   it('in the default view; raw is whole', () => {
-    expect(one(['eq', ['call_arg', 0], A])).toBe(
-      `argument 0:  must be  ${A.slice(0, 6)}…${A.slice(-6)}`
-    )
+    expect(one(['eq', ['call_arg', 0], A])).toBe(`argument 0:  must be  ${A}`)
     expect(one(['eq', ['call_arg', 0], A], { raw: true })).toContain(A)
+  })
+
+  // A muxed address (M...) over a base account is shown as that account and its id apart, so a
+  // look-alike (another muxed over a different account or id) can no longer render identically.
+  it('a muxed look-alike does not render the same as the real account', () => {
+    const decoded = StrKey.decodeEd25519PublicKey(A)
+    const muxedOf = (id: bigint) => {
+      const raw = Buffer.alloc(40)
+      decoded.copy(raw, 0)
+      raw.writeBigUInt64BE(id, 32)
+      return StrKey.encodeMed25519PublicKey(raw)
+    }
+    const m1 = muxedOf(1n)
+    const m2 = muxedOf(2n)
+    const r1 = one(['eq', ['call_arg', 0], m1])
+    const r2 = one(['eq', ['call_arg', 0], m2])
+    // Two muxed addresses over the same base account but different ids read differently.
+    expect(r1).not.toBe(r2)
+    // The underlying account and the id are both shown, so neither hides behind a shortened form.
+    expect(r1).toBe(`argument 0:  must be  ${A} (muxed, id 1)`)
+    expect(r2).toBe(`argument 0:  must be  ${A} (muxed, id 2)`)
+    // And the muxed form is told apart from the bare base account.
+    expect(r1).not.toBe(one(['eq', ['call_arg', 0], A]))
   })
 })
 
@@ -944,16 +991,16 @@ describe('the authority header: who can act, under what rule, until when, up to 
     interpreter: INT,
   }
 
-  it('one signer, never expiring, no total: every fact on its own line, signers in full six and six', () => {
+  it('one signer, never expiring, no total: every fact on its own line, signers in full', () => {
     expect(text(base)).toEqual([
       'Authority',
       "├─ legend:  […] the package's roles; «…» labels given in the request",
-      `├─ signer:  ${G1.slice(0, 6)}…${G1.slice(-6)}`,
+      `├─ signer:  ${G1}`,
       '├─ to act:  the signer acts alone',
-      `├─ admins:  ${G1.slice(0, 6)}…${G1.slice(-6)} (all of them together: alone, may uninstall the predicate, which stops the rule; with the account, may re-install, replace the admins or bind an executor)`,
+      `├─ admins:  ${G1} (all of them together: alone, may uninstall the predicate, which stops the rule; with the account, may re-install, replace the admins or bind an executor)`,
       '├─ expires:  never expires',
       '├─ total:  no total limit: each call may move up to its own cap',
-      `└─ interpreter:  ${INT.slice(0, 6)}…${INT.slice(-6)} ([interpreter])`,
+      `└─ interpreter:  ${INT} ([interpreter])`,
     ])
   })
 
@@ -972,7 +1019,7 @@ describe('the authority header: who can act, under what rule, until when, up to 
 
   it('a threshold one signer meets alone: simple n=1 is any ONE; a weighted one keeps its sentence and names who can act alone', () => {
     const rule = (a: Authority) => text(a).find((l) => l.includes('to act')) as string
-    const s6 = (x: string) => `${x.slice(0, 6)}…${x.slice(-6)}`
+    const s6 = (x: string) => `${x}`
     expect(rule({ ...base, signers: [G1, G2, G3], threshold: { n: 1 } })).toContain(
       'any ONE of these 3 signers acts alone'
     )
@@ -1019,8 +1066,8 @@ describe('the authority header: who can act, under what rule, until when, up to 
         { roles: { [G1]: 'signer' }, labels: { [G2]: 'signer ' } }
       ),
     ]).join('\n')
-    expect(out).toContain(`${G1.slice(0, 6)}…${G1.slice(-6)} ([signer])`)
-    expect(out).toContain(`${G2.slice(0, 6)}…${G2.slice(-6)} («signer »)`)
+    expect(out).toContain(`${G1} ([signer])`)
+    expect(out).toContain(`${G2} («signer »)`)
     const dot = lines([authority({ signers: [G2] }, { labels: { [G2]: 'signer.' } })]).join('\n')
     expect(dot).toContain('(«signer.»)')
     expect(dot).not.toContain('[signer]')
@@ -1048,8 +1095,8 @@ describe('the authority header: who can act, under what rule, until when, up to 
       { ...base, signers: [G1, KC], threshold: { n: 2, weights: { [G1]: 2, [KC]: 1 } } },
       { labels: { [G1]: 'agent' } }
     )
-    expect(out[2]).toBe(`├─ signer:  ${G1.slice(0, 6)}…${G1.slice(-6)} («agent»)  weight 2`)
-    expect(out[3]).toBe(`├─ signer:  contract ${KC.slice(0, 6)}…${KC.slice(-6)}  weight 1`)
+    expect(out[2]).toBe(`├─ signer:  ${G1} («agent»)  weight 2`)
+    expect(out[3]).toBe(`├─ signer:  contract ${KC}  weight 1`)
   })
 
   it('expiry: the ledger it lapses after (no estimated date); the total, per window; unknown facts are left out', () => {

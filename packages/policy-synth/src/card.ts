@@ -4,9 +4,10 @@
 // wire leaf or subtree it was read from, and an operand reads as where it is on the wire
 // (`argument 2 › amount`). Nothing a label says can change what the rule enforces.
 
+import { StrKey } from '@stellar/stellar-sdk'
 import { INTERPRETER, type Network, safeRead, spendingLimits } from './config.ts'
 import { delegated, meetsAlone, spendingParams } from './install.ts'
-import { type Expr, isAddress, isSelector, unlit, type Val } from './wire.ts'
+import { type Expr, intOf, isAddress, isSelector, unlit, type Val } from './wire.ts'
 
 export interface Node {
   label: string
@@ -71,8 +72,28 @@ const LABEL = /^[A-Za-z][\w .-]{0,23}$/
  *  ones are not numbers to it, and inside a vector or a map every type is its own. */
 const NUMBER = /^(i32|i64|u64|i128|u128|timepoint|duration)$/
 
-/** An address shortened, or whole under `raw`. */
-const short = (a: string, c: View) => (c.raw ? a : `${a.slice(0, 6)}…${a.slice(-6)}`)
+/** A muxed address (M...) as its underlying account and id: two muxed addresses, or a muxed one
+ *  and the base account, that would collide in any shortened form are told apart here. Undefined
+ *  for an address that is not muxed, or one that does not decode. */
+const muxed = (a: string): { account: string; id: string } | undefined => {
+  if (!a.startsWith('M')) return undefined
+  try {
+    const raw = Buffer.from(StrKey.decodeMed25519PublicKey(a))
+    return {
+      account: StrKey.encodeEd25519PublicKey(raw.subarray(0, 32)),
+      id: raw.readBigUInt64BE(32).toString(),
+    }
+  } catch {
+    return undefined
+  }
+}
+/** An address shown in FULL. Shortening to a fixed prefix and suffix let a look-alike (a ground
+ *  vanity address, or a muxed M... account) render the same as a real one; the whole address, and
+ *  for a muxed one the underlying account and id apart, is what the owner must read. */
+const short = (a: string, _c: View) => {
+  const m = muxed(a)
+  return m ? `${m.account} (muxed, id ${m.id})` : a
+}
 /** The package's own name for an address ([role]), else the request's, marked as the caller's («...»). */
 const named = (a: string, c: View) => {
   const [role, given] = [KNOWN[a] ?? c.roles?.[a], c.labels?.[a]]
@@ -164,7 +185,14 @@ function operand(v: Val, c: View): Sub {
           ? `(${operand(x, c).name})`
           : operand(x, c).name
       const tail = operand(add as Val, c).name === '0' ? '' : ` + ${part(add as Val)}`
-      return { name: `${part(src as Val)} × ${part(num as Val)} ÷ ${part(den as Val)}${tail}` }
+      // The interpreter truncates each division toward zero (see dsl.rs); an exact `num / den`
+      // would misread a floor as nothing (lte(scaled(x, 1, 10^18, 0), 0) permits every x below
+      // 10^18, not only x <= 0). A division by one cannot truncate, so it carries no note.
+      const exact = intOf(unlit(den as Val)) === 1n
+      const note = exact ? '' : ', rounded toward zero'
+      return {
+        name: `${part(src as Val)} × ${part(num as Val)} ÷ ${part(den as Val)}${tail}${note}`,
+      }
     }
     case 'read': {
       const [target, fn, args, ...steps] = path as [string, string, Val[], ...Val[]]
@@ -286,7 +314,9 @@ function executorText(ex: { address: string; kind?: string | undefined }, c: Vie
   if (ex.kind === 'null-gate adapter')
     return `${who}, an execution adapter with no gate: anyone may call its execute with an immediate batch, and it vouches for every call of that batch to this account's policy, so this rule's predicate is the only fence on what such a batch does; no other rule on the account may approve its execute, a Default-scoped rule included (bound with bind_executor, a second transaction)`
   if (ex.kind === 'gated adapter')
-    return `${who}, an execution adapter with a gate: it vouches only for calls its gate allows (bound with bind_executor, a second transaction)`
+    return `${who}, a verified gated adapter (a pinned adapter build whose prime is this account): it vouches only for calls its gate allows (bound with bind_executor, a second transaction)`
+  if (ex.kind === 'unverified adapter')
+    return `${who}, which holds the adapter symbols (prime, gate) but is not a verified adapter build for this account: what it would vouch for is not known, so it is not bound to`
   return `${who} (bound with bind_executor, a second transaction)`
 }
 

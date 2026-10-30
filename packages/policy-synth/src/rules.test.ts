@@ -87,6 +87,29 @@ describe('selectors: which calls an expression can serve', () => {
     ],
     ['anything else is a wildcard', ['lte', ['call_arg', 0], 5], [{ contract: '*', fn: '*' }]],
   ])('%s', (_n, e, want) => expect(selectors(e)).toEqual(want as never))
+
+  // an `and` of k two-way `or`s, each branch of which pins nothing on the contract or
+  // function, used to double the (unreduced, all-wildcard) selector list at every step — 2^k objects
+  // by k=26, which crashed review_unsigned (through keyedSafeOnNoGate) with readContracts. The meet
+  // is now bounded by a budget and deduplicated, so it collapses to a single wildcard at once.
+  it('bounds the exponential selector expansion of an `and` of two-way `or`s', () => {
+    const ors: Expr[] = []
+    for (let i = 0; i < 26; i++)
+      ors.push([
+        'or',
+        [
+          ['lte', ['call_arg', i], 1],
+          ['gte', ['call_arg', i], 2],
+        ],
+      ] as Expr)
+    const e: Expr = ['and', ors]
+    const t0 = performance.now()
+    const s = selectors(e)
+    expect(performance.now() - t0).toBeLessThan(500)
+    expect(s.length).toBeLessThanOrEqual(1 << 14)
+    // It over-approximates (fails closed): a wildcard means every caller treats more calls as served.
+    expect(s).toEqual([{ contract: '*', fn: '*' }])
+  })
 })
 
 describe('implies: a conjunct of the new rule that forbids what the old one does', () => {

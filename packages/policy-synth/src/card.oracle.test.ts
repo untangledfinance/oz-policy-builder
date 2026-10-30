@@ -558,7 +558,7 @@ describe('a caller can never make an address read as a role', () => {
   it('a role is bracketed, and wins over a label on the same address', () => {
     for (const w of words) {
       const t = text({ [A]: w }, { [A]: 'source account' })
-      expect(t).toContain(`${A.slice(0, 6)}…${A.slice(-6)} ([source account])`)
+      expect(t).toContain(`${A} ([source account])`)
       expect(t).not.toContain('«')
     }
   })

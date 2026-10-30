@@ -39,10 +39,15 @@ describe('synthesis, the edges', () => {
     expect(s.ambiguities).toHaveLength(1)
   })
 
-  it('an amount that is capped is no question, and a vec of structs with no amount field has none to ask', () => {
+  it('an amount that is capped is no question; a submit whose requests omit the amount is still asked', () => {
     expect(synthesize([submit], { limit: '50' }).ambiguities).toEqual([])
+    // The question is asked from the function's definition (a `submit` carries an amount per
+    // request), not from whether the recorded elements include an `amount` key: omitting it must not
+    // slip an uncapped Blend rule past the gate.
     const noAmount: Call = { ...submit, args: [A, A, A, [{ map: [['address', C]] } as Val]] }
-    expect(synthesize([noAmount]).ambiguities).toEqual([])
+    expect(synthesize([noAmount]).ambiguities.map((a) => a.code)).toEqual(['AMOUNT_BOUND_MISSING'])
+    // Answering it (a cap on the amount field) settles it, even though no element was recorded with one.
+    expect(synthesize([noAmount], { limit: '50' }).ambiguities).toEqual([])
   })
 })
 

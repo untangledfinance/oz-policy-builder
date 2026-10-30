@@ -11,6 +11,7 @@ import { identify, type Kind, PROTOCOLS } from './registry.ts'
 import { canon, constantLast, FLIP, selectors } from './rules.ts'
 import {
   branches,
+  CEILINGS,
   conjuncts,
   DECODE_LIMITS,
   type Expr,
@@ -19,6 +20,7 @@ import {
   hashOf,
   intOf,
   isConstant,
+  isMap,
   isSelector,
   isTagged,
   unlit,
@@ -59,6 +61,25 @@ export function synthesize(contexts: Call[], answers: Answers = {}): Synthesis {
 function callIntent(c: Call, a: Answers, out: Synthesis): CallIntent {
   const known = identify(c.fn, c.args)
   if (!known) {
+    // A function the registry knows BY NAME but recorded with the WRONG NUMBER of arguments is
+    // refused, never treated as unknown: its arguments no longer line up with the roles the registry
+    // gives them, so the amount cap or slippage floor the real function needs would be missed and the
+    // gate would pass an uncapped rule. A matching count whose shape differs is pinned
+    // as recorded (every argument fixed to its exact value), which is tight, so it is allowed through.
+    const rows = Object.values(PROTOCOLS).flatMap((fns) =>
+      Object.hasOwn(fns, c.fn) ? [fns[c.fn] as [string, Kind][]] : []
+    )
+    if (rows.length > 0 && !rows.some((r) => r.length === c.args.length)) {
+      const r = rows[0] as [string, Kind][]
+      throw new Refusal(
+        'SYNTHESIS_ERROR',
+        `${c.contract}.${c.fn}: recorded with ${c.args.length} argument(s), but ${c.fn} takes ${r.length} (${r
+          .map(([n]) => n)
+          .join(
+            ', '
+          )}); the recorded call does not match the function the registry knows, so no rule is scoped to it`
+      )
+    }
     out.warnings.push(
       `${c.contract}.${c.fn} is not a function the registry knows: every argument that is not an amount is pinned to its recorded value`
     )
@@ -76,6 +97,7 @@ function callIntent(c: Call, a: Answers, out: Synthesis): CallIntent {
         else where.push({ constraint: 'cap', at: [i], max: bound })
       } else if (kind === 'min') out.ambiguities.push(slippage(c, name))
       else if (kind === 'requests') where.push(...requests([i], v as Val[], a, c, name, out, flat))
+      else if (kind === 'loan') where.push(...loan([i], v, a, c, name, out))
     })
     return { contract: c.contract, fn: c.fn, where }
   }
@@ -102,6 +124,27 @@ function callIntent(c: Call, a: Answers, out: Synthesis): CallIntent {
 const rowOf = (fn: string) =>
   Object.values(PROTOCOLS).find((fns) => Object.hasOwn(fns, fn))?.[fn] ?? []
 
+/** The execution adapter's own interface, whose calls are bounded by the batch-shape pins (221) and
+ *  the adapter word mechanics, not by the amount gate: a rule scoped to one of these is not warned
+ *  about as an unmodelled value mover. */
+const GATE_EXEMPT = new Set(['execute', 'run', 'cancel'])
+
+/** The safety net for a predicate the gate judges without a recording: a branch that names a function
+ *  the registry does not model has no amount question derived for it (the recording path pins its
+ *  arguments tight, but a hand-built or followed predicate does not), so warn that the gate cannot
+ *  confirm what it moves is capped (SYNTH-CORE-01). The adapter's own interface is exempt: its shape
+ *  is pinned by the interpreter (221), not by this gate. */
+export function unmodeledWarnings(expr: Expr): string[] {
+  const fns = new Set<string>()
+  for (const branch of branches(expr))
+    for (const s of selectors(and(branch)))
+      if (s.fn && s.fn !== '*' && !GATE_EXEMPT.has(s.fn) && rowOf(s.fn).length === 0) fns.add(s.fn)
+  return [...fns].map(
+    (fn) =>
+      `${fn} is not a function the amount gate models, so it cannot confirm the amounts it moves are capped: pin or cap its arguments in the rule, or allow it deliberately`
+  )
+}
+
 /** The amount questions an intent leaves open: a function the registry knows by name,
  *  one of whose arguments is an amount (or a vec of structs that carries one), and no
  *  cap on it: an amount needs a cap on the argument itself, a vec of structs one whose
@@ -121,6 +164,9 @@ export function unbounded(intent: Intent): Synthesis['ambiguities'] {
       return []
     // A floor of zero or less admits every output.
     if (r.constraint === 'floor' && BigInt(r.min) <= 0n) return []
+    // A minOut whose ratio is below the minimum is no floor: it admits a near-zero output
+    // (the degenerate 1/10^18 the audit found), so it does not answer the slippage question.
+    if (r.constraint === 'minOut' && !ratioOk(BigInt(r.num), BigInt(r.den))) return []
     return [r.constraint === 'total' ? [...r.at, ...(r.of ?? [])] : r.at]
   }
   return intent.calls.flatMap((c) => {
@@ -133,12 +179,32 @@ export function unbounded(intent: Intent): Synthesis['ambiguities'] {
       const whole = (ps: Path[]) => ps.some((p) => p.length === 1 && p[0] === i)
       if (kind === 'amount') return whole(caps) ? [] : [missing(asked, name)]
       if (kind === 'min') return whole(floored) ? [] : [slippage(asked, name)]
-      return kind === 'requests' && !caps.some((p) => p[0] === i && p.at(-1) === 'amount')
-        ? [missing(asked, name)]
+      // A `loan` carries its amount one field deep, a `requests` one element deep: either needs a cap
+      // whose path ends in `amount`, else the amount it moves is open (SYNTH-CORE-01).
+      return (kind === 'requests' || kind === 'loan') &&
+        !caps.some((p) => p[0] === i && p.at(-1) === 'amount')
+        ? [missing(asked, kind === 'loan' ? `${name}.amount` : name)]
         : []
     })
   })
 }
+
+/** The least a `scaled` slippage floor's ratio (num/den) may be before it stops being a floor: a
+ *  ratio below this admits an output far under what was put in (the degenerate 1/10^18 the audit
+ *  found). The threshold exists only to reject such a near-zero floor, so it sits at one in a
+ *  million (1/10^6): low enough to leave an honest floor on a swap between very different-valued
+ *  assets alone (a 1/1000 ratio is a real floor), while still catching the degenerate case. It
+ *  stays an ask, not a block: a ratio below it raises the waivable slippage question and the review
+ *  card shows the actual floor (SYNTH-CORE-02). */
+export const MIN_FLOOR_RATIO = { num: 1n, den: 1_000_000n }
+
+/** Whether a `scaled` floor's ratio num/den is at least `MIN_FLOOR_RATIO` (and a positive fraction). */
+const ratioOk = (num: bigint | undefined, den: bigint | undefined): boolean =>
+  num !== undefined &&
+  den !== undefined &&
+  den > 0n &&
+  num >= 0n &&
+  num * MIN_FLOOR_RATIO.den >= den * MIN_FLOOR_RATIO.num
 
 /** A bound a branch puts on a leaf: `op` against `to`, `to` being a constant or a leaf. */
 interface Bound {
@@ -181,6 +247,11 @@ export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
     }
     const named = [...new Set(selectors(and(branch)).map((s) => s.fn))]
     const fns = named.filter((f) => f !== '*')
+    // The leaves that carry the call's amount arguments, for a `scaled` slippage floor: a floor is a
+    // ratio OF THE INPUT AMOUNT, so its source must be one of these, not the output itself, a
+    // deadline or anything else (SYNTH-CORE-02).
+    const amountLeaves = (fn: string) =>
+      rowOf(fn).flatMap(([, k], j) => (k === 'amount' ? [canon(['call_arg', j])] : []))
     // A branch that names no function serves every function, with any amount.
     if (named.includes('*')) {
       const q = {
@@ -198,18 +269,36 @@ export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
         if (kind === 'amount')
           q = upper.some((b) => canon(b.at) === at) ? undefined : missing(ask, name)
         else if (kind === 'min') {
-          // More than nothing: `>= 0` and `> -1` admit every output; a scaled floor is a ratio.
+          // More than nothing: `>= 0` and `> -1` admit every output. A `scaled` floor is a ratio of
+          // the INPUT AMOUNT: its source must be an amount argument of the call (never the output
+          // itself, a deadline, or another leaf), and its additive term must be non-negative, or the
+          // floor can be driven to zero (`out >= in * 1/10^18`, `out >= in * 1 - 2^126`, or a scaled
+          // of the wrong argument all admit an output of 0).
+          const amounts = amountLeaves(fn)
           const floor = (b: Bound) => {
+            if (canon(b.at) !== at || !(b.op === 'gte' || b.op === 'gt')) return false
+            if (isSelector(b.to) && b.to[0] === 'scaled') {
+              const addN = intOf(unlit(b.to[4] as Val))
+              const num = intOf(unlit(b.to[2] as Val))
+              const den = intOf(unlit(b.to[3] as Val))
+              // A ratio OF the input amount, a non-negative add, AND a ratio that is not degenerate
+              // (num/den below the minimum admits a near-zero output: `out >= in * 1/10^18`).
+              return (
+                amounts.includes(canon(b.to[1] as Val)) &&
+                addN !== undefined &&
+                addN >= 0n &&
+                ratioOk(num, den)
+              )
+            }
             const n = intOf(unlit(b.to))
-            const scaled = isSelector(b.to) && b.to[0] === 'scaled'
-            return (
-              canon(b.at) === at &&
-              (b.op === 'gte' || b.op === 'gt') &&
-              (scaled ||
-                (isConstant(b.to) && n !== undefined && (b.op === 'gte' ? n > 0n : n >= 0n)))
-            )
+            return isConstant(b.to) && n !== undefined && (b.op === 'gte' ? n > 0n : n >= 0n)
           }
           q = got.top.some(floor) ? undefined : slippage(ask, name)
+        } else if (kind === 'loan') {
+          // The borrowed amount lives one field deep (`flash_loan.amount`): an upper bound on that
+          // leaf, else it is open (SYNTH-CORE-01).
+          const amt = canon(['call_path', i, 'amount'])
+          q = upper.some((b) => canon(b.at) === amt) ? undefined : missing(ask, `${name}.amount`)
         } else if (kind === 'requests') {
           // Every request is capped: by an `all` over the vec, or by a length bound and a cap on each.
           const len = upper.find((b) => canon(b.at) === canon(['call_path', i, true]))
@@ -261,12 +350,44 @@ function requests(
   out: Synthesis,
   flat: boolean
 ): Constraint[] {
+  // Refuse an oversized vec of structs before building any constraint: a 4000-request submit whose
+  // elements carry 4000 keys each would pin 16M fields and exhaust memory. Both forms the builder
+  // can take are bounded by the ceilings (the most any interpreter allows): a quantifier body
+  // weighs one leaf per field times `max_elems`, and the flat form one leaf per recorded field in
+  // all. When neither can fit `max_leaves`, the rule can never install, so it is refused here from
+  // the element sizes alone (an O(n) count, never the fields themselves), not built and then
+  // rejected. The real per-interpreter limits are still enforced by `validate` on the result.
+  const perElem = vec.map((el) => (isMap(el) ? el.map.length : 0))
+  const flatLeaves = perElem.reduce((n, k) => n + k, 0)
+  const maxKeys = perElem.reduce((n, k) => Math.max(n, k), 0)
+  if (maxKeys * CEILINGS.max_elems > CEILINGS.max_leaves && flatLeaves > CEILINGS.max_leaves)
+    throw new Refusal(
+      'SYNTHESIS_ERROR',
+      `${c.fn}.${name}: ${vec.length} requests of up to ${maxKeys} fields exceed the interpreter's ceilings (at most ${CEILINGS.max_leaves} leaves, ${CEILINGS.max_elems} per quantified element); record a smaller batch`
+    )
   // Every element is a map: that is the shape `requests` is recognised by.
   const maps = vec.map(fields)
   const names = [...new Set(maps.flatMap((m) => Object.keys(m)))]
+  // Small elements can still name many fields between them: 4000 requests of one key each, every
+  // key different, pass the check above, yet both forms build one constraint per distinct field
+  // (the flat form once per element too, 16M here). So the same test is made again on the distinct
+  // field count, which is what the builder iterates: a quantifier body of `names` leaves times
+  // `max_elems`, and the flat form `names` leaves per element. Every field but an uncapped amount
+  // compiles to a comparison of two leaves, so each bound is under the real weight once there are
+  // two fields or more (and refusing needs 13): this never refuses a rule `validate` would accept.
+  if (
+    names.length * CEILINGS.max_elems > CEILINGS.max_leaves &&
+    vec.length * names.length > CEILINGS.max_leaves
+  )
+    throw new Refusal(
+      'SYNTHESIS_ERROR',
+      `${c.fn}.${name}: ${vec.length} requests with ${names.length} distinct fields exceed the interpreter's ceilings (at most ${CEILINGS.max_leaves} leaves, ${CEILINGS.max_elems} per quantified element); record a smaller batch`
+    )
   const bound = a.limits?.[`${name}.amount`] ?? a.limit
-  if (names.includes('amount') && bound === undefined)
-    out.ambiguities.push(missing(c, `${name}.amount`))
+  // The question is asked from the function's definition (this argument is a `requests` vec, which
+  // carries an amount per element), not from whether the recorded elements happen to include an
+  // `amount` key: a submit recorded with the amount omitted must still be capped.
+  if (bound === undefined) out.ambiguities.push(missing(c, `${name}.amount`))
   const field = (f: string, seen: Val[], path: Path): Constraint[] => {
     if (f === 'amount')
       return bound === undefined ? [] : [{ constraint: 'cap', at: path, max: bound }]
@@ -289,6 +410,23 @@ function requests(
   }
   const one = maps.flatMap((m, i) => names.flatMap((f) => field(f, [m[f] as Val], [...at, i, f])))
   return [...rules, ...one]
+}
+
+/** Blend's `FlashLoan` struct: the lender (`contract`) and `asset` pinned to what was recorded (or
+ *  an allow-list), the `amount` capped. A recorded amount is bounded by the cap, not left open; with
+ *  no cap the question is asked, as for `transfer`'s amount (SYNTH-CORE-01). */
+function loan(at: Path, v: Val, a: Answers, c: Call, name: string, out: Synthesis): Constraint[] {
+  const m = fields(v)
+  const res: Constraint[] = []
+  for (const f of ['contract', 'asset']) {
+    const listed = a.allow?.[`${name}.${f}`]
+    if (listed) res.push({ constraint: 'allow', at: [...at, f], in: listed })
+    else if (m[f] !== undefined) res.push({ constraint: 'pin', at: [...at, f], to: m[f] as Val })
+  }
+  const bound = a.limits?.[`${name}.amount`] ?? a.limit
+  if (bound === undefined) out.ambiguities.push(missing(c, `${name}.amount`))
+  else res.push({ constraint: 'cap', at: [...at, 'amount'], max: bound })
+  return res
 }
 
 export interface ProposedRule {

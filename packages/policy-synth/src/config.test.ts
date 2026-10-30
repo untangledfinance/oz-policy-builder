@@ -152,6 +152,18 @@ describe('the OZ policies we deployed are policy contracts no rule may be scoped
   it('and a deployed interpreter this build does not trust is still recognised', () => {
     expect(INTERPRETERS.has('CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5')).toBe(true)
   })
+
+  // SYNTH-CORE-04: two interpreters this project deployed on testnet were absent from the set, so a
+  // rule scoped to either was not refused as a policy contract. Both are now recognised.
+  it('recognises the two testnet interpreters the audit found missing (SYNTH-CORE-04)', () => {
+    for (const a of [
+      'CDSHDZ2PJN34WIFVJG2B3AEXZBXSQAPHOT7RIKVVN6AT76IKM4Y2WFGV',
+      'CBIQGAHIGCIAC6JJBYQQBTDFNNWQCGPECWRI7NO2PHIYDQV6QDLG6I2W',
+    ]) {
+      expect(INTERPRETERS.has(a)).toBe(true)
+      expect(POLICY_CONTRACTS.has(a)).toBe(true)
+    }
+  })
 })
 
 describe('the smart-account builds a review will read', () => {

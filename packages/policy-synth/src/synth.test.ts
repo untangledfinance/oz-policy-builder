@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { account, batchIntent, contract, recording, venueIntent } from '../test/fixtures.ts'
+import { Refusal } from './envelope.ts'
 import { type CallIntent, type Constraint, callExpr, intentExprs, lower } from './intent.ts'
 import type { Call } from './record.ts'
 import { identify } from './registry.ts'
@@ -154,6 +155,22 @@ describe('the registry', () => {
 describe('an intent is asked the question a recording is: how much?', () => {
   const call = (fn: string, where: CallIntent['where']): CallIntent => ({ contract: C, fn, where })
   const codes = (...calls: CallIntent[]) => unbounded({ calls }).map((a) => a.code)
+
+  it('a minOut floor below the minimum ratio is no floor, so the slippage question stands (SYNTH-CORE-02)', () => {
+    const swap = (num: string, den: string): CallIntent =>
+      call('swap_exact_tokens_for_tokens', [
+        { constraint: 'cap', at: [0], max: '1000' },
+        { constraint: 'minOut', at: [1], of: [0], num, den },
+      ])
+    // Below one in a million (1/10^18, 1/10^7): a degenerate floor, so the question stands.
+    expect(codes(swap('1', '1000000000000000000'))).toContain('SLIPPAGE_FLOOR_MISSING')
+    expect(codes(swap('1', '10000000'))).toContain('SLIPPAGE_FLOOR_MISSING')
+    // A ratio at or above one in a million is an honest floor, even a small one.
+    expect(codes(swap('1', '1000'))).not.toContain('SLIPPAGE_FLOOR_MISSING')
+    expect(codes(swap('1', '3'))).not.toContain('SLIPPAGE_FLOOR_MISSING')
+    expect(codes(swap('1', '2'))).not.toContain('SLIPPAGE_FLOOR_MISSING')
+    expect(codes(swap('99', '100'))).not.toContain('SLIPPAGE_FLOOR_MISSING')
+  })
 
   it('a known function whose amount nobody capped is a question; a cap, or a total, answers it', () => {
     expect(codes(call('transfer', undefined))).toEqual(['AMOUNT_BOUND_MISSING'])
@@ -391,6 +408,134 @@ describe('an encoded predicate is asked about the least output too', () => {
   })
 })
 
+// the safety gate walks the FINISHED rule, so none of the shapes that pinned the
+// INPUT while leaving the produced rule uncapped slips through. Honest forms still pass.
+describe('the gate is judged on the produced rule, not the input shape', () => {
+  const amt = { i128: '9' }
+  const pin = (fn: string, ...rest: Expr[]): Expr => [
+    'and',
+    [['eq', ['call_contract'], C], ['eq', ['call_fn'], fn], ...rest],
+  ]
+  const codes = (e: Expr) => unboundedExpr(e).map((a) => a.code)
+
+  it('a cap under `some` (not `each`) does not cap the requests', () => {
+    expect(
+      codes(pin('submit', ['any', ['call_arg', 3], ['lte', ['elem', 'amount'], amt]]))
+    ).toEqual(['AMOUNT_BOUND_MISSING'])
+    // The honest `each` form caps every element, and asks nothing.
+    expect(
+      codes(pin('submit', ['all', ['call_arg', 3], ['lte', ['elem', 'amount'], amt]]))
+    ).toEqual([])
+  })
+
+  it('a cap on requests[0] alone does not cap them all', () => {
+    expect(codes(pin('submit', ['lte', ['call_path', 3, 0, 'amount'], amt]))).toEqual([
+      'AMOUNT_BOUND_MISSING',
+    ])
+    // With a length bound of one and a cap on that one element, it is covered.
+    expect(
+      codes(
+        pin(
+          'submit',
+          ['lte', ['call_path', 3, 0, 'amount'], amt],
+          ['lte', ['call_path', 3, true], 1]
+        )
+      )
+    ).toEqual([])
+  })
+
+  it('a minOut that bounds the output by itself is no floor', () => {
+    const swap = (floor: Expr) =>
+      pin('swap_exact_tokens_for_tokens', ['lte', ['call_arg', 0], amt], floor)
+    const scaled = (src: number): Expr => [
+      'scaled',
+      ['call_arg', src],
+      { i128: '99' },
+      { i128: '100' },
+      { i128: '0' },
+    ]
+    // amount_out_min >= amount_out_min * 99/100 permits a trade at any price.
+    expect(codes(swap(['gte', ['call_arg', 1], scaled(1)]))).toEqual(['SLIPPAGE_FLOOR_MISSING'])
+    // amount_out_min >= amount_in * 99/100 is an honest slippage floor.
+    expect(codes(swap(['gte', ['call_arg', 1], scaled(0)]))).toEqual([])
+  })
+
+  it('the allowance-based value movers are asked too (SYNTH-CORE-01)', () => {
+    // transfer_from, burn_from and submit_with_allowance move value under an allowance, so an
+    // uncapped rule over any of them is a question, like transfer and submit.
+    for (const fn of ['transfer_from', 'burn_from', 'submit_with_allowance'])
+      expect(codes(pin(fn, ['eq', ['call_arg', 0], A]))).toEqual(['AMOUNT_BOUND_MISSING'])
+    // transfer_from's amount is argument 3; capping it answers the question.
+    expect(codes(pin('transfer_from', ['lte', ['call_arg', 3], amt]))).toEqual([])
+  })
+
+  it('a scaled slippage floor must be a ratio of the input amount with a non-negative add (SYNTH-CORE-02)', () => {
+    const swap = (floor: Expr) =>
+      pin('swap_exact_tokens_for_tokens', ['lte', ['call_arg', 0], amt], floor)
+    const sc = (src: number, num: string, den: string, add: string): Expr => [
+      'scaled',
+      ['call_arg', src],
+      { i128: num },
+      { i128: den },
+      { i128: add },
+    ]
+    // A negative add, or a source that is not the input amount (here the deadline), admits a 0 output.
+    expect(codes(swap(['gte', ['call_arg', 1], sc(0, '1', '1', '-1')]))).toEqual([
+      'SLIPPAGE_FLOOR_MISSING',
+    ])
+    expect(codes(swap(['gte', ['call_arg', 1], sc(4, '99', '100', '0')]))).toEqual([
+      'SLIPPAGE_FLOOR_MISSING',
+    ])
+    // The honest floor (a ratio of amount_in, non-negative add) passes.
+    expect(codes(swap(['gte', ['call_arg', 1], sc(0, '99', '100', '0')]))).toEqual([])
+  })
+
+  it('a scaled floor must meet the minimum ratio: a degenerate 1/10^18 is no floor (SYNTH-CORE-02)', () => {
+    const swap = (floor: Expr) =>
+      pin('swap_exact_tokens_for_tokens', ['lte', ['call_arg', 0], amt], floor)
+    const sc = (num: string, den: string): Expr => [
+      'scaled',
+      ['call_arg', 0],
+      { i128: num },
+      { i128: den },
+      { i128: '0' },
+    ]
+    // out >= in * 1/10^18, and any ratio below one in a million (1/10^7), admit a near-zero output.
+    expect(codes(swap(['gte', ['call_arg', 1], sc('1', '1000000000000000000')]))).toEqual([
+      'SLIPPAGE_FLOOR_MISSING',
+    ])
+    expect(codes(swap(['gte', ['call_arg', 1], sc('1', '10000000')]))).toEqual([
+      'SLIPPAGE_FLOOR_MISSING',
+    ])
+    // One in a million (the minimum) and tighter pass, including an honest small floor.
+    expect(codes(swap(['gte', ['call_arg', 1], sc('1', '1000')]))).toEqual([])
+    expect(codes(swap(['gte', ['call_arg', 1], sc('1', '3')]))).toEqual([])
+    expect(codes(swap(['gte', ['call_arg', 1], sc('1', '2')]))).toEqual([])
+    expect(codes(swap(['gte', ['call_arg', 1], sc('99', '100')]))).toEqual([])
+  })
+
+  it('a known function recorded with the wrong number of arguments is refused', () => {
+    // A transfer without its amount (two args, not three): the rule would never bound the amount.
+    expect(() => synthesize([{ contract: C, fn: 'transfer', args: [A, A] }])).toThrow(
+      /transfer: recorded with 2 argument\(s\), but transfer takes 3/
+    )
+    // A swap without its deadline (four args, not five): amount_out_min would be mis-typed.
+    expect(() =>
+      synthesize([
+        {
+          contract: C,
+          fn: 'swap_exact_tokens_for_tokens',
+          args: [{ i128: '5' }, { i128: '1' }, [C], A],
+        },
+      ])
+    ).toThrow(/recorded with 4 argument\(s\), but swap_exact_tokens_for_tokens takes 5/)
+    // The honest, complete forms synthesise (no over-restriction).
+    expect(() =>
+      synthesize([{ contract: C, fn: 'transfer', args: [A, A, { i128: '5' }] }], { limit: '5' })
+    ).not.toThrow()
+  })
+})
+
 describe('synthesis from what was recorded', () => {
   it('a SEP-41 transfer: pin who, cap how much; no cap is a question, not a guess', () => {
     const [call] = recording('sep41').contexts as [Call]
@@ -510,6 +655,55 @@ describe('synthesis from what was recorded', () => {
       const s = synthesize([submit(req(0, '10'), req(1, '20'))])
       expect(s.ambiguities).toHaveLength(1)
       expect(s.ambiguities[0]?.question).toContain('requests.amount')
+    })
+
+    // a 4000-request submit whose elements carry 4000 keys each would pin 16M fields
+    // and crash the server. It is refused from the element sizes alone, before any constraint is
+    // built. (The elements share one map value, so the oversized input itself costs nothing.)
+    it('refuses an oversized vec of structs instead of building 16M constraints', () => {
+      const big = { map: Array.from({ length: 4000 }, (_, i) => [`k${i}`, { i128: '1' }]) } as Val
+      const vec = Array.from({ length: 4000 }, () => big)
+      const t0 = performance.now()
+      expect(() => synthesize([submit(...vec)], { limit: '50' })).toThrow(
+        /4000 requests of up to 4000 fields exceed the interpreter's ceilings/
+      )
+      expect(performance.now() - t0).toBeLessThan(1000)
+    })
+
+    it('still builds an honest small submit (no over-restriction)', () => {
+      const s = synthesize([submit(req(0, '10'), req(1, '20'))], { limit: '50' })
+      expect(() => propose(s.intent)).not.toThrow()
+    })
+
+    // Small elements can still name many fields between them: 4000 requests of one key each, every
+    // key different, carry 4000 distinct fields, and both forms build one constraint per distinct
+    // field (the flat form once per element, 16M in all). The per-element size passes; the distinct
+    // field count is what refuses it, before any constraint is built.
+    it('refuses one-key requests that each name a different field instead of building 16M constraints', () => {
+      const vec = Array.from({ length: 4000 }, (_, i): Val => ({ map: [[`k${i}`, { i128: '1' }]] }))
+      const t0 = performance.now()
+      let thrown: unknown
+      try {
+        synthesize([submit(...vec)], { limit: '50' })
+      } catch (e) {
+        thrown = e
+      }
+      expect(performance.now() - t0).toBeLessThan(1000)
+      expect(thrown).toBeInstanceOf(Refusal)
+      expect((thrown as Refusal).code).toBe('SYNTHESIS_ERROR')
+      expect((thrown as Refusal).message).toMatch(
+        /4000 requests with 4000 distinct fields exceed the interpreter's ceilings/
+      )
+    })
+
+    it('still builds an honest batch of many requests over a few fields', () => {
+      const vec = Array.from({ length: 20 }, (_, i) => req(i % 3, String(10 + i)))
+      const s = synthesize([submit(...vec)], { limit: '50' })
+      const [rule] = propose(s.intent)
+      const text = JSON.stringify(rule?.expr)
+      expect(text).toContain('["lte",["call_path",3,true],20]')
+      expect(text).toContain('["lte",["call_path",3,19,"amount"],{"i128":"50"}]')
+      expect(text).toContain('["eq",["call_path",3,19,"request_type"],1]')
     })
   })
 
