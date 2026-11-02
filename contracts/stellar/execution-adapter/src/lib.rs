@@ -28,8 +28,11 @@
 //!
 //! WHAT RUNS IS WHAT WAS APPROVED. The batch is stored whole, not hashed, so
 //! whoever runs it names only its number and cannot vary a single argument.
-//! It is checked again when it runs, against the gate this adapter is bound to
-//! THEN: custody may have rebound it to a narrower gate while it waited.
+//! A batch stored before a `rebind` cannot run at all: the binding moved to a
+//! gate a new custody answers to, and the old custody that approved the batch
+//! can no longer cancel it, so `rebind` raises a floor and `run` refuses every
+//! number at or below it. A batch that was never rebound is still checked again
+//! when it runs, against the gate this adapter is bound to.
 //!
 //! ONE RULE: a batch may not mention an address the gate does not name.
 //! Every call target, every argument, anything nested inside one, and every
@@ -167,6 +170,10 @@ const GATE: Symbol = symbol_short!("gate");
 const MIN_WAIT: Symbol = symbol_short!("min_wait");
 const WINDOW: Symbol = symbol_short!("window");
 const NEXT: Symbol = symbol_short!("next");
+/// The highest batch number stored before the last `rebind`. A batch at or
+/// below it cannot `run`: it was approved against the gate the previous custody
+/// answered to, and that custody can no longer cancel it once the binding moved.
+const FLOOR: Symbol = symbol_short!("floor");
 
 /// KEPT ALIVE WHILE IT IS USED. An instance is created with the network's
 /// minimum lifetime - ~7 days on testnet, ~120 on mainnet - and a write does
@@ -234,6 +241,14 @@ impl ExecutionAdapter {
         // The successor must answer too, or the binding could never move again.
         custody(&e, &gate);
         e.storage().instance().set(&GATE, &gate);
+        // Every batch stored so far was approved against the gate the PREVIOUS
+        // custody answered to, and that custody loses `cancel` the moment the
+        // binding moves. Rather than let those batches run on against a custody
+        // that can no longer stop them, raise a floor: `run` refuses any number
+        // at or below it. Legitimate pre-rebind batches are dropped too, so the
+        // Prime stores them again under the new gate and waits `min_wait`.
+        let last: u32 = e.storage().instance().get(&NEXT).unwrap_or(0);
+        e.storage().instance().set(&FLOOR, &last);
     }
 
     /// Run the batch now (`wait` zero) or store it to run once `wait` more
@@ -319,6 +334,12 @@ impl ExecutionAdapter {
     /// approving an immediate `execute` or a `cancel` the same way.
     pub fn run(e: Env, id: u32) {
         e.storage().instance().extend_ttl(KEEP_BELOW, KEEP_TO);
+        // A batch stored before the last rebind is gone: it belonged to the gate
+        // the previous custody answered to. Refuse it before loading anything.
+        let floor: u32 = e.storage().instance().get(&FLOOR).unwrap_or(0);
+        if id <= floor {
+            panic_with_error!(&e, E::NotScheduled);
+        }
         let stored: Option<Stored> = e.storage().persistent().get(&id);
         let (calls, grants, run_at) =
             stored.unwrap_or_else(|| panic_with_error!(&e, E::NotScheduled));

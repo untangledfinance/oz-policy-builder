@@ -633,20 +633,87 @@ fn a_batch_is_checked_before_it_is_stored() {
     );
 }
 
+/// F-2026-20247: a batch stored before a rebind cannot run afterwards. It was
+/// approved against the gate the previous custody answered to, and that custody
+/// loses the right to cancel it the moment the binding moves. Rather than let it
+/// run on against a custody that can no longer stop it, `rebind` raises a floor
+/// and `run` refuses every number at or below it.
 #[test]
-fn a_batch_is_checked_again_against_the_gate_bound_when_it_runs() {
+fn a_batch_stored_before_a_rebind_is_floored() {
     let w = world();
-    // Allowed by the gate it was scheduled under: the custody address.
+    // C0 stores a batch under its gate G0.
     let args = Vec::from_array(&w.e, [w.custody.to_val()]);
     let calls = Vec::from_array(&w.e, [call_to(&w.e, &w.gate, "one", args)]);
-    client(&w).execute(&calls, &no_grants(&w), &10);
+    assert_eq!(client(&w).execute(&calls, &no_grants(&w), &10), Some(1));
 
-    // Custody rebinds to a gate that no longer lists itself or the old gate.
-    let narrower =
-        w.e.register(FixtureGate, (Vec::<Address>::new(&w.e), w.custody.clone()));
-    client(&w).rebind(&narrower);
+    // C0 rebinds to a successor gate G1 a DIFFERENT custody C1 answers to.
+    let c1 = Address::generate(&w.e);
+    let g1 = w.e.register(
+        FixtureGate,
+        (Vec::from_array(&w.e, [c1.clone()]), c1.clone()),
+    );
+    client(&w).rebind(&g1);
+
+    // The previous custody C0 can no longer cancel; C1 now holds that right.
+    contract_error(client(&w).try_cancel(&1, &w.custody), E::NotACanceller);
+
+    // And the batch cannot run: it sits at or below the floor.
     advance(&w, 10);
-    contract_error(client(&w).try_run(&1), E::AddressNotAllowed);
+    contract_error(client(&w).try_run(&1), E::NotScheduled);
+
+    // It can still be tidied away by the current canceller.
+    client(&w).cancel(&1, &c1);
+}
+
+/// A batch stored AFTER a rebind is above the floor and runs normally, so the
+/// floor does not block the new custody's own batches.
+#[test]
+fn a_batch_stored_after_a_rebind_still_runs() {
+    let w = world();
+    let c1 = Address::generate(&w.e);
+    let g1 = w.e.register(
+        FixtureGate,
+        (Vec::from_array(&w.e, [c1.clone()]), c1.clone()),
+    );
+    client(&w).rebind(&g1);
+
+    // A fresh batch, targeting the new gate, stored under G1.
+    let calls = Vec::from_array(&w.e, [call_to(&w.e, &g1, "bump", Vec::new(&w.e))]);
+    assert_eq!(client(&w).execute(&calls, &no_grants(&w), &10), Some(1));
+    advance(&w, 10);
+    client(&w).run(&1);
+    assert_eq!(FixtureGateClient::new(&w.e, &g1).count(), 1);
+}
+
+/// Two batches straddling a rebind: the earlier is floored, the later runs.
+#[test]
+fn the_floor_splits_batches_at_the_rebind() {
+    let w = world();
+    let before = Vec::from_array(
+        &w.e,
+        [call_to(
+            &w.e,
+            &w.gate,
+            "one",
+            Vec::from_array(&w.e, [w.custody.to_val()]),
+        )],
+    );
+    assert_eq!(client(&w).execute(&before, &no_grants(&w), &10), Some(1));
+
+    let c1 = Address::generate(&w.e);
+    let g1 = w.e.register(
+        FixtureGate,
+        (Vec::from_array(&w.e, [c1.clone()]), c1.clone()),
+    );
+    client(&w).rebind(&g1);
+
+    let after = Vec::from_array(&w.e, [call_to(&w.e, &g1, "bump", Vec::new(&w.e))]);
+    assert_eq!(client(&w).execute(&after, &no_grants(&w), &10), Some(2));
+
+    advance(&w, 10);
+    contract_error(client(&w).try_run(&1), E::NotScheduled);
+    client(&w).run(&2);
+    assert_eq!(FixtureGateClient::new(&w.e, &g1).count(), 1);
 }
 
 #[test]
