@@ -592,6 +592,165 @@ fn the_grants_count_must_be_pinned() {
     );
 }
 
+/// F-2026-20245: a self-scoped keyless FOLLOWER is committed at `bind_executor`
+/// to the call targets and functions the followed predicate pins. If the
+/// followed owner re-installs with a different target, the follower's `enforce`
+/// is refused (221); restoring the original targets makes it pass again. The
+/// commitment holds the targets and functions only, so the followed owner keeps
+/// control of amounts (proved separately by `call_pin_digest`'s unit test).
+#[test]
+fn a_followed_owner_cannot_retarget_a_keyless_follower() {
+    let w = World::new();
+    // RA (id 40): the followed inline batch, scoped elsewhere (a plain source).
+    let ra = w.rule(40, &w.venue);
+    assert_eq!(w.install(1, &and(w.shape()), &ra), None);
+    // RB (id 41): a keyless follower scoped to the executor, following (account,
+    // 40). It binds (pins_own passes on RA's batch) and records RA's target and
+    // function pins.
+    let reference = scvec(alloc::vec![w.a(&w.account), ScVal::U32(40)]);
+    let rb = w.rule(41, &w.executor);
+    assert_eq!(
+        w.install(1, &reference, &rb),
+        None,
+        "follower installs unbound"
+    );
+    assert_eq!(
+        w.bind(&rb),
+        None,
+        "follower binds, recording RA's call pins"
+    );
+
+    let good = [w.call(&w.venue, "submit"), w.call(&w.other, "transfer")];
+    let ctx = w.execute_ctx(&good, 0);
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Permit,
+        "follows RA as bound"
+    );
+
+    // A re-installs RA with a different target (venue -> other). RA was installed
+    // at nonce 1 and is unbound, so the re-install takes nonce 2.
+    let retargeted = w.shape_but(3, Some(eq(target(0), w.a(&w.other))));
+    assert_eq!(
+        w.install(2, &retargeted, &ra),
+        None,
+        "A retargets its own rule"
+    );
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Code(221),
+        "the follower refuses once the followed targets changed"
+    );
+    // The drain attempt: a batch that MATCHES the retargeted predicate (the first
+    // call now to `other`). Without the commitment the follower would permit this
+    // (the retarget succeeds); the commitment refuses it 221 before the predicate
+    // is even evaluated.
+    let drain = [w.call(&w.other, "submit"), w.call(&w.other, "transfer")];
+    assert_eq!(
+        w.enforce(&w.execute_ctx(&drain, 0), &rb, true),
+        Outcome::Code(221),
+        "the retargeted batch is refused, not permitted"
+    );
+
+    // A restores the original targets (nonce 3): the follower passes again, so
+    // the check is exactly the committed targets and functions.
+    assert_eq!(w.install(3, &and(w.shape()), &ra), None);
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Permit,
+        "restored targets pass"
+    );
+}
+
+/// F-2026-20245 (in-set): the canonical shape pins a call's target with an `in`
+/// set, which `pins_own` accepts. A keyless follower must therefore be committed
+/// to the set's contents too: a followed owner that edits the set retargets the
+/// follower, and the digest must catch it. Reordering the same members is not a
+/// change.
+#[test]
+fn a_followed_owner_cannot_retarget_a_follower_through_an_in_set() {
+    let w = World::new();
+    // RA (id 42): the followed inline batch, scoped elsewhere. `shape` pins
+    // call 1's target with `in(target(1), [token, other])`.
+    let ra = w.rule(42, &w.venue);
+    assert_eq!(w.install(1, &and(w.shape()), &ra), None);
+    // RB (id 43): a keyless follower scoped to the executor, following RA. It
+    // binds and records RA's call pins, the in-set among them.
+    let reference = scvec(alloc::vec![w.a(&w.account), ScVal::U32(42)]);
+    let rb = w.rule(43, &w.executor);
+    assert_eq!(
+        w.install(1, &reference, &rb),
+        None,
+        "follower installs unbound"
+    );
+    assert_eq!(
+        w.bind(&rb),
+        None,
+        "follower binds, recording RA's in-set target pin"
+    );
+
+    // A batch whose call 1 goes to `token`, a member of the set: follows.
+    let good = [w.call(&w.venue, "submit"), w.call(&w.token, "transfer")];
+    let ctx = w.execute_ctx(&good, 0);
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Permit,
+        "follows RA while the set is unchanged"
+    );
+
+    // A reorders the set's two members (nonce 2): same membership, so the
+    // follower still passes.
+    let reordered = node(
+        "in",
+        alloc::vec![target(1), scvec(alloc::vec![w.a(&w.other), w.a(&w.token)])],
+    );
+    assert_eq!(
+        w.install(2, &w.shape_but(5, Some(reordered)), &ra),
+        None,
+        "A reorders its in-set"
+    );
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Permit,
+        "a reordered but equal set is not a retarget"
+    );
+
+    // A swaps `token` out of the set for a fresh attacker address (nonce 3): a
+    // retarget, and the follower now refuses 221.
+    let attacker = Address::generate(&w.env);
+    let retargeted = node(
+        "in",
+        alloc::vec![target(1), scvec(alloc::vec![w.a(&attacker), w.a(&w.other)])],
+    );
+    assert_eq!(
+        w.install(3, &w.shape_but(5, Some(retargeted)), &ra),
+        None,
+        "A edits its in-set contents"
+    );
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Code(221),
+        "the follower refuses once the in-set membership changed"
+    );
+    // The drain: a batch that MATCHES the retargeted set (call 1 to the
+    // attacker). Without the in-set commitment the follower would permit this;
+    // the commitment refuses it 221 before the predicate is evaluated.
+    let drain = [w.call(&w.venue, "submit"), w.call(&attacker, "transfer")];
+    assert_eq!(
+        w.enforce(&w.execute_ctx(&drain, 0), &rb, true),
+        Outcome::Code(221),
+        "the retargeted set's own batch is refused, not permitted"
+    );
+
+    // Restoring the original set (nonce 4): the follower passes again.
+    assert_eq!(w.install(4, &and(w.shape()), &ra), None);
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Permit,
+        "the restored in-set passes"
+    );
+}
+
 /// A direct install can misstate the scope and so skip the re-install check;
 /// `enforce` checks the rule the account passes and refuses the open batch.
 #[test]

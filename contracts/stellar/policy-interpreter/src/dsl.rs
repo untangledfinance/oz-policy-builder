@@ -539,6 +539,126 @@ pub fn pins(
     }
 }
 
+/// A deterministic digest of the constants a predicate pins each call's
+/// `target` and `function_name` to, in AST order. It covers both ways `pins_own`
+/// accepts such a pin:
+/// - `eq(call_path[0, i, target|function_name], lit(v))`: the call index `i`, a
+///   field byte and the XDR of `v`.
+/// - `in(call_path[0, i, target|function_name], [lit, ...])`: the call index
+///   `i`, the field byte, an `in` marker, the entry count and the XDR of every
+///   entry. The entries are sorted by their bytes first, so a reordered but
+///   otherwise equal set hashes the same (`in` membership does not depend on
+///   order); adding, removing or replacing any entry is a change and is caught.
+///
+/// Both forms are needed because `pins_own` admits an `in` set as a target or
+/// function pin (`dsl::pins` with `set = true`), and the canonical keyless batch
+/// shape pins a call's target with an `in` set, so an `eq`-only digest would let
+/// a followed owner retarget a keyless follower by editing the set's contents
+/// (F-2026-20245). Amounts and other `call_path` pins are not included, so a
+/// followed owner keeps control of amounts (E-38). The digest is empty for a
+/// predicate that pins no call target or function (for example a `run` rule),
+/// which is a stable value too.
+pub fn call_pin_digest(env: &Env, root: &Node) -> Bytes {
+    let target = Symbol::new(env, "target").to_val();
+    let function = Symbol::new(env, "function_name").to_val();
+    let mut out = Bytes::new(env);
+    digest_node(env, root, &target, &function, &mut out);
+    out
+}
+
+fn digest_node(env: &Env, node: &Node, target: &Val, function: &Val, out: &mut Bytes) {
+    match node {
+        Node::And(kids) | Node::Or(kids) => {
+            kids.iter()
+                .for_each(|k| digest_node(env, k, target, function, out));
+        }
+        Node::Compare(CompareOp::Eq, a, b) => {
+            digest_eq(env, a, b, target, function, out);
+            digest_eq(env, b, a, target, function, out);
+        }
+        // `pins_own` accepts an `in` set as a target/function pin, so a follower
+        // must be committed to its entries too. `nin` (the flag set) pins
+        // nothing, matching `pins`.
+        Node::In(needle, entries, false) => digest_in(env, needle, entries, target, function, out),
+        _ => {}
+    }
+}
+
+/// If `sel` is `call_path[0, i, target|function_name]`, the call index `i` and
+/// the field byte (0 target, 1 function); otherwise none.
+fn call_field(env: &Env, sel: &Leaf, target: &Val, function: &Val) -> Option<(u32, u8)> {
+    let Leaf::CallPath(steps) = sel else {
+        return None;
+    };
+    if steps.len() != 3 {
+        return None;
+    }
+    let PathStep::Index(ci) = &steps[0] else {
+        return None;
+    };
+    let PathStep::Index(i) = &steps[1] else {
+        return None;
+    };
+    let PathStep::Key(k) = &steps[2] else {
+        return None;
+    };
+    if *ci != 0 {
+        return None;
+    }
+    if val_eq(env, k, target) {
+        Some((*i, 0u8))
+    } else if val_eq(env, k, function) {
+        Some((*i, 1u8))
+    } else {
+        None
+    }
+}
+
+fn digest_eq(env: &Env, sel: &Leaf, lit: &Leaf, target: &Val, function: &Val, out: &mut Bytes) {
+    let Leaf::Lit(v) = lit else { return };
+    let Some((i, field)) = call_field(env, sel, target, function) else {
+        return;
+    };
+    out.append(&Bytes::from_array(env, &i.to_be_bytes()));
+    out.push_back(field);
+    out.append(&v.to_xdr(env));
+}
+
+/// Digest an `in(call_path[0, i, target|function_name], [lit, ...])` target or
+/// function pin. The entries are sorted by their XDR bytes so a reordered but
+/// equal set hashes the same. The `in` marker byte is 1; no ScVal XDR begins
+/// with 1 (a discriminant is a 4-byte big-endian int, so its first byte is 0),
+/// so an `in` record never aliases an `eq` record's trailing XDR.
+fn digest_in(
+    env: &Env,
+    needle: &Leaf,
+    entries: &[Leaf],
+    target: &Val,
+    function: &Val,
+    out: &mut Bytes,
+) {
+    let Some((i, field)) = call_field(env, needle, target, function) else {
+        return;
+    };
+    // Every entry must be a literal, exactly what `pins` accepts
+    // (`entries.iter().all(fixed)`); bail on anything else so the digest never
+    // claims a pin `pins_own` would have rejected.
+    let mut xdrs: Vec<Vec<u8>> = Vec::new();
+    for e in entries.iter() {
+        let Leaf::Lit(v) = e else { return };
+        xdrs.push(v.to_xdr(env).iter().collect());
+    }
+    xdrs.sort();
+    out.append(&Bytes::from_array(env, &i.to_be_bytes()));
+    out.push_back(field);
+    out.push_back(1u8);
+    out.append(&Bytes::from_array(env, &(xdrs.len() as u32).to_be_bytes()));
+    for x in xdrs.iter() {
+        out.append(&Bytes::from_array(env, &(x.len() as u32).to_be_bytes()));
+        out.append(&Bytes::from_slice(env, x.as_slice()));
+    }
+}
+
 /// Whether `leaf` is a `call_path` of exactly the steps `want` (a key compared
 /// by value).
 pub fn is_call_path(env: &Env, leaf: &Leaf, want: &[PathStep]) -> bool {

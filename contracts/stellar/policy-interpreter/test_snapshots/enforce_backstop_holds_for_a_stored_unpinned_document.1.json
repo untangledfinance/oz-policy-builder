@@ -51,6 +51,12 @@
                   },
                   {
                     "key": {
+                      "symbol": "follow_pins"
+                    },
+                    "val": "void"
+                  },
+                  {
+                    "key": {
                       "symbol": "master_set"
                     },
                     "val": {

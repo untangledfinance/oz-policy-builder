@@ -589,6 +589,7 @@ fn require_master_asks_an_external_admin_to_authorise() {
                 master_set: soroban_sdk::vec![&env, external],
                 scope: None,
                 source: policy_interpreter::Source::Inline,
+                follow_pins: None,
             },
         );
     });
@@ -662,6 +663,7 @@ fn enforce_trusts_the_caps_install_already_applied() {
                 master_set: signers.clone(),
                 scope: None,
                 source: policy_interpreter::Source::Inline,
+                follow_pins: None,
             },
         );
     });

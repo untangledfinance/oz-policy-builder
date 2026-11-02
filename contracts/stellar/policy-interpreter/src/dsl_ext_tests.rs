@@ -1495,3 +1495,121 @@ fn every_fixed_arity_leaf_refuses_an_extra_operand() {
     let all3 = tup(&[sym("all"), path(&[u(0)]), cmp("eq", elem(&[]), n(1)), n(1)]);
     assert_eq!(refused(&all3), MALFORMED);
 }
+
+/// F-2026-20245: `call_pin_digest` commits to the call targets and functions a
+/// predicate pins, and nothing else. Changing a pinned target or function
+/// changes the digest; changing a pinned amount (an `args` call_path, four steps
+/// deep) does not, so a followed owner keeps control of amounts.
+#[test]
+fn call_pin_digest_tracks_targets_and_functions_not_amounts() {
+    let env = Env::default();
+    let u = |x: u32| ScVal::U32(x);
+    let batch = |target: ScVal, function: ScVal, amount: ScVal| {
+        and(&[
+            cmp("eq", tup(&[sym("call_fn")]), sym("execute")),
+            cmp("eq", arg(2), u(0)),
+            cmp("eq", tup(&[sym("call_arg_len"), u(0)]), u(1)),
+            cmp("eq", tup(&[sym("call_arg_len"), u(1)]), u(0)),
+            cmp("eq", path(&[u(0), u(0), sym("target")]), target),
+            cmp("eq", path(&[u(0), u(0), sym("function_name")]), function),
+            cmp("eq", path(&[u(0), u(0), sym("args"), u(2)]), amount),
+        ])
+    };
+    let dig = |p: &ScVal| {
+        let node = decode(&env, &raw(&env, p)).expect("decodes");
+        crate::dsl::call_pin_digest(&env, &node)
+    };
+
+    let base = dig(&batch(account(1), sym("submit"), n(100)));
+    assert!(!base.is_empty(), "a pinned batch has a non-empty digest");
+    // Same targets and functions, different amount: same digest.
+    assert_eq!(base, dig(&batch(account(1), sym("submit"), n(200))));
+    // Different target, or different function: different digest.
+    assert_ne!(base, dig(&batch(account(2), sym("submit"), n(100))));
+    assert_ne!(base, dig(&batch(account(1), sym("drain"), n(100))));
+    // A rule that pins no call target or function (a `run` rule) has an empty,
+    // stable digest.
+    let run = cmp("eq", tup(&[sym("call_fn")]), sym("run"));
+    assert_eq!(dig(&run).len(), 0);
+}
+
+/// F-2026-20245 (in-set): `pins_own` accepts an `in` set as a target or function
+/// pin, so `call_pin_digest` must commit to the set's contents, not only to `eq`
+/// pins. The set is committed order-independently, amounts stay free, and any
+/// change to the set's membership changes the digest.
+#[test]
+fn call_pin_digest_tracks_in_set_target_pins() {
+    let env = Env::default();
+    let u = |x: u32| ScVal::U32(x);
+    // Call 0's target pinned with an `in` set; its function pinned with `eq`; an
+    // amount pinned with an `in` set (an amount pin is never committed).
+    let batch = |targets: &[ScVal], amount: ScVal| {
+        and(&[
+            cmp("eq", tup(&[sym("call_fn")]), sym("execute")),
+            cmp("eq", arg(2), u(0)),
+            cmp("eq", tup(&[sym("call_arg_len"), u(0)]), u(1)),
+            cmp("eq", tup(&[sym("call_arg_len"), u(1)]), u(0)),
+            set("in", path(&[u(0), u(0), sym("target")]), targets),
+            cmp(
+                "eq",
+                path(&[u(0), u(0), sym("function_name")]),
+                sym("submit"),
+            ),
+            set("in", path(&[u(0), u(0), sym("args"), u(2)]), &[amount]),
+        ])
+    };
+    let dig = |p: &ScVal| {
+        let node = decode(&env, &raw(&env, p)).expect("decodes");
+        crate::dsl::call_pin_digest(&env, &node)
+    };
+
+    let base = dig(&batch(&[account(1), account(2)], n(100)));
+    assert!(!base.is_empty(), "an in-set target pin is committed");
+    // Reordering the set hashes the same: membership is order-independent.
+    assert_eq!(
+        base,
+        dig(&batch(&[account(2), account(1)], n(100))),
+        "a reordered but equal set is not a change"
+    );
+    // A different amount in the args in-set: same digest (amounts stay free).
+    assert_eq!(
+        base,
+        dig(&batch(&[account(1), account(2)], n(200))),
+        "an amount change does not retarget"
+    );
+    // Editing the target set's contents is a change in every direction.
+    assert_ne!(
+        base,
+        dig(&batch(&[account(1), account(3)], n(100))),
+        "replacing an entry is a change"
+    );
+    assert_ne!(
+        base,
+        dig(&batch(&[account(1)], n(100))),
+        "removing an entry is a change"
+    );
+    assert_ne!(
+        base,
+        dig(&batch(&[account(1), account(2), account(3)], n(100))),
+        "adding an entry is a change"
+    );
+    // An `in` set of one and an `eq` pin to that one value are distinct records,
+    // so the two forms never alias.
+    let eq_one = and(&[
+        cmp("eq", tup(&[sym("call_fn")]), sym("execute")),
+        cmp("eq", arg(2), u(0)),
+        cmp("eq", tup(&[sym("call_arg_len"), u(0)]), u(1)),
+        cmp("eq", tup(&[sym("call_arg_len"), u(1)]), u(0)),
+        cmp("eq", path(&[u(0), u(0), sym("target")]), account(1)),
+        cmp(
+            "eq",
+            path(&[u(0), u(0), sym("function_name")]),
+            sym("submit"),
+        ),
+    ]);
+    assert_ne!(
+        dig(&batch(&[account(1)], n(100))),
+        dig(&eq_one),
+        "an in-set of one is not an eq pin"
+    );
+}

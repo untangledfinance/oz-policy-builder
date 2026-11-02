@@ -202,6 +202,13 @@ pub struct StoredDoc {
     /// rule_id)` on this interpreter whose predicate this rule follows (then
     /// `predicate_bytes` is empty). Set only by this rule's own install.
     pub source: Source,
+    /// For a self-scoped keyless FOLLOWER (`source` is `Rule` and the rule is
+    /// bound to its own scope), the digest of the call targets and functions the
+    /// followed predicate pinned at `bind_executor` (`dsl::call_pin_digest`).
+    /// `enforce` refuses (221) when the live followed predicate pins different
+    /// ones, so the followed owner keeps control of amounts but cannot retarget
+    /// the follower (F-2026-20245). None for every other rule.
+    pub follow_pins: Option<BytesN<32>>,
 }
 
 /// A rule's predicate source. (An `Option` of a tuple has no XDR conversion

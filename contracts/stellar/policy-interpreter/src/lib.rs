@@ -155,8 +155,12 @@ impl PolicyInterpreter {
         bump(e, &key, p.install_nonce);
 
         // A re-install keeps the binding, so it must not weaken a self-scoped
-        // rule's predicate under it (see `bind_executor`).
-        let executor = prior.and_then(|p| p.executor);
+        // rule's predicate under it (see `bind_executor`). The follower pin
+        // commitment (F-2026-20245) is part of the binding and is kept too.
+        let (executor, follow_pins) = match prior {
+            Some(p) => (p.executor, p.follow_pins),
+            None => (None, None),
+        };
         let called = called_contract(scope);
         let open = executor.is_some() && executor == called && !pins_own(e, &root);
         deny_unless(e, !open, E::RunNotPinned);
@@ -172,6 +176,7 @@ impl PolicyInterpreter {
             signers_hash: signers_hash(e, &context_rule.signers),
             master_set: install_params.policy_admins,
             scope: called,
+            follow_pins,
         };
         e.storage().persistent().set(&key, &doc);
     }
@@ -212,6 +217,16 @@ impl PolicyInterpreter {
             let root = dsl::decode_stored(e, &bytes, &lim)
                 .unwrap_or_else(|_| deny(e, E::MalformedPredicate));
             deny_unless(e, pins_own(e, &root), E::RunNotPinned);
+            // F-2026-20245: commit a keyless FOLLOWER to the call targets and
+            // functions the followed predicate pins now, so the followed owner
+            // can still widen amounts (E-38) but cannot retarget the follower to
+            // other contracts or functions. `enforce` re-derives this and refuses
+            // (221) on a mismatch. An inline self-scoped rule needs no commitment
+            // (its own re-install is already held to `pins_own` and the version).
+            doc.follow_pins = match doc.source {
+                Source::Rule(..) => Some(e.crypto().sha256(&dsl::call_pin_digest(e, &root)).into()),
+                Source::Inline => None,
+            };
         }
         doc.executor = Some(executor);
         let store = e.storage().persistent();
@@ -266,6 +281,15 @@ impl PolicyInterpreter {
             // `bind_executor` and `install` were told.
             let own = called_contract(&context_rule.context_type).as_ref() == Some(executor);
             deny_unless(e, !own || pins_own(e, &root), E::RunNotPinned);
+            // F-2026-20245: a keyless follower committed at `bind_executor` to the
+            // call targets and functions of the followed predicate. If the
+            // followed owner has since re-installed with different ones, refuse.
+            if own {
+                if let Some(committed) = &doc.follow_pins {
+                    let got: BytesN<32> = e.crypto().sha256(&dsl::call_pin_digest(e, &root)).into();
+                    deny_unless(e, &got == committed, E::RunNotPinned);
+                }
+            }
             // Require bound-adapter approval of this exact account/context,
             // except for the executor's own `run`: a context naming the
             // executor exists only because its code asked the account, so that
