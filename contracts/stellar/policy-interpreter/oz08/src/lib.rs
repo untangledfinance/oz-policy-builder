@@ -306,6 +306,12 @@ impl Gate {
         e.storage().instance().get(&0u32).unwrap()
     }
 
+    /// The real gate's second list. These tests never pay the interpreter, so
+    /// the model's payees are its whole `allowed` list.
+    pub fn payees(e: Env) -> Vec<Address> {
+        e.storage().instance().get(&0u32).unwrap()
+    }
+
     pub fn custody(e: Env) -> Address {
         e.storage().instance().get(&1u32).unwrap()
     }

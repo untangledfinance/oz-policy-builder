@@ -23,6 +23,14 @@ impl FixtureGate {
     pub fn allowed(e: Env) -> Vec<Address> {
         e.storage().instance().get(&symbol_short!("a")).unwrap()
     }
+    /// The real gate's second list. Defaults to `allowed` so a test that does
+    /// not care about the split sees one perimeter; a test sets `p` to narrow it.
+    pub fn payees(e: Env) -> Vec<Address> {
+        e.storage()
+            .instance()
+            .get(&symbol_short!("p"))
+            .unwrap_or_else(|| e.storage().instance().get(&symbol_short!("a")).unwrap())
+    }
     pub fn custody(e: Env) -> Address {
         e.storage().instance().get(&symbol_short!("c")).unwrap()
     }
@@ -871,6 +879,175 @@ mod muxed {
             let calls = Vec::from_array(e, [call_to(e, &m.w.gate, "one", Vec::from_array(e, [a]))]);
             assert!(run(&m.w, calls).is_ok());
         }
+    }
+}
+
+/// F-2026-20150: the gate names the interpreter on `allowed`, so a grant may
+/// vouch for it, but not on `payees`. The gated adapter must refuse a call that
+/// would pay the interpreter (or any allowed non-payee), yet still accept a
+/// grant whose context contract is the interpreter.
+mod interpreter_payee {
+    use super::*;
+    use soroban_sdk::auth::{Context, ContractContext, SubContractInvocation};
+
+    struct W {
+        e: Env,
+        adapter: Address,
+        prime: Address,
+        token: Address,
+        interpreter: Address,
+    }
+
+    fn setup() -> W {
+        let e = Env::default();
+        e.ledger().set_sequence_number(1_000);
+        e.mock_all_auths();
+        let prime = Address::generate(&e);
+        let custody = Address::generate(&e);
+        let token = e.register(MuxToken, ());
+        let interpreter = Address::generate(&e);
+        let allowed = Vec::from_array(
+            &e,
+            [
+                custody.clone(),
+                prime.clone(),
+                token.clone(),
+                interpreter.clone(),
+            ],
+        );
+        let payees = Vec::from_array(&e, [custody.clone(), prime.clone(), token.clone()]);
+        let gate = e.register(FixtureGate, (allowed, custody.clone()));
+        e.as_contract(&gate, || {
+            e.storage().instance().set(&symbol_short!("p"), &payees);
+        });
+        let at = agreed_address(&e, &prime, &gate, 0, 100);
+        let adapter = e.register_at(
+            &at,
+            ExecutionAdapter,
+            (prime.clone(), gate.clone(), 0u32, 100u32),
+        );
+        W {
+            e,
+            adapter,
+            prime,
+            token,
+            interpreter,
+        }
+    }
+
+    fn paid(w: &W, who: &Address) -> i128 {
+        MuxTokenClient::new(&w.e, &w.token).balance(who)
+    }
+
+    /// A transfer whose recipient is the interpreter is refused and nothing moves.
+    #[test]
+    fn a_call_that_pays_the_interpreter_is_refused() {
+        let w = setup();
+        let e = &w.e;
+        let args = Vec::from_array(
+            e,
+            [
+                w.prime.to_val(),
+                w.interpreter.to_val(),
+                100i128.into_val(e),
+            ],
+        );
+        let calls = Vec::from_array(e, [call_to(e, &w.token, "transfer", args)]);
+        let r = ExecutionAdapterClient::new(e, &w.adapter).try_execute(&calls, &Vec::new(e), &0);
+        assert!(
+            matches!(&r, Err(Ok(er)) if *er == soroban_sdk::Error::from_contract_error(E::AddressNotAllowed as u32)),
+            "a call paying the interpreter must be refused: {r:?}"
+        );
+        assert_eq!(paid(&w, &w.interpreter), 0);
+    }
+
+    /// The interpreter as a plain call target is refused too.
+    #[test]
+    fn the_interpreter_as_a_call_target_is_refused() {
+        let w = setup();
+        let e = &w.e;
+        let calls = Vec::from_array(e, [call_to(e, &w.interpreter, "enforce", Vec::new(e))]);
+        let r = ExecutionAdapterClient::new(e, &w.adapter).try_execute(&calls, &Vec::new(e), &0);
+        assert!(
+            matches!(&r, Err(Ok(er)) if *er == soroban_sdk::Error::from_contract_error(E::AddressNotAllowed as u32)),
+            "the interpreter as a call target must be refused: {r:?}"
+        );
+    }
+
+    /// A grant whose context contract is the interpreter still passes: it names
+    /// the interpreter as a policy to call, not as a destination.
+    #[test]
+    fn a_grant_whose_context_is_the_interpreter_passes() {
+        let w = setup();
+        let e = &w.e;
+        // A harmless self-payment the Prime makes, with a grant that vouches for
+        // interpreter.enforce(prime, token.transfer(prime, prime, 100)).
+        let pay = Vec::from_array(e, [w.prime.to_val(), w.prime.to_val(), 100i128.into_val(e)]);
+        let calls = Vec::from_array(e, [call_to(e, &w.token, "transfer", pay.clone())]);
+        let inner = Context::Contract(ContractContext {
+            contract: w.token.clone(),
+            fn_name: Symbol::new(e, "transfer"),
+            args: pay,
+        });
+        let grant = InvokerContractAuthEntry::Contract(SubContractInvocation {
+            context: ContractContext {
+                contract: w.interpreter.clone(),
+                fn_name: Symbol::new(e, "enforce"),
+                args: (w.prime.clone(), inner).into_val(e),
+            },
+            sub_invocations: Vec::new(e),
+        });
+        let grants = Vec::from_array(e, [grant]);
+        let r = ExecutionAdapterClient::new(e, &w.adapter).try_execute(&calls, &grants, &0);
+        assert!(
+            r.is_ok(),
+            "a grant naming the interpreter as its policy must pass: {r:?}"
+        );
+    }
+
+    /// A grant that buries the interpreter as a destination inside its inner
+    /// context is refused: only the context contract may be an allowed non-payee.
+    #[test]
+    fn a_grant_paying_the_interpreter_inside_is_refused() {
+        let w = setup();
+        let e = &w.e;
+        let calls = Vec::from_array(
+            e,
+            [call_to(
+                e,
+                &w.token,
+                "transfer",
+                Vec::from_array(e, [w.prime.to_val(), w.prime.to_val(), 1i128.into_val(e)]),
+            )],
+        );
+        // inner context pays the interpreter.
+        let bad = Vec::from_array(
+            e,
+            [
+                w.prime.to_val(),
+                w.interpreter.to_val(),
+                100i128.into_val(e),
+            ],
+        );
+        let inner = Context::Contract(ContractContext {
+            contract: w.token.clone(),
+            fn_name: Symbol::new(e, "transfer"),
+            args: bad,
+        });
+        let grant = InvokerContractAuthEntry::Contract(SubContractInvocation {
+            context: ContractContext {
+                contract: w.interpreter.clone(),
+                fn_name: Symbol::new(e, "enforce"),
+                args: (w.prime.clone(), inner).into_val(e),
+            },
+            sub_invocations: Vec::new(e),
+        });
+        let grants = Vec::from_array(e, [grant]);
+        let r = ExecutionAdapterClient::new(e, &w.adapter).try_execute(&calls, &grants, &0);
+        assert!(
+            matches!(&r, Err(Ok(er)) if *er == soroban_sdk::Error::from_contract_error(E::AddressNotAllowed as u32)),
+            "a grant paying the interpreter inside must be refused: {r:?}"
+        );
     }
 }
 

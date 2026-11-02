@@ -15,6 +15,7 @@ import {
   type Endpoint,
   ensureInterpreter,
   fingerprint,
+  gatePayees,
   interpreterFor,
   isToken,
   pinnedWasm,
@@ -744,7 +745,7 @@ const revoke_policy = tool(
 
 const bind_policy = tool(
   'bind_policy',
-  "Build the UNSIGNED transaction that binds a rule to an executor: the interpreter's `bind_executor((smartAccount, ruleId), executor)`. A bound rule permits a call only with that executor's grant for it (the executor's own `run` excepted), and a keyless rule (installed with no signers and `executor`) permits nothing until it is bound. The rule is read first, with its stored predicate, executor and admins; the build is REFUSED unless the rule is policed by the pinned interpreter with a predicate the package can read, the executor is a verified execution adapter (a pinned adapter build whose `prime` is this account, read off the ledger; a contract that only wears the adapter symbols is refused), a rule scoped to the executor pins `call_fn = run` or a whole immediate batch (`execute`, wait 0, the number of calls, each call's target and function_name; the interpreter refuses anything else with 221), and the rule's admins are the source account alone (each admin signs `bind_executor`). With no gate, the adapter vouches for every call of an immediate batch anyone runs through it, so the rule's predicate is the only fence: the review says so. A keyless rule that follows another comes back with the E-38 warning in `warnings` (its followed rule's admins can loosen that only fence at will; worded for the executor's kind). The rule comes back as `binds` with its review; `rebinds` names an executor it replaces. The wallet signs the returned XDR.",
+  "Build the UNSIGNED transaction that binds a rule to an executor: the interpreter's `bind_executor((smartAccount, ruleId), executor)`. A bound rule permits a call only with that executor's grant for it (the executor's own `run` excepted), and a keyless rule (installed with no signers and `executor`) permits nothing until it is bound. The rule is read first, with its stored predicate, executor and admins; the build is REFUSED unless the rule is policed by the pinned interpreter with a predicate the package can read, the executor is a verified execution adapter (a pinned adapter build whose `prime` is this account, read off the ledger; a contract that only wears the adapter symbols is refused), a rule scoped to the executor pins `call_fn = run` or a whole immediate batch (`execute`, wait 0, the number of calls, each call's target and function_name; the interpreter refuses anything else with 221), and the rule's admins are the source account alone (each admin signs `bind_executor`). With no gate, the adapter vouches for every call of an immediate batch anyone runs through it, so the rule's predicate is the only fence: the review says so. A keyless rule that follows another comes back with the E-38 warning in `warnings` (its followed rule's admins can loosen that only fence at will; worded for the executor's kind). For a gated adapter the gate's `payees` are read too, and a warning says so when they include the interpreter (which must never be paid) or cannot be read. The rule comes back as `binds` with its review; `rebinds` names an executor it replaces. The wallet signs the returned XDR.",
   {
     ...net,
     ...display,
@@ -763,6 +764,7 @@ const bind_policy = tool(
       readRules: () => readRules(server, i.network, i.smartAccount, interpreter),
       kind: async (a) => (await contractKinds(server, [a], i.smartAccount))[a] ?? 'absent',
       fingerprint: (a) => fingerprint(server, i.network, a),
+      gatePayees: (adapter) => gatePayees(server, adapter),
       build: () => buildBind({ ...i, server }, interpreter, i.ruleId, i.executor),
     })
     return bound(i, interpreter, plan)

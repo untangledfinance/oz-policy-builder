@@ -758,7 +758,19 @@ export interface BindChain {
   kind: (executor: string) => Promise<ContractKind>
   fingerprint: (interpreter: string) => Promise<Fingerprint>
   build: () => Promise<Built>
+  /** The addresses the gate of a gated adapter pays (its `payees`), or undefined when they cannot
+   *  be read. Optional: without it the check below is skipped. */
+  gatePayees?: (adapter: string) => Promise<string[] | undefined>
 }
+
+/** Why a gated executor is warned of: the gate pays the interpreter, or its payees were not read.
+ *  The interpreter must never hold value (a `read` runs its target as the interpreter and keeps the
+ *  effects, so anyone can sweep it), and the gate cannot know the interpreter's address, so keeping
+ *  it off `payees` is not enforced by the contract. */
+export const GATE_PAYS_INTERPRETER = (gate: string, interpreter: string) =>
+  `the gate of ${gate} lists the interpreter ${interpreter} among its payees: a pull could pay it, and anyone can sweep value held at the interpreter through a rule that reads it. Deploy a gate whose payees leave the interpreter out`
+export const GATE_PAYEES_UNREAD = (gate: string) =>
+  `the payees of the gate of ${gate} could not be read, so whether it can pay the interpreter is not known: payees must leave the interpreter out`
 
 /** The unsigned `bind_executor` of rule `ruleId` to `executor`, with the rule it binds. Refused when
  *  the rule is not there or not policed by the interpreter, when its record or predicate cannot be
@@ -818,8 +830,24 @@ export async function planBind(
     ...(r.executor && r.executor !== i.executor ? { rebinds: r.executor } : {}),
     executorKind: got(kind),
     interpreter: fingerprint,
-    warnings: ruleWarnings(r.signers, r.follows, { address: i.executor, kind: got(kind) }),
+    warnings: [
+      ...ruleWarnings(r.signers, r.follows, { address: i.executor, kind: got(kind) }),
+      ...(await payeesWarning(chain, i.executor, got(kind), interpreter)),
+    ],
   }
+}
+
+/** The warning for a gated executor whose gate pays the interpreter, or whose payees were not read. */
+async function payeesWarning(
+  chain: BindChain,
+  executor: string,
+  kind: ContractKind,
+  interpreter: string
+): Promise<string[]> {
+  if (kind !== 'gated adapter' || !chain.gatePayees) return []
+  const payees = await chain.gatePayees(executor).catch(() => undefined)
+  if (payees === undefined) return [GATE_PAYEES_UNREAD(executor)]
+  return payees.includes(interpreter) ? [GATE_PAYS_INTERPRETER(executor, interpreter)] : []
 }
 
 // ---- the install, with every refusal in one place ----

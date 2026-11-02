@@ -310,6 +310,53 @@ export async function contractKinds(
   return Object.fromEntries(addresses.map((a, n) => [a, kindOf(got[n], account)]))
 }
 
+const CFG_KEY = xdr.ScVal.scvSymbol('cfg').toXDR('base64')
+
+/** The addresses in a vector of addresses, or undefined when it is anything else. */
+const addressesOf = (v: xdr.ScVal | undefined): string[] | undefined => {
+  if (v?.switch().name !== 'scvVec') return undefined
+  const out: string[] = []
+  for (const x of v.vec() ?? []) {
+    if (x.switch().name !== 'scvAddress') return undefined
+    out.push(Address.fromScVal(x).toString())
+  }
+  return out
+}
+
+/** The addresses a custody gate pays, read from its instance: its `payees`, or, when the
+ *  configuration has no `payees`, its `allowed` (which then pays every address a batch could
+ *  name, the interpreter included). Undefined when the instance is not a gate configuration this package reads. */
+export function payeesOfGate(instance: xdr.ScVal | undefined): string[] | undefined {
+  if (instance?.switch().name !== 'scvContractInstance') return undefined
+  const cfg = (instance.instance().storage() ?? []).find((e) => e.key().toXDR('base64') === CFG_KEY)
+  if (cfg?.val().switch().name !== 'scvMap') return undefined
+  const field = (name: string) =>
+    cfg
+      .val()
+      .map()
+      ?.find((e) => e.key().switch().name === 'scvSymbol' && e.key().sym().toString() === name)
+      ?.val()
+  return addressesOf(field('payees')) ?? addressesOf(field('allowed'))
+}
+
+/** The addresses the gate a gated adapter is bound to pays: the adapter's `gate`, then that gate's
+ *  configuration. Undefined when either cannot be read (the caller then says so, it never guesses). */
+export async function gatePayees(
+  server: rpc.Server,
+  adapter: string
+): Promise<string[] | undefined> {
+  const [inst] = await entries(server, [dataKey(adapter, xdr.ScVal.scvLedgerKeyContractInstance())])
+  if (inst?.switch().name !== 'scvContractInstance') return undefined
+  const gate = (inst.instance().storage() ?? [])
+    .find((e) => e.key().toXDR('base64') === GATE_KEY)
+    ?.val()
+  if (gate?.switch().name !== 'scvAddress') return undefined
+  const [gateInstance] = await entries(server, [
+    dataKey(Address.fromScVal(gate).toString(), xdr.ScVal.scvLedgerKeyContractInstance()),
+  ])
+  return payeesOfGate(gateInstance)
+}
+
 /** The refusal for an interpreter that is not a trusted build. */
 export const mismatch = (f: Fingerprint): Refusal =>
   new Refusal(

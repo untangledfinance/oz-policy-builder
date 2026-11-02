@@ -33,10 +33,16 @@
 //!
 //! ONE RULE: a batch may not mention an address the gate does not name.
 //! Every call target, every argument, anything nested inside one, and every
-//! authorization handed to a callee is checked against that list. Where value
-//! can go therefore does not depend on this contract understanding any
+//! authorization handed to a callee is checked against the gate's lists. Where
+//! value can go therefore does not depend on this contract understanding any
 //! venue's ABI - which it cannot, and which is why guarding only its own
 //! token balance left a venue free to pay a stranger out of our position.
+//!
+//! TWO LISTS: the gate names `allowed`, every address a batch may mention, and
+//! `payees`, the subset value may reach. Call targets, arguments and a grant's
+//! inner arguments are held to `payees`; only a grant's context contract - the
+//! policy it asks to approve - may be an `allowed` address off `payees`, which
+//! is how the interpreter can be named as a policy yet never be paid.
 //!
 //! THE GATE IS NOT AN ARGUMENT. It is fixed at deployment, so there is nothing
 //! to pass, nothing to omit and nothing to substitute.
@@ -352,11 +358,23 @@ impl ExecutionAdapter {
 /// one in the same batch was still unexamined. With no gate, only the Prime
 /// as a target, any authorization handed to a callee and any grant that is
 /// not a word to the Prime's policy (`vouched`) are refused.
+///
+/// TWO PERIMETERS, NOT ONE. The gate answers `allowed` - every address a batch
+/// may mention, the policy interpreter included so a grant can name it - and
+/// `payees`, the strict subset value may actually reach. Call targets, call
+/// arguments and the inner arguments of a grant are checked against `payees`,
+/// so the interpreter is accepted only as a grant's context contract and never
+/// as a call target, an argument or a place value lands. This closes the hop
+/// F-2026-20150 found: a batch that pays the interpreter, whose funds anyone
+/// then sweeps through a read leaf.
 fn check(e: &Env, prime: &Address, calls: &Vec<Call>, grants: &Vec<InvokerContractAuthEntry>) {
-    let list = bound(e).map(|gate| {
-        let mut ok: Vec<Address> = e.invoke_contract(&gate, &Symbol::new(e, "allowed"), vec![e]);
-        ok.push_back(gate);
-        ok
+    let lists = bound(e).map(|gate| {
+        let mut grant_ok: Vec<Address> =
+            e.invoke_contract(&gate, &Symbol::new(e, "allowed"), vec![e]);
+        let mut pay_ok: Vec<Address> = e.invoke_contract(&gate, &Symbol::new(e, "payees"), vec![e]);
+        grant_ok.push_back(gate.clone());
+        pay_ok.push_back(gate);
+        (grant_ok, pay_ok)
     });
     for call in calls.iter() {
         // The smart account's own `execute` would let a batch move the
@@ -367,16 +385,16 @@ fn check(e: &Env, prime: &Address, calls: &Vec<Call>, grants: &Vec<InvokerContra
         if call.target == *prime {
             panic_with_error!(e, E::PrimeTarget);
         }
-        if let Some(ok) = &list {
-            want(e, ok, &call.target);
-            call.args.iter().for_each(|v| scan(e, ok, &v));
+        if let Some((_, pay_ok)) = &lists {
+            want(e, pay_ok, &call.target);
+            call.args.iter().for_each(|v| scan(e, pay_ok, &v));
         }
         call.executor_authorizations
             .iter()
-            .for_each(|a| scan_entry(e, list.as_ref(), &a));
+            .for_each(|a| scan_entry(e, lists.as_ref(), &a));
     }
-    grants.iter().for_each(|a| match &list {
-        Some(_) => scan_entry(e, list.as_ref(), &a),
+    grants.iter().for_each(|a| match &lists {
+        Some(_) => scan_entry(e, lists.as_ref(), &a),
         None => vouched(e, prime, &a),
     });
 }
@@ -576,15 +594,26 @@ fn scan_data(e: &Env, ok: &Vec<Address>, b: &Bytes) {
 /// outright rather than waved through unscanned. With no gate there is no list
 /// to check any of them against, so every one handed to a callee is refused;
 /// the batch's own grants are `vouched` instead.
-fn scan_entry(e: &Env, list: Option<&Vec<Address>>, entry: &InvokerContractAuthEntry) {
-    let (Some(ok), InvokerContractAuthEntry::Contract(c)) = (list, entry) else {
+///
+/// THE CONTEXT CONTRACT AND THE ARGUMENTS USE DIFFERENT LISTS. The contract a
+/// grant vouches for - the policy its `enforce` is asked to approve - is checked
+/// against `allowed`, where the interpreter sits. Everything the grant carries
+/// inside, which can name a destination, is checked against `payees`, where it
+/// does not. So the interpreter passes as a policy to call but never as a value
+/// destination buried in a grant.
+fn scan_entry(
+    e: &Env,
+    lists: Option<&(Vec<Address>, Vec<Address>)>,
+    entry: &InvokerContractAuthEntry,
+) {
+    let (Some((grant_ok, pay_ok)), InvokerContractAuthEntry::Contract(c)) = (lists, entry) else {
         panic_with_error!(e, E::Uncheckable);
     };
-    want(e, ok, &c.context.contract);
-    c.context.args.iter().for_each(|v| scan(e, ok, &v));
+    want(e, grant_ok, &c.context.contract);
+    c.context.args.iter().for_each(|v| scan(e, pay_ok, &v));
     c.sub_invocations
         .iter()
-        .for_each(|sub| scan_entry(e, list, &sub));
+        .for_each(|sub| scan_entry(e, lists, &sub));
 }
 
 #[cfg(test)]

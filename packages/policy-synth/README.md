@@ -237,7 +237,11 @@ batch.
   when the rule's admins are not the source account alone. Each admin signs
   `bind_executor`, and the builder signs as the source. It returns the rule as
   `binds`, with its review, and `rebinds` when the rule was bound to another
-  executor. Refusals use `BIND_BUILD_FAILED`.
+  executor. Refusals use `BIND_BUILD_FAILED`. For a gated adapter it also reads
+  the gate's `payees` (the `allowed` list when the configuration has no `payees`
+  field) and returns a warning when they include the interpreter, or cannot be
+  read: the interpreter must never be paid, and the gate cannot know its
+  address, so keeping it off `payees` is not enforced by the contract.
 - **Review:** the Authority node of a keyless rule says "no key", names the
   executor and, for an adapter with no gate, that anyone may run an immediate
   batch through it, so the predicate is the only fence. `review_unsigned` reads a
