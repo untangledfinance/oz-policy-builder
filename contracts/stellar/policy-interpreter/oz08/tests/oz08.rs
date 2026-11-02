@@ -228,8 +228,22 @@ impl World {
 
     fn bind(&self, interpreter: &Address, rule: &ContextRule) -> Option<u32> {
         self.env.mock_all_auths();
-        let args: Vec<Val> =
-            ((self.account.clone(), rule.id), self.executor.clone()).into_val(&self.env);
+        // F-2026-20275: the version is the next value of the rule's shared
+        // counter on that interpreter.
+        let version = self.env.as_contract(interpreter, || {
+            let key = (Symbol::new(&self.env, "ver"), self.account.clone(), rule.id);
+            self.env
+                .storage()
+                .persistent()
+                .get::<_, u32>(&key)
+                .unwrap_or(0)
+        }) + 1;
+        let args: Vec<Val> = (
+            (self.account.clone(), rule.id),
+            self.executor.clone(),
+            version,
+        )
+            .into_val(&self.env);
         match self.env.try_invoke_contract::<(), soroban_sdk::Error>(
             interpreter,
             &Symbol::new(&self.env, "bind_executor"),

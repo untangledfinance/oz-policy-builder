@@ -350,6 +350,7 @@ describe('planBind: the binding of a rule to an executor', () => {
     readRules: async () => ({ rules: others, complete, unreadable: [] }),
     kind: async () => kind,
     fingerprint: async () => ours,
+    version: async () => 0,
     build: async () => ({ unsignedXdr: 'BBBB' }) as never,
   })
   const i = { smartAccount: ACCOUNT, sourceAccount: SOURCE, ruleId: 4, executor: ADAPTER }
@@ -395,6 +396,35 @@ describe('planBind: the binding of a rule to an executor', () => {
       'INTERPRETER_MISMATCH',
       /trusts/
     )
+  })
+
+  it("names the rule's next version in the bind: the counter plus one, read live", async () => {
+    const seen: number[] = []
+    const chainAt = (current: number): BindChain => ({
+      ...bindChain(observed()),
+      version: async () => current,
+      build: async (v) => {
+        seen.push(v)
+        return { unsignedXdr: 'BBBB' } as never
+      },
+    })
+    expect((await planBind(i, INTERP, chainAt(0))).version).toBe(1)
+    expect((await planBind(i, INTERP, chainAt(6))).version).toBe(7)
+    expect(seen).toEqual([1, 7])
+    // A counter that cannot be raised, or reads as nonsense, refuses: no signature could name the next.
+    for (const bad of [0xffffffff, -1, 1.5, Number.NaN])
+      await refused(planBind(i, INTERP, chainAt(bad)), 'BIND_BUILD_FAILED', /version counter/)
+    // A version that cannot be read refuses; nothing is built.
+    const before = seen.length
+    await expect(
+      planBind(i, INTERP, {
+        ...bindChain(observed()),
+        version: async () => {
+          throw new Error('read failed')
+        },
+      })
+    ).rejects.toThrow(/read failed/)
+    expect(seen.length).toBe(before)
   })
 
   it('refuses the account or the interpreter as the executor, as the interpreter does (222)', async () => {
@@ -563,6 +593,7 @@ describe('STRIDE E-36: a keyed rule scoped to a no-gate adapter must hold its gr
         readRules: async () => ({ rules: [keyless], complete: true, unreadable: [] }),
         kind: async () => 'null-gate adapter',
         fingerprint: async () => ours,
+        version: async () => 0,
         build: async () => ({ unsignedXdr: 'BBBB' }) as never,
       }
     )
@@ -600,6 +631,7 @@ describe('STRIDE E-36: a keyed rule scoped to a no-gate adapter must hold its gr
           readRules: async () => ({ rules: [open], complete: true, unreadable: [] }),
           kind: async () => 'null-gate adapter',
           fingerprint: async () => ours,
+          version: async () => 0,
           build: async () => ({ unsignedXdr: 'BBBB' }) as never,
         }
       ),

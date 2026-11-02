@@ -119,10 +119,21 @@ impl World {
         code(self.client().try_install(&p, rule, &self.account))
     }
 
+    /// The rule's current shared version counter (F-2026-20275), 0 if unset.
+    fn ver(&self, key: &(Address, u32)) -> u32 {
+        self.env.as_contract(&self.interpreter, || {
+            let k = (soroban_sdk::symbol_short!("ver"), key.0.clone(), key.1);
+            self.env.storage().persistent().get(&k).unwrap_or(0)
+        })
+    }
+
     fn bind(&self, rule: &ContextRule, executor: &Address) -> Option<u32> {
         self.env.mock_all_auths();
         let key = (self.account.clone(), rule.id);
-        code(self.client().try_bind_executor(&key, executor))
+        code(
+            self.client()
+                .try_bind_executor(&key, executor, &(self.ver(&key) + 1)),
+        )
     }
 
     fn ctx(&self, contract: &Address, f: &str, args: Vec<Val>) -> Context {
@@ -337,7 +348,9 @@ fn a_keyless_rule_reinstalled_after_uninstall_is_unbound() {
     w.bind(&rule, &w.executor);
     w.env.mock_all_auths();
     w.client().uninstall(&rule, &w.account);
-    w.install(1, &fn_is("submit"), &rule);
+    // F-2026-20275: install set the version to 1, bind to 2, uninstall to 3, so
+    // the re-install takes nonce 4 (the counter survives uninstall).
+    w.install(4, &fn_is("submit"), &rule);
     let ctx = w.ctx(&w.venue, "submit", w.env_args());
     assert_eq!(w.enforce(&ctx, &w.none(), &rule, true), Outcome::Code(210));
 }
@@ -454,9 +467,12 @@ fn a_reinstall_under_a_binding_cannot_unpin_run() {
     let rule = w.rule(2, &w.executor, w.none());
     w.install(1, &fn_is("run"), &rule);
     w.bind(&rule, &w.executor);
-    assert_eq!(w.install(2, &fn_is("execute"), &rule), Some(221));
+    // F-2026-20275: install set the version to 1 and bind to 2, so a re-install
+    // takes nonce 3. The 221 re-install denies and rolls its bump back, so the
+    // follow-up re-install also takes nonce 3.
+    assert_eq!(w.install(3, &fn_is("execute"), &rule), Some(221));
     assert_eq!(
-        w.install(2, &and(alloc::vec![fn_is("run"), arg0_is(3)]), &rule),
+        w.install(3, &and(alloc::vec![fn_is("run"), arg0_is(3)]), &rule),
         None
     );
 }
@@ -471,7 +487,9 @@ fn enforce_refuses_an_unpinned_self_scoped_rule_whatever_install_was_told() {
     w.install(1, &fn_is("run"), &real);
     w.bind(&real, &w.executor);
     let forged = w.rule(2, &w.venue, w.none());
-    assert_eq!(w.install(2, &fn_is("execute"), &forged), None);
+    // F-2026-20275: install set the version to 1 and bind to 2, so the
+    // re-install of rule id 2 takes nonce 3.
+    assert_eq!(w.install(3, &fn_is("execute"), &forged), None);
     let execute = w.ctx(&w.executor, "execute", w.env_args());
     assert_eq!(
         w.enforce(&execute, &w.none(), &real, true),

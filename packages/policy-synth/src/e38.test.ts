@@ -162,6 +162,7 @@ describe('E-38: planBind warns when it binds a keyless follower', () => {
     readRules: async () => ({ rules: [r], complete: true, unreadable: [] }),
     kind: async () => kind,
     fingerprint: async () => ours,
+    version: async () => 0,
     build: async () => ({ unsignedXdr: 'BBBB' }) as never,
   })
   const i = { smartAccount: ACCOUNT_, sourceAccount: SOURCE, ruleId: 4, executor: ADAPTER }

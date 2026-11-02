@@ -174,10 +174,21 @@ impl World {
         code(self.client().try_install(&p, rule, &self.account))
     }
 
+    /// The rule's current shared version counter (F-2026-20275), 0 if unset.
+    fn ver(&self, key: &(Address, u32)) -> u32 {
+        self.env.as_contract(&self.interpreter, || {
+            let k = (soroban_sdk::symbol_short!("ver"), key.0.clone(), key.1);
+            self.env.storage().persistent().get(&k).unwrap_or(0)
+        })
+    }
+
     fn bind(&self, rule: &ContextRule) -> Option<u32> {
         self.env.mock_all_auths();
         let key = (self.account.clone(), rule.id);
-        code(self.client().try_bind_executor(&key, &self.executor))
+        code(
+            self.client()
+                .try_bind_executor(&key, &self.executor, &(self.ver(&key) + 1)),
+        )
     }
 
     /// Install `predicate` on a fresh keyless rule scoped to the executor and
@@ -469,9 +480,12 @@ fn a_reinstall_under_the_binding_cannot_open_the_batch() {
     let rule = w.rule(7, &w.executor);
     w.install(1, &and(w.shape()), &rule);
     assert_eq!(w.bind(&rule), None);
-    assert_eq!(w.install(2, &w.shape_but(3, None), &rule), Some(221));
-    assert_eq!(w.install(2, &w.shape_but(1, None), &rule), Some(221));
-    assert_eq!(w.install(2, &w.shape_but(2, Some(len_is(1))), &rule), None);
+    // F-2026-20275: install set the version to 1 and bind to 2, so a re-install
+    // takes nonce 3. The two 221 re-installs deny and roll their bump back, so
+    // the follow-up re-installs also take nonce 3.
+    assert_eq!(w.install(3, &w.shape_but(3, None), &rule), Some(221));
+    assert_eq!(w.install(3, &w.shape_but(1, None), &rule), Some(221));
+    assert_eq!(w.install(3, &w.shape_but(2, Some(len_is(1))), &rule), None);
 }
 
 /// `enforce` permits the pinned batch only with the executor's word for that
@@ -530,8 +544,10 @@ fn the_grants_count_must_be_pinned() {
     let b = w.rule(11, &w.executor);
     assert_eq!(w.install(1, &and(w.shape()), &b), None);
     assert_eq!(w.bind(&b), None);
+    // F-2026-20275: install set the version to 1 and bind to 2, so this
+    // re-install takes nonce 3.
     assert_eq!(
-        w.install(2, &unpinned, &b),
+        w.install(3, &unpinned, &b),
         Some(221),
         "re-install drops the grants pin: 221"
     );
@@ -542,8 +558,10 @@ fn the_grants_count_must_be_pinned() {
     assert_eq!(w.install(1, &and(w.shape()), &c), None);
     assert_eq!(w.bind(&c), None);
     let forged = w.rule(12, &w.venue);
+    // F-2026-20275: install set the version to 1 and bind to 2, so this
+    // re-install of rule id 12 takes nonce 3.
     assert_eq!(
-        w.install(2, &unpinned, &forged),
+        w.install(3, &unpinned, &forged),
         None,
         "venue scope skips pins_own"
     );
@@ -583,7 +601,9 @@ fn enforce_refuses_an_open_batch_whatever_install_was_told() {
     w.install(1, &and(w.shape()), &real);
     w.bind(&real);
     let forged = w.rule(7, &w.venue);
-    assert_eq!(w.install(2, &w.shape_but(3, None), &forged), None);
+    // F-2026-20275: install set the version to 1 and bind to 2, so the forged
+    // re-install of rule id 7 takes nonce 3.
+    assert_eq!(w.install(3, &w.shape_but(3, None), &forged), None);
     let good = [w.call(&w.venue, "submit"), w.call(&w.other, "transfer")];
     assert_eq!(
         w.enforce(&w.execute_ctx(&good, 0), &real, true),

@@ -51,6 +51,7 @@ import {
   invalidExecutor,
   isAddressEntry,
   keyedSafeOnNoGate,
+  MAX_VERSION,
   ruleWarnings,
   signerProblem,
   WORD_LEAK,
@@ -115,7 +116,7 @@ export interface UnsignedReview {
   /** For `remove_context_rule`: the rule it removes. */
   removes?: { ruleId: number }
   /** For `bind_executor`: the rule it binds and the executor. */
-  binds?: { ruleId: number; executor: string }
+  binds?: { ruleId: number; executor: string; version: number }
   /** Each one is a reason not to sign. */
   problems: string[]
   /** What the owner must know before signing, none of it a problem: a keyless rule that follows
@@ -187,7 +188,7 @@ export function reviewUnsigned(i: {
       `it calls ${call.fn}; the builder makes only add_context_rule, remove_context_rule and bind_executor`
     )
   if (call.fn === 'bind_executor' && !bind)
-    flag('bind_executor does not carry a rule (account, id) and an executor')
+    flag('bind_executor does not carry a rule (account, id), an executor and a version')
   if (i.smartAccount === undefined)
     flag(
       `no smartAccount was given, so whether ${account} is the account the owner means cannot be checked`
@@ -474,10 +475,15 @@ export function reviewUnsigned(i: {
         ? `executor ${bind.executor}: what it is, and so what it will vouch for, is not in the bytes; review with readContracts`
         : executorProblem(bind.executor, kind, undefined, null)
     if (problem) flag(problem)
-    out.binds = { ruleId: bind.ruleId, executor: bind.executor }
+    out.binds = { ruleId: bind.ruleId, executor: bind.executor, version: bind.version }
     roles[bind.executor] ??= 'executor'
     const facts = [
       fact('rule', `${bind.ruleId} of ${show(account, view)}`, bind.ruleId),
+      fact(
+        'version',
+        `${bind.version}: the signature names the rule's next version, so it is spent by this bind and cannot be replayed once the rule is re-installed or bound again`,
+        bind.version
+      ),
       fact(
         'executor',
         kind === 'null-gate adapter'
@@ -525,17 +531,22 @@ export function reviewUnsigned(i: {
   }
 }
 
-/** `bind_executor`'s arguments: the rule `(account, id)` and the executor, or undefined. */
+/** `bind_executor`'s arguments: the rule `(account, id)`, the executor and the version the bind
+ *  consumes (the rule's counter plus one, at least 1), or undefined. */
 function bindOf(args: Val[]) {
-  const [rule, executor] = args
-  if (args.length !== 2 || !Array.isArray(rule) || rule.length !== 2) return undefined
+  const [rule, executor, version] = args
+  if (args.length !== 3 || !Array.isArray(rule) || rule.length !== 2) return undefined
   const [account, ruleId] = rule
   return typeof account === 'string' &&
     StrKey.isValidContract(account) &&
     typeof ruleId === 'number' &&
     typeof executor === 'string' &&
-    StrKey.isValidContract(executor)
-    ? { account, ruleId, executor }
+    StrKey.isValidContract(executor) &&
+    typeof version === 'number' &&
+    Number.isInteger(version) &&
+    version >= 1 &&
+    version <= MAX_VERSION
+    ? { account, ruleId, executor, version }
     : undefined
 }
 

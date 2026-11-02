@@ -151,6 +151,34 @@ const docKey = (interpreter: string, r: Reference) =>
     interpreter,
     xdr.ScVal.scvVec([new Address(r.account).toScVal(), xdr.ScVal.scvU32(r.ruleId)])
   )
+/** The interpreter's per-rule version entry: `("ver", account, ruleId)` in persistent storage. It is
+ *  kept when the rule is uninstalled, so it only ever climbs. */
+const versionKey = (interpreter: string, r: Reference) =>
+  dataKey(
+    interpreter,
+    xdr.ScVal.scvVec([
+      xdr.ScVal.scvSymbol('ver'),
+      new Address(r.account).toScVal(),
+      xdr.ScVal.scvU32(r.ruleId),
+    ])
+  )
+
+/** The rule's version counter on `interpreter` now: 0 when the interpreter holds none (the rule was
+ *  never installed on it). A bind, an install nonce and an uninstall each name the next one. Refused
+ *  when the entry holds anything but a `u32`. */
+export async function readVersion(
+  server: rpc.Server,
+  interpreter: string,
+  r: Reference
+): Promise<number> {
+  const [v] = await entries(server, [versionKey(interpreter, r)])
+  if (v === undefined) return 0
+  if (v.switch().name !== 'scvU32')
+    throw new Error(
+      `the interpreter's version entry for rule ${r.ruleId} of ${r.account} is not a u32`
+    )
+  return v.u32()
+}
 const docOf = (v: xdr.ScVal | undefined) => (v ? fields(fromScVal(v)) : undefined)
 /** A record's `master_set` as admins: Delegated addresses, any other signer kind as its wire JSON;
  *  absent when the record carries none. */

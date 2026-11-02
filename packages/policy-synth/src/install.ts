@@ -448,15 +448,37 @@ export const buildInstall = (a: BuildArgs, d: RuleDraft, interpreter: string) =>
 export const buildRevoke = (a: BuildArgs, ruleId: number) =>
   buildSelfCall(a, 'remove_context_rule', [ruleId], 'REVOKE_BUILD_FAILED')
 
-/** `interpreter.bind_executor((smartAccount, ruleId), executor)`, unsigned. */
-export const buildBind = (a: BuildArgs, interpreter: string, ruleId: number, executor: string) =>
+/** `interpreter.bind_executor((smartAccount, ruleId), executor, version)`, unsigned. `version` is the
+ *  rule's per-rule counter plus one (`nextVersion`): the interpreter consumes it, so a signed bind
+ *  that was held back is refused once the rule has been re-installed or re-bound. */
+export const buildBind = (
+  a: BuildArgs,
+  interpreter: string,
+  ruleId: number,
+  executor: string,
+  version: number
+) =>
   buildSelfCall(
     a,
     'bind_executor',
-    [[a.smartAccount, ruleId], executor],
+    [[a.smartAccount, ruleId], executor, version],
     'BIND_BUILD_FAILED',
     interpreter
   )
+
+/** The largest value of a `u32`, the type of a rule's version. */
+export const MAX_VERSION = 0xffffffff
+
+/** The version a signature on the next change to a rule must name: the rule's counter, plus one. A
+ *  counter at the ceiling cannot move on, so no further bind or uninstall is possible: refused. */
+export function nextVersion(current: number, code: ErrorCode = 'BIND_BUILD_FAILED'): number {
+  if (!Number.isInteger(current) || current < 0 || current >= MAX_VERSION)
+    throw new Refusal(
+      code,
+      `the rule's version counter reads ${current}: it cannot be raised, so no signature can name the next one`
+    )
+  return current + 1
+}
 
 /** Why a rule an execution adapter with no gate signs is refused (the review of #26, P4). */
 export const NULL_ADAPTER_SIGNER = (signer: string) =>
@@ -790,7 +812,10 @@ export interface BindChain {
   readRules: () => Promise<RulesRead>
   kind: (executor: string) => Promise<ContractKind>
   fingerprint: (interpreter: string) => Promise<Fingerprint>
-  build: () => Promise<Built>
+  /** The rule's version counter now (0 when the interpreter holds none): a bind names the next. */
+  version: () => Promise<number>
+  /** Builds the bind carrying `version`. */
+  build: (version: number) => Promise<Built>
   /** The addresses the gate of a gated adapter pays (its `payees`), or undefined when they cannot
    *  be read. Optional: without it the check below is skipped. */
   gatePayees?: (adapter: string) => Promise<string[] | undefined>
@@ -823,7 +848,10 @@ export async function planBind(
     chain.readRule(i.ruleId),
     chain.kind(i.executor),
     chain.fingerprint(interpreter),
-    chain.build(),
+    chain.version().then((current) => {
+      const version = nextVersion(current)
+      return chain.build(version).then((b) => ({ ...b, version }))
+    }),
     chain.readRules(),
   ])
   const got = <T>(r: PromiseSettledResult<T>): T => {

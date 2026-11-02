@@ -147,8 +147,12 @@ impl PolicyInterpreter {
             let same = stored.master_set == p.policy_admins;
             deny_unless(e, same, E::MasterAuthRequired);
         }
-        let fresh = p.install_nonce == prior.as_ref().map_or(0, |p| p.nonce).saturating_add(1);
-        deny_unless(e, fresh, E::NonceReplay);
+        // Check `install_nonce` against the shared per-rule version counter (not
+        // the removed document's nonce) and move the counter forward. The
+        // counter survives `uninstall`, so a re-install after an uninstall does
+        // not restart at 1 and an old signed install cannot be replayed over a
+        // newer one (F-2026-20275).
+        bump(e, &key, p.install_nonce);
 
         // A re-install keeps the binding, so it must not weaken a self-scoped
         // rule's predicate under it (see `bind_executor`).
@@ -178,10 +182,19 @@ impl PolicyInterpreter {
     /// requests, so its predicate must pin `call_fn == run`, or an immediate
     /// `execute` of a fixed batch (221, `pins_own`). The scope is the one
     /// install recorded; `enforce` checks the account's own rule again.
-    pub fn bind_executor(e: &Env, rule: (Address, u32), executor: Address) {
+    ///
+    /// `bind_executor` sits outside the OpenZeppelin `Policy` interface, so it
+    /// takes an explicit `version` and consumes it through the shared per-rule
+    /// counter (`bump`, F-2026-20275). A Soroban authorization entry is spent
+    /// only when its transaction succeeds, so a bind that failed (for example
+    /// `RunNotPinned`) stays usable until it expires; once the owners re-install
+    /// or re-bind the rule the counter moves on, so the stale bind names the
+    /// wrong version and is refused here.
+    pub fn bind_executor(e: &Env, rule: (Address, u32), executor: Address, version: u32) {
         rule.0.require_auth();
         let mut doc = load(e, &rule);
         require_master(e, &doc.master_set);
+        bump(e, &rule, version);
         // Only an execution adapter may be bound. The smart account and this
         // interpreter are refused: a rule bound to its own account is scoped to
         // a venue, so it never reaches `pins_own` (the grants and batch-shape
@@ -277,6 +290,13 @@ impl PolicyInterpreter {
         // A referenced rule must not archive under the rules that follow it.
         let store = e.storage().persistent();
         store.extend_ttl(&key, TTL_BUMP_THRESHOLD, TTL_BUMP_TO);
+        // Keep the rule's version entry alive alongside the rule, so the replay
+        // guard does not archive out from under a live rule (F-2026-20275). A
+        // rule installed through `install` always has one; the guard is skipped
+        // only for a doc seeded directly in storage, which `install` never does.
+        if store.has(&ver_key(&key)) {
+            store.extend_ttl(&ver_key(&key), TTL_BUMP_THRESHOLD, TTL_BUMP_TO);
+        }
         if let Source::Rule(a, id) = doc.source {
             store.extend_ttl(&(a, id), TTL_BUMP_THRESHOLD, TTL_BUMP_TO);
         }
@@ -323,9 +343,27 @@ impl PolicyInterpreter {
         soroban_sdk::panic_with_error!(e, soroban_sdk::Error::from_contract_error(code))
     }
 
+    /// Remove the stored predicate for a rule. The signature is the one the
+    /// OpenZeppelin 0.8.0 `Policy` trait fixes, `(context_rule, smart_account)`,
+    /// which the account calls through `try_uninstall` when a context rule is
+    /// removed, so no extra argument may be added here.
+    ///
+    /// Instead of an argument, the master set authorises the version this
+    /// uninstall moves to (`require_auth_for_args((key, next))`), and the shared
+    /// per-rule counter is bumped (F-2026-20275). The counter entry is NOT
+    /// removed, so a rule re-installed afterwards keeps climbing from `next`, and
+    /// a replayed `uninstall` that signed an older version is refused; a replay
+    /// of this exact uninstall is refused too, because the counter has moved.
     pub fn uninstall(e: &Env, context_rule: ContextRule, smart_account: Address) {
         let key = (smart_account, context_rule.id);
-        require_master(e, &load(e, &key).master_set);
+        let doc = load(e, &key);
+        deny_unless(e, !doc.master_set.is_empty(), E::EmptySignerSet);
+        let next = current_ver(e, &key).saturating_add(1);
+        let args: Vec<Val> = (key.clone(), next).into_val(e);
+        doc.master_set.iter().for_each(|s| match s {
+            Signer::Delegated(a) | Signer::External(a, _) => a.require_auth_for_args(args.clone()),
+        });
+        bump(e, &key, next);
         e.storage().persistent().remove(&key);
     }
 
@@ -513,4 +551,29 @@ fn require_master(e: &Env, master_set: &Vec<Signer>) {
     master_set.iter().for_each(|s| match s {
         Signer::Delegated(a) | Signer::External(a, _) => a.require_auth(),
     });
+}
+
+/// One monotonic version per rule, shared by `install`, `bind_executor` and
+/// `uninstall`, in its own persistent entry that `uninstall` does NOT remove
+/// (F-2026-20275). An administrative call names the version it moves to; a
+/// replay names a stale one and is refused (`NonceReplay`). Because the entry
+/// survives `uninstall`, a rule re-installed afterwards keeps climbing rather
+/// than restarting at 1, so a replayed `uninstall` cannot delete it.
+fn ver_key(rule: &(Address, u32)) -> (Symbol, Address, u32) {
+    (symbol_short!("ver"), rule.0.clone(), rule.1)
+}
+
+fn current_ver(e: &Env, rule: &(Address, u32)) -> u32 {
+    e.storage().persistent().get(&ver_key(rule)).unwrap_or(0)
+}
+
+fn bump(e: &Env, rule: &(Address, u32), next: u32) {
+    deny_unless(
+        e,
+        next == current_ver(e, rule).saturating_add(1),
+        E::NonceReplay,
+    );
+    let store = e.storage().persistent();
+    store.set(&ver_key(rule), &next);
+    store.extend_ttl(&ver_key(rule), TTL_BUMP_THRESHOLD, TTL_BUMP_TO);
 }

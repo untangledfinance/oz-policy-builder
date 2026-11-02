@@ -72,6 +72,7 @@ describe('planBind: the gate of a gated executor', () => {
     readRules: async () => ({ rules: [rule], complete: true, unreadable: [] }),
     kind: async () => 'gated adapter',
     fingerprint: async () => ours,
+    version: async () => 0,
     build: async () => ({ unsignedXdr: 'BBBB' }) as never,
     ...(gatePayees ? { gatePayees } : {}),
   })

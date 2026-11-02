@@ -638,7 +638,7 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
     o: {
       admin?: boolean
       to?: string
-      /** The arguments of bind_executor, in place of (rule, executor). */
+      /** The arguments of bind_executor, in place of (rule, executor, version 1). */
       args?: xdr.ScVal[]
       extra?: (a: xdr.SorobanAuthorizationEntry) => xdr.SorobanAuthorizationEntry[]
     } = {}
@@ -647,7 +647,7 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
       const ic = callArgs(env)
       ic.contractAddress(new Address(o.to ?? INTERP).toScAddress())
       ic.functionName('bind_executor')
-      ic.args(o.args ?? [toScVal([ACCOUNT, 4]), toScVal(ADAPTER)])
+      ic.args(o.args ?? [toScVal([ACCOUNT, 4]), toScVal(ADAPTER), xdr.ScVal.scvU32(1)])
       const host = opOf(env)
       const [acct, check] = host.auth()
       if (!acct || !check) throw new Error('no entries')
@@ -669,7 +669,7 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
 
   it('offline: the rule and the executor, and the executor is a problem until it is read', async () => {
     const r = review(await binding())
-    expect(r.binds).toEqual({ ruleId: 4, executor: ADAPTER })
+    expect(r.binds).toEqual({ ruleId: 4, executor: ADAPTER, version: 1 })
     expect(r.smartAccount).toBe(ACCOUNT)
     expect(r.problems).toEqual([
       `executor ${ADAPTER}: what it is, and so what it will vouch for, is not in the bytes; review with readContracts`,
@@ -697,6 +697,27 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
     expect(plain.problems.join('\n')).toMatch(/not an execution adapter/)
   })
 
+  it('the bind names its version: a missing, zero or non-integer one is a problem', async () => {
+    const facts = { [ADAPTER]: 'gated adapter' as const }
+    const rule = toScVal([ACCOUNT, 4])
+    const read = async (args: xdr.ScVal[]) =>
+      reviewUnsigned({
+        network: 'testnet',
+        xdr: await binding({ args }),
+        smartAccount: ACCOUNT,
+        contracts: facts,
+      })
+    // The two-argument form is refused: the interpreter would not accept it either.
+    expect((await read([rule, toScVal(ADAPTER)])).problems.join('\n')).toMatch(
+      /bind_executor does not carry a rule \(account, id\), an executor and a version/
+    )
+    for (const bad of [xdr.ScVal.scvU32(0), toScVal('1'), xdr.ScVal.scvBytes(Buffer.alloc(1))])
+      expect((await read([rule, toScVal(ADAPTER), bad])).signable).toBe(false)
+    const ok = await read([rule, toScVal(ADAPTER), xdr.ScVal.scvU32(9)])
+    expect(ok.binds).toEqual({ ruleId: 4, executor: ADAPTER, version: 9 })
+    expect(ok.review.join('\n')).toMatch(/version/)
+  })
+
   it('an executor that is the account or the interpreter is a problem (222)', async () => {
     for (const [who, text] of [
       [ACCOUNT, /account itself.*222/],
@@ -705,7 +726,7 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
       const r = reviewUnsigned({
         network: 'testnet',
         xdr: await binding({
-          args: [toScVal([ACCOUNT, 4]), toScVal(who)],
+          args: [toScVal([ACCOUNT, 4]), toScVal(who), xdr.ScVal.scvU32(1)],
         }),
         smartAccount: ACCOUNT,
         contracts: { [who]: 'null-gate adapter' as const },
