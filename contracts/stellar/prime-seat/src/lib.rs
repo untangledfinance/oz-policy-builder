@@ -19,6 +19,10 @@ use soroban_sdk::{Address, Bytes, BytesN, Env, Error, Vec};
 
 const NO: Error = Error::from_contract_error(1);
 
+/// Maximum length of a grant window in seconds (seven days). Stated in the README, the audit overview,
+/// the Stellar guide and STRIDE row T-14; changing it changes a documented security bound.
+const MAX_GRANT_WINDOW: u64 = 7 * 24 * 60 * 60;
+
 #[contract]
 pub struct PrimeSeat;
 
@@ -70,7 +74,7 @@ impl PrimeSeat {
         let now = e.ledger().timestamp();
         let t = e.storage().temporary();
         let old: Option<u64> = t.get(&key);
-        let timely = start <= now && now <= end && end - start <= 604_800;
+        let timely = start <= now && now <= end && end - start <= MAX_GRANT_WINDOW;
         let fresh = old != Some(0) && old < Some(end);
         if (by != owner && (end != 0 || by != key)) || (end != 0 && !(timely && fresh)) {
             return Err(NO);

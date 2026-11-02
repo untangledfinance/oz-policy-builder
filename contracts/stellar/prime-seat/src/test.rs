@@ -392,6 +392,14 @@ fn the_grant_hash_equals_the_recorded_vectors() {
     }
 }
 
+#[test]
+fn the_grant_window_constant_is_the_documented_seven_days() {
+    // Fails to compile on main 43b13ed (the symbol does not exist there); after the fix the named
+    // constant must equal the 604,800 second bound the README, overview, Stellar guide and T-14 state.
+    assert_eq!(MAX_GRANT_WINDOW, 604_800);
+    assert_eq!(MAX_GRANT_WINDOW, 7 * 24 * 60 * 60);
+}
+
 fn hex(s: &str) -> [u8; 32] {
     core::array::from_fn(|i| u8::from_str_radix(&s[2 * i..2 * i + 2], 16).unwrap())
 }
