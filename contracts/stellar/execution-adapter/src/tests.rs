@@ -1991,3 +1991,73 @@ mod handed_out {
         assert_eq!(served(&h), 1);
     }
 }
+
+/// F-2026-20273: the batch lifecycle publishes an event at each step. BatchStored
+/// when a batch is scheduled, Ran when it runs (id 0 for an immediate execute),
+/// Cancelled when it is dropped, and Rebound when the binding moves. Each publish
+/// is the last statement of its function, after every check and authorisation, so
+/// it reports what happened without changing a decision.
+#[test]
+fn the_batch_lifecycle_publishes_events() {
+    use soroban_sdk::testutils::Events as _;
+    use soroban_sdk::Event as _;
+    let w = world();
+
+    // A waiting batch publishes BatchStored with its number and run ledger.
+    let run_at = w.e.ledger().sequence() + 10;
+    let id = client(&w)
+        .execute(&bump_batch(&w), &no_grants(&w), &10)
+        .unwrap();
+    assert_eq!(id, 1);
+    let events = w.e.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &BatchStored { id: 1, run_at }.to_xdr(&w.e, &w.adapter)
+    );
+
+    // Running it publishes Ran with the same number.
+    advance(&w, 10);
+    client(&w).run(&1);
+    let events = w.e.events().all();
+    let evs = events.events();
+    assert_eq!(evs.last().unwrap(), &Ran { id: 1 }.to_xdr(&w.e, &w.adapter));
+
+    // An immediate execute (no wait, no stored number) publishes Ran with id 0.
+    client(&w).execute(&bump_batch(&w), &no_grants(&w), &0);
+    let events = w.e.events().all();
+    let evs = events.events();
+    assert_eq!(evs.last().unwrap(), &Ran { id: 0 }.to_xdr(&w.e, &w.adapter));
+
+    // Cancelling a stored batch publishes Cancelled with the canceller.
+    let id2 = client(&w)
+        .execute(&bump_batch(&w), &no_grants(&w), &10)
+        .unwrap();
+    assert_eq!(id2, 2);
+    client(&w).cancel(&id2, &w.prime);
+    let events = w.e.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &Cancelled {
+            id: id2,
+            by: w.prime.clone()
+        }
+        .to_xdr(&w.e, &w.adapter)
+    );
+
+    // Rebinding publishes Rebound with the new gate and the floor it raised to
+    // the last stored number (2).
+    let c1 = Address::generate(&w.e);
+    let g1 = w.e.register(
+        FixtureGate,
+        (Vec::from_array(&w.e, [c1.clone()]), c1.clone()),
+    );
+    client(&w).rebind(&g1);
+    let events = w.e.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &Rebound { gate: g1, floor: 2 }.to_xdr(&w.e, &w.adapter)
+    );
+}

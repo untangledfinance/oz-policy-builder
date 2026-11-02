@@ -223,5 +223,29 @@
       }
     ]
   },
-  "events": []
+  "events": [
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "CCUQPUBXSDUMCD4MQLSRGQ4GCR54TM72GVRPIU4ZNKEDM2X7CEJBQVCO",
+        "type_": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "ran"
+              },
+              {
+                "u32": 0
+              }
+            ],
+            "data": {
+              "map": []
+            }
+          }
+        }
+      },
+      "failed_call": false
+    }
+  ]
 }

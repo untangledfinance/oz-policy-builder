@@ -26,9 +26,24 @@
 //! before the adapter exists. The approved hash needs no accessor: instance
 //! storage is public, so anyone can read this whole configuration off chain.
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token,
-    Address, BytesN, Env, Executable, Symbol, Vec,
+    contract, contracterror, contractevent, contractimpl, contracttype, panic_with_error,
+    symbol_short, token, Address, BytesN, Env, Executable, Symbol, Vec,
 };
+
+/// Published by `pull` after a draw settles. A custody monitor sees every move
+/// out of the allowance from this, with the token and destination as topics, so
+/// it can follow a payee without decoding the transfer. It is the last statement
+/// of `pull`, after the caller, the code check, the payee check and the
+/// transfer, so it changes no decision. The topics are documented in the README.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Pulled {
+    #[topic]
+    pub token: Address,
+    #[topic]
+    pub to: Address,
+    pub amount: i128,
+}
 
 #[contracttype]
 #[derive(Clone)]
@@ -119,6 +134,7 @@ impl CustodyGate {
             &to,
             &amount,
         );
+        Pulled { token, to, amount }.publish(&e);
     }
 }
 

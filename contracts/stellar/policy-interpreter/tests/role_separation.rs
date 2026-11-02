@@ -703,3 +703,88 @@ fn a_stale_uninstall_cannot_delete_a_reinstalled_rule() {
         .env
         .as_contract(&s.contract_id, || s.env.storage().persistent().has(&key)));
 }
+
+// F-2026-20273: install, bind_executor, rotate_master_signer_set and uninstall
+// each publish an event carrying the account and the rule id as topics. Each
+// publish is the last statement of its function, so it reports what happened
+// without changing any authorisation decision; this test reads the events back.
+#[test]
+fn the_admin_calls_publish_events() {
+    use policy_interpreter::{ExecutorBound, Installed, MasterSetRotated, Uninstalled};
+    use soroban_sdk::testutils::Events as _;
+    use soroban_sdk::Event as _;
+
+    let s = setup();
+    s.env.mock_all_auths();
+    let client = PolicyInterpreterClient::new(&s.env, &s.contract_id);
+    let operators = soroban_sdk::vec![&s.env, delegated(&s.operator)];
+    let admins = soroban_sdk::vec![&s.env, delegated(&s.admin)];
+    let rule = make_rule(&s.env, 1, &s.venue, operators);
+    let key = (s.smart_account.clone(), rule.id);
+
+    // install: the shared version counter is now 1, and the rule is unbound.
+    client.install(&make_params(&s.env, 1, admins), &rule, &s.smart_account);
+    let events = s.env.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &Installed {
+            account: s.smart_account.clone(),
+            rule_id: 1,
+            version: 1,
+            bound: false,
+        }
+        .to_xdr(&s.env, &s.contract_id)
+    );
+
+    // bind_executor: the counter advances to 2 and the rule carries an executor.
+    let adapter = Address::generate(&s.env);
+    client.bind_executor(&key, &adapter, &2u32);
+    let events = s.env.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &ExecutorBound {
+            account: s.smart_account.clone(),
+            rule_id: 1,
+            executor: adapter,
+            version: 2,
+        }
+        .to_xdr(&s.env, &s.contract_id)
+    );
+
+    // rotate_master_signer_set: the new admin set has two members; rotation does
+    // not touch the version counter, so no version is reported.
+    let new_admins = soroban_sdk::vec![
+        &s.env,
+        delegated(&Address::generate(&s.env)),
+        delegated(&Address::generate(&s.env))
+    ];
+    client.rotate_master_signer_set(&s.smart_account, &1, &new_admins);
+    let events = s.env.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &MasterSetRotated {
+            account: s.smart_account.clone(),
+            rule_id: 1,
+            size: 2,
+        }
+        .to_xdr(&s.env, &s.contract_id)
+    );
+
+    // uninstall: the counter keeps climbing (install 1, bind 2, uninstall 3), so
+    // the event reports version 3 even though the document is removed.
+    client.uninstall(&rule, &s.smart_account);
+    let events = s.env.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &Uninstalled {
+            account: s.smart_account.clone(),
+            rule_id: 1,
+            version: 3,
+        }
+        .to_xdr(&s.env, &s.contract_id)
+    );
+}

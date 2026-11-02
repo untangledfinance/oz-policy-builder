@@ -17,7 +17,7 @@
 #![no_std]
 
 use soroban_sdk::xdr::{FromXdr, ToXdr};
-use soroban_sdk::{auth::*, contract, contractimpl, crypto::*, TryFromVal};
+use soroban_sdk::{auth::*, contract, contractevent, contractimpl, crypto::*, TryFromVal};
 use soroban_sdk::{Address, Bytes, BytesN, Env, Error, Vec};
 
 const NO: Error = Error::from_contract_error(1);
@@ -25,6 +25,20 @@ const NO: Error = Error::from_contract_error(1);
 /// Maximum length of a grant window in seconds (seven days). Stated in the README, the audit overview,
 /// the Stellar guide and STRIDE row T-14; changing it changes a documented security bound.
 const MAX_GRANT_WINDOW: u64 = 7 * 24 * 60 * 60;
+
+/// Published by `grant` for a grant and for an end. `end == 0` is an end. `generation` is the key's
+/// per-key generation after the call, which the next message for the key must sign over (an end bumps
+/// it, a grant leaves it). The topic is the session key. A monitor reads grants and ends from this
+/// event rather than from storage or transaction history.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Granted {
+    #[topic]
+    pub key: BytesN<32>,
+    pub start: u64,
+    pub end: u64,
+    pub generation: u32,
+}
 
 #[contract]
 pub struct PrimeSeat;
@@ -99,12 +113,22 @@ impl PrimeSeat {
             m.extend_from_array(&generation.to_be_bytes());
         }
         e.crypto().ed25519_verify(&by, &sha(&e, &m), &sig);
-        if end == 0 {
+        let next = if end == 0 {
             p.set(&key, &(generation + 1));
             p.extend_ttl(&key, e.storage().max_ttl(), e.storage().max_ttl());
-        }
+            generation + 1
+        } else {
+            generation
+        };
         t.set(&key, &end);
         t.extend_ttl(&key, e.storage().max_ttl(), e.storage().max_ttl());
+        Granted {
+            key,
+            start,
+            end,
+            generation: next,
+        }
+        .publish(&e);
         Ok(())
     }
 

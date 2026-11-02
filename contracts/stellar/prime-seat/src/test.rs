@@ -5,9 +5,9 @@ use ed25519_dalek::{Signer as _, SigningKey};
 use sha2::{Digest, Sha256};
 use soroban_sdk::testutils::{
     storage::{Instance as _, Temporary as _},
-    Address as _, Ledger as _,
+    Address as _, Events as _, Ledger as _,
 };
-use soroban_sdk::{IntoVal, InvokeError, Symbol, Val};
+use soroban_sdk::{Event as _, IntoVal, InvokeError, Symbol, Val};
 
 const NOW: u64 = 1_800_000_000;
 const NET: [u8; 32] = [7; 32];
@@ -777,6 +777,38 @@ fn a_delegated_use_of_a_dead_key_is_refused() {
     let t = setup();
     let k = sk(9);
     assert_eq!(t.check(&t.seat, &k, &k, &[1]), Err(Ok(REFUSED)));
+}
+
+// F-2026-20273: grant publishes an event for a grant and for an end, with the bumped generation.
+#[test]
+fn grant_and_end_publish_events() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    let events = t.e.events().all();
+    let evs = events.events();
+    assert_eq!(evs.len(), 1);
+    let want_grant = Granted {
+        key: bn(&t.e, &pk(&k)),
+        start: NOW - 120,
+        end: NOW + 3600,
+        generation: 0,
+    }
+    .to_xdr(&t.e, &t.seat);
+    assert_eq!(evs.last().unwrap(), &want_grant);
+    // An end publishes its own event carrying the bumped generation.
+    assert_eq!(t.grant(&k, 0, 0), Ok(()));
+    let events = t.e.events().all();
+    let evs = events.events();
+    assert_eq!(evs.len(), 1);
+    let want_end = Granted {
+        key: bn(&t.e, &pk(&k)),
+        start: 0,
+        end: 0,
+        generation: 1,
+    }
+    .to_xdr(&t.e, &t.seat);
+    assert_eq!(evs.last().unwrap(), &want_end);
 }
 
 // F-2026-20252: after the end entry expires and the owner re-grants the same key under the new

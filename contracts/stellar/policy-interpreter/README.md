@@ -667,6 +667,29 @@ a failure resolving the quantifier's own vector keeps its code (102 for a `sum`
 that overflows); a `sum` overflow is `ARITHMETIC_OVERFLOW` (102); every decode
 refusal is 201.
 
+## Events
+
+The admin entry points publish an event as their last step, after every check
+and storage write, so a monitor follows a rule's whole administration without
+reading storage or replaying transactions. Each event carries the account and
+the rule id as topics (after the event name), so a watcher can filter to one
+`(account, rule)` pair. The topics are stable.
+
+| Event | Topics | Data |
+|---|---|---|
+| `Installed` | `("Installed", account, rule_id)` | `version: u32`, `bound: bool` |
+| `ExecutorBound` | `("ExecutorBound", account, rule_id)` | `executor: Address`, `version: u32` |
+| `Uninstalled` | `("Uninstalled", account, rule_id)` | `version: u32` |
+| `MasterSetRotated` | `("MasterSetRotated", account, rule_id)` | `size: u32` |
+
+`version` is the shared per-rule counter after the call (the nonce the call
+consumed). `Installed.bound` is whether the stored rule already carries an
+executor, which is true on a re-install under a live binding. `Uninstalled`
+reports the counter it consumed; it is NOT reset, so a later re-install keeps
+climbing from there. Rotation does not touch the counter, so `MasterSetRotated`
+reports only the new set size, not a version, and does not leak the addresses.
+`enforce` is a read path and publishes nothing.
+
 ## Deployments
 
 The live addresses and wasm sha256 are pinned in

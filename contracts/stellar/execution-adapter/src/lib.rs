@@ -130,7 +130,8 @@
 //! an accessor would only be a second way to say the same thing.
 use soroban_sdk::{
     auth::{Context, ContractContext, InvokerContractAuthEntry, SubContractInvocation},
-    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, vec,
+    contract, contracterror, contractevent, contractimpl, contracttype, panic_with_error,
+    symbol_short, vec,
     xdr::ToXdr,
     Address, Bytes, Duration, Env, IntoVal, Map, String, Symbol, Timepoint, TryFromVal, Val, Vec,
     I256, U256,
@@ -184,6 +185,51 @@ const FLOOR: Symbol = symbol_short!("floor");
 /// ~30 days once fewer than ~7 remain.
 const KEEP_BELOW: u32 = 120_960;
 const KEEP_TO: u32 = 518_400;
+
+// Events. A custody monitor follows every move through this adapter from these
+// without decoding storage. Each is the last statement of its function, after
+// every check and authorisation, so none of them changes a decision. The id is
+// the topic, so a watcher can follow one batch from store to run or cancel; the
+// batch number starts at 1, so a `Ran` with id 0 is an immediate `execute`
+// (one that never waited and has no stored number). Topics are documented in
+// the crate README.
+
+/// A batch was stored to run after its wait. `run_at` is the ledger it becomes
+/// runnable on.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BatchStored {
+    #[topic]
+    pub id: u32,
+    pub run_at: u32,
+}
+
+/// A batch ran. `id` is the stored number, or 0 for an immediate `execute`.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Ran {
+    #[topic]
+    pub id: u32,
+}
+
+/// A stored batch was cancelled (dropped before it ran) by the Prime or by the
+/// gate's custody.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Cancelled {
+    #[topic]
+    pub id: u32,
+    pub by: Address,
+}
+
+/// The binding moved to another gate. `floor` is the batch number raised by the
+/// rebind: every stored batch at or below it can no longer run.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Rebound {
+    pub gate: Address,
+    pub floor: u32,
+}
 
 #[contract]
 pub struct ExecutionAdapter;
@@ -251,6 +297,7 @@ impl ExecutionAdapter {
         // Prime stores them again under the new gate and waits `min_wait`.
         let last: u32 = e.storage().instance().get(&NEXT).unwrap_or(0);
         e.storage().instance().set(&FLOOR, &last);
+        Rebound { gate, floor: last }.publish(&e);
     }
 
     /// Run the batch now (`wait` zero) or store it to run once `wait` more
@@ -308,6 +355,7 @@ impl ExecutionAdapter {
             e.authorize_as_current_contract(handed);
             prime.require_auth_for_args(args);
             invoke(&e, calls);
+            Ran { id: 0 }.publish(&e);
             return None;
         }
         // WITHOUT A GATE, NOTHING WAITS: see the module comment.
@@ -327,6 +375,7 @@ impl ExecutionAdapter {
         let live =
             (run_at.saturating_add(window) - e.ledger().sequence()).min(e.storage().max_ttl());
         e.storage().persistent().extend_ttl(&id, live, live);
+        BatchStored { id, run_at }.publish(&e);
         Some(id)
     }
 
@@ -371,6 +420,7 @@ impl ExecutionAdapter {
         e.authorize_as_current_contract(grants);
         prime.require_auth_for_args(vec![&e, id.into_val(&e)]);
         invoke(&e, calls);
+        Ran { id }.publish(&e);
     }
 
     /// Drop a stored batch, waiting or ready, before it runs. `by` is the
@@ -386,6 +436,7 @@ impl ExecutionAdapter {
         }
         by.require_auth();
         e.storage().persistent().remove(&id);
+        Cancelled { id, by }.publish(&e);
     }
 }
 

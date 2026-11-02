@@ -68,6 +68,16 @@ A rule with the interpreter predicate bounds the session on chain. A `CallContra
 - A grant needs no authorization entry, and when an identical grant is submitted twice, the first to be applied sets the state and the second submitter gets contract error #1. An end also bumps the key's persistent generation, so a resubmitted end no longer verifies its signature, and a later grant for the key must be signed over the new generation. Read the stored end before reporting a failure.
 - Extend the seat's instance and code TTL with `ExtendFootprintTTL`. A grant does not.
 
+## Events
+
+`grant` publishes a `Granted` event for a grant and for an end, so a monitor reads session changes from events rather than from storage or transaction history.
+
+| Event | Topics | Data |
+|---|---|---|
+| `Granted` | `("Granted", key)` | `start: u64`, `end: u64`, `generation: u32` |
+
+`key` is the 32-byte session key. `end == 0` is an end. `generation` is the key's per-key generation after the call: an end bumps it, a grant leaves it, and the next message for the key must sign over it. `verify` and `__check_auth` are read paths and publish nothing.
+
 ## Build and checks
 
 ```

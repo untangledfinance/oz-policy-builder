@@ -29,11 +29,69 @@ pub use version::SELF_VERSION;
 
 use soroban_sdk::xdr::{FromXdr, ToXdr};
 use soroban_sdk::{
-    auth::Context, contract, contractimpl, symbol_short, Address, Bytes, BytesN, Env, IntoVal,
-    Symbol, TryFromVal, Val, Vec,
+    auth::Context, contract, contractevent, contractimpl, symbol_short, Address, Bytes, BytesN,
+    Env, IntoVal, Symbol, TryFromVal, Val, Vec,
 };
 
 use crate::storage::{deny, deny_unless, load, PolicyError as E, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
+
+// Events. A monitor follows a rule's whole administration from these without
+// reading storage or replaying transactions. Each carries the account and the
+// rule id as topics (after the event name), so a watcher can filter to one
+// (account, rule) pair. None of them changes an authorisation decision: every
+// publish is the last statement of its function, after every check and every
+// storage write. The topics are stable and documented in the crate README.
+
+/// A rule was installed or re-installed. `version` is the shared per-rule
+/// counter after the call (the install nonce it consumed); `bound` is whether
+/// the stored rule already carries an executor (true on a re-install under a
+/// live binding).
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Installed {
+    #[topic]
+    pub account: Address,
+    #[topic]
+    pub rule_id: u32,
+    pub version: u32,
+    pub bound: bool,
+}
+
+/// An executor was bound to a rule. `version` is the counter the bind consumed.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExecutorBound {
+    #[topic]
+    pub account: Address,
+    #[topic]
+    pub rule_id: u32,
+    pub executor: Address,
+    pub version: u32,
+}
+
+/// A rule was uninstalled. `version` is the counter the uninstall consumed; it
+/// is NOT reset, so a later re-install keeps climbing from here.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Uninstalled {
+    #[topic]
+    pub account: Address,
+    #[topic]
+    pub rule_id: u32,
+    pub version: u32,
+}
+
+/// The master (admin) signer set of a rule was rotated. `size` is the new set's
+/// length; the addresses are read from storage, not leaked in the event.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MasterSetRotated {
+    #[topic]
+    pub account: Address,
+    #[topic]
+    pub rule_id: u32,
+    pub size: u32,
+}
 
 #[contract]
 pub struct PolicyInterpreter;
@@ -179,6 +237,13 @@ impl PolicyInterpreter {
             follow_pins,
         };
         e.storage().persistent().set(&key, &doc);
+        Installed {
+            account: key.0.clone(),
+            rule_id: key.1,
+            version: doc.nonce,
+            bound: doc.executor.is_some(),
+        }
+        .publish(e);
     }
 
     /// Bind every execution child rule before enabling its agent; preserve on reinstall.
@@ -228,10 +293,17 @@ impl PolicyInterpreter {
                 Source::Inline => None,
             };
         }
-        doc.executor = Some(executor);
+        doc.executor = Some(executor.clone());
         let store = e.storage().persistent();
         store.set(&rule, &doc);
         store.extend_ttl(&rule, TTL_BUMP_THRESHOLD, TTL_BUMP_TO);
+        ExecutorBound {
+            account: rule.0.clone(),
+            rule_id: rule.1,
+            executor,
+            version,
+        }
+        .publish(e);
     }
 
     pub fn enforce(
@@ -389,6 +461,12 @@ impl PolicyInterpreter {
         });
         bump(e, &key, next);
         e.storage().persistent().remove(&key);
+        Uninstalled {
+            account: key.0.clone(),
+            rule_id: key.1,
+            version: next,
+        }
+        .publish(e);
     }
 
     pub fn rotate_master_signer_set(
@@ -417,6 +495,12 @@ impl PolicyInterpreter {
         // both the account and the admins authorise.
         doc.master_set = new_set;
         e.storage().persistent().set(&key, &doc);
+        MasterSetRotated {
+            account: key.0.clone(),
+            rule_id: key.1,
+            size: doc.master_set.len(),
+        }
+        .publish(e);
     }
 }
 

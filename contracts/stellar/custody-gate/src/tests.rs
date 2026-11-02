@@ -160,3 +160,26 @@ fn a_listed_payee_is_paid_a_stranger_is_not() {
     assert!(r.is_err(), "a stranger is on neither list");
     assert_eq!(token::Client::new(&w.e, &w.token).balance(&w.stranger), 0);
 }
+
+/// F-2026-20273: a successful `pull` publishes a Pulled event with the token and
+/// destination as topics and the amount as data. It is the last statement of
+/// `pull`, after the caller check, the code check, the payee check and the
+/// transfer, so it reports the draw without changing any decision.
+#[test]
+fn a_pull_publishes_the_draw() {
+    use soroban_sdk::testutils::Events as _;
+    use soroban_sdk::Event as _;
+    let w = world(false);
+    CallerClient::new(&w.e, &w.caller).draw(&w.gate, &w.token, &w.custody, &1_000);
+    let events = w.e.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &Pulled {
+            token: w.token.clone(),
+            to: w.custody.clone(),
+            amount: 1_000,
+        }
+        .to_xdr(&w.e, &w.gate)
+    );
+}
