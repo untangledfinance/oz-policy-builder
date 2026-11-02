@@ -1584,6 +1584,21 @@ mod null_gate {
         assert_eq!(paid(&n, &n.stranger), 0);
     }
 
+    /// F-2026-20270: two grants naming the same policy still run. The word loop
+    /// now collects distinct policies and builds one word each, which must give
+    /// the same result as the old per-grant de-duplication.
+    #[test]
+    fn two_grants_for_one_policy_still_run() {
+        let n = null_world();
+        let batch = Vec::from_array(&n.e, [pay(&n, n.stranger.to_val())]);
+        let words = Vec::from_array(
+            &n.e,
+            [enforce_word(&n, &n.prime), enforce_word(&n, &n.prime)],
+        );
+        assert_eq!(c(&n).execute(&batch, &words, &0), None);
+        assert_eq!(paid(&n, &n.stranger), 100);
+    }
+
     /// A callee is still handed nothing, the word included.
     #[test]
     fn a_callee_is_still_handed_nothing() {

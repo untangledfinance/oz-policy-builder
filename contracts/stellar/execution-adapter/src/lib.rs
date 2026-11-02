@@ -265,7 +265,10 @@ impl ExecutionAdapter {
     ) -> Option<u32> {
         e.storage().instance().extend_ttl(KEEP_BELOW, KEEP_TO);
         let prime: Address = e.storage().instance().get(&PRIME).unwrap();
-        check(&e, &prime, &calls, &grants);
+        // Read the binding once and reuse it: `check` takes it, the no-gate word
+        // loop tests it, and the wait branch needs it.
+        let gate = bound(&e);
+        check(&e, &prime, gate.clone(), &calls, &grants);
         let min_wait: u32 = e.storage().instance().get(&MIN_WAIT).unwrap();
         if wait < min_wait {
             panic_with_error!(&e, E::WaitTooShort);
@@ -273,21 +276,31 @@ impl ExecutionAdapter {
         let args: Vec<Val> = (calls.clone(), grants.clone(), wait).into_val(&e);
         if wait == 0 {
             let mut handed = grants.clone();
-            if bound(&e).is_none() {
+            if gate.is_none() {
                 // Its word for this very call, to each policy the batch names.
                 let this = Context::Contract(ContractContext {
                     contract: e.current_contract_address(),
                     fn_name: symbol_short!("execute"),
                     args: args.clone(),
                 });
+                // Collect the distinct policies first, then build each word
+                // once. A word embeds the whole grants vector, so it can equal
+                // no grant and no de-duplication against `handed` is needed; one
+                // word per policy replaces the old quadratic `handed.contains`.
+                let mut policies: Vec<Address> = Vec::new(&e);
                 for g in grants.iter() {
+                    // `check` has already refused a non-contract grant through
+                    // `vouched`; this is a deliberate duplicate of that refusal,
+                    // kept as defence in depth should the two paths ever drift.
                     let InvokerContractAuthEntry::Contract(c) = g else {
                         panic_with_error!(&e, E::Uncheckable)
                     };
-                    let own = vouch(&e, &c.context.contract, &prime, &this);
-                    if !handed.contains(&own) {
-                        handed.push_back(own);
+                    if !policies.contains(&c.context.contract) {
+                        policies.push_back(c.context.contract);
                     }
+                }
+                for policy in policies.iter() {
+                    handed.push_back(vouch(&e, &policy, &prime, &this));
                 }
             }
             e.authorize_as_current_contract(handed);
@@ -296,7 +309,7 @@ impl ExecutionAdapter {
             return None;
         }
         // WITHOUT A GATE, NOTHING WAITS: see the module comment.
-        bound(&e).unwrap_or_else(|| panic_with_error!(&e, E::NoWait));
+        gate.unwrap_or_else(|| panic_with_error!(&e, E::NoWait));
         prime.require_auth_for_args(args);
         // Overflow traps (`overflow-checks` is on in release): a wrapped
         // `run_at` would be in the past, and the batch runnable at once.
@@ -352,7 +365,7 @@ impl ExecutionAdapter {
         // this contract again anyway: the host refuses re-entry.
         e.storage().persistent().remove(&id);
         let prime: Address = e.storage().instance().get(&PRIME).unwrap();
-        check(&e, &prime, &calls, &grants);
+        check(&e, &prime, bound(&e), &calls, &grants);
         e.authorize_as_current_contract(grants);
         prime.require_auth_for_args(vec![&e, id.into_val(&e)]);
         invoke(&e, calls);
@@ -388,11 +401,17 @@ impl ExecutionAdapter {
 /// as a call target, an argument or a place value lands. This closes the hop
 /// F-2026-20150 found: a batch that pays the interpreter, whose funds anyone
 /// then sweeps through a read leaf.
-fn check(e: &Env, prime: &Address, calls: &Vec<Call>, grants: &Vec<InvokerContractAuthEntry>) {
-    let lists = bound(e).map(|gate| {
+fn check(
+    e: &Env,
+    prime: &Address,
+    gate: Option<Address>,
+    calls: &Vec<Call>,
+    grants: &Vec<InvokerContractAuthEntry>,
+) {
+    let lists = gate.map(|gate| {
         let mut grant_ok: Vec<Address> =
-            e.invoke_contract(&gate, &Symbol::new(e, "allowed"), vec![e]);
-        let mut pay_ok: Vec<Address> = e.invoke_contract(&gate, &Symbol::new(e, "payees"), vec![e]);
+            e.invoke_contract(&gate, &symbol_short!("allowed"), vec![e]);
+        let mut pay_ok: Vec<Address> = e.invoke_contract(&gate, &symbol_short!("payees"), vec![e]);
         grant_ok.push_back(gate.clone());
         pay_ok.push_back(gate);
         (grant_ok, pay_ok)
@@ -490,7 +509,7 @@ fn bound(e: &Env) -> Option<Address> {
 
 /// Whose money a gate guards.
 fn custody(e: &Env, gate: &Address) -> Address {
-    e.invoke_contract(gate, &Symbol::new(e, "custody"), vec![e])
+    e.invoke_contract(gate, &symbol_short!("custody"), vec![e])
 }
 
 fn invoke(e: &Env, calls: Vec<Call>) {
