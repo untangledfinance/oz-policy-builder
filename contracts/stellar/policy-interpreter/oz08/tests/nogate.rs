@@ -341,6 +341,10 @@ impl World {
             fn_is("execute"),
             eq(arg(2), u(0)),
             eq(scvec(alloc::vec![sym("call_arg_len"), u(0)]), u(5)),
+            // The grants count, pinned to the exact number of account contexts
+            // the batch raises (F-2026-20241), so an anonymous caller cannot
+            // append a smuggled grant for a payer-callback context.
+            eq(scvec(alloc::vec![sym("call_arg_len"), u(1)]), u(5)),
             eq(at(0, "target"), self.a(&self.tusd)),
             eq(at(0, "function_name"), sym("transfer")),
             eq(at(1, "target"), self.a(&self.xlm)),
@@ -1583,4 +1587,33 @@ fn e36_a_keyed_door_without_a_grants_pin_drains_through_keyless_inner_rules() {
     );
     assert_eq!(w.balance(&w.xlm, &agent), 0);
     assert_eq!(w.balance(&w.xlm, &w.account), all);
+}
+
+/// F-2026-20241 (real wasm): a self-scoped keyless `execute` rule that pins the
+/// function, wait and a call's target/function but NOT the grants count
+/// (`call_arg_len(1)`) is refused at `bind_executor` with RunNotPinned (221).
+/// With the grants pin added it binds. The reference liquidate rules already
+/// carry this pin (5 or 3), so this does not regress them; the full reference
+/// liquidation above (`liquidate()`, now pinned to 5) still runs end to end in
+/// the `l*` tests.
+#[test]
+fn f20241_a_self_scoped_execute_rule_without_the_grants_pin_is_refused_at_bind() {
+    let w = World::new();
+    let base = alloc::vec![
+        fn_is("execute"),
+        eq(arg(2), u(0)),
+        eq(scvec(alloc::vec![sym("call_arg_len"), u(0)]), u(1)),
+        eq(at(0, "target"), w.a(&w.tusd)),
+        eq(at(0, "function_name"), sym("transfer")),
+    ];
+    let unpinned = w.add_rule(&w.adapter, Vec::new(&w.env), &and(base.clone()));
+    assert_eq!(
+        w.bind(&unpinned, &w.adapter),
+        Some(221),
+        "a self-scoped execute rule without the grants pin must not bind"
+    );
+    let mut pinned = base;
+    pinned.push(eq(scvec(alloc::vec![sym("call_arg_len"), u(1)]), u(1)));
+    let ok = w.add_rule(&w.adapter, Vec::new(&w.env), &and(pinned));
+    assert_eq!(w.bind(&ok, &w.adapter), None, "the grants pin lets it bind");
 }

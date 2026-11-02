@@ -5,11 +5,17 @@
 
 extern crate alloc;
 
+#[cfg(test)]
+extern crate std;
+
 pub mod dsl;
 #[cfg(test)]
 mod dsl_ext_tests;
 #[cfg(test)]
 mod dsl_tests;
+// Acceptance of the reference keyless liquidation and run rules (F-2026-20241, requirement R2).
+#[cfg(test)]
+mod keyless_accept;
 pub mod storage;
 #[cfg(test)]
 mod test;
@@ -398,13 +404,15 @@ fn run_fn() -> Symbol {
 /// approve. The executor's `run` (see `dsl::pins_call_fn`), or an IMMEDIATE
 /// `execute` whose whole batch shape is fixed: on every path to a permit
 /// `call_fn == execute`, the wait (argument 2) `== 0`, the number of calls
-/// `== m` for a constant `m`, and the target and function name of each of
-/// calls `0..m` an `eq` or `in` of constants (see `dsl::pins`). An executor
-/// with no gate vouches for its own immediate `execute` to anyone, so such a
-/// rule is the only fence around which contracts and functions a batch it
-/// approves may call; arguments, grants and reads stay the predicate's to
-/// bound. A gated executor never vouches for its own `execute`, so there a
-/// rule of this shape binds but never passes.
+/// `== m` for a constant `m`, the target and function name of each of calls
+/// `0..m` an `eq` or `in` of constants (see `dsl::pins`), and the grants count
+/// (argument 1) pinned with `eq` to a non-negative constant (F-2026-20241). An
+/// executor with no gate vouches for its own immediate `execute` to anyone and
+/// hands out one word per caller-supplied grant, so such a rule is the only
+/// fence around which contracts and functions a batch it approves may call, and
+/// how many grants it carries; the specific arguments and reads stay the
+/// predicate's to bound. A gated executor never vouches for its own `execute`,
+/// so there a rule of this shape binds but never passes.
 fn pins_own(e: &Env, root: &dsl::Node) -> bool {
     use dsl::PathStep::{Index, Key, Len};
     if dsl::pins_call_fn(e, root, &run_fn()) {
@@ -431,7 +439,21 @@ fn pins_own(e: &Env, root: &dsl::Node) -> bool {
         m += 1;
     }
     let short = |v: &Val| dsl::number(e, v).is_some_and(|n| n <= i128::from(m));
-    pinned(&[Index(0), Len], &short, false)
+    if !pinned(&[Index(0), Len], &short, false) {
+        return false;
+    }
+    // The grants count (call argument 1) must be pinned too. A no-gate executor
+    // hands out one `enforce` word per caller-supplied grant before the batch
+    // runs, and checks only that each word names the Prime, not how many words
+    // there are. Without this pin an anonymous caller appends one smuggled grant
+    // plus a contract payer whose `__check_auth` raises an extra context that an
+    // inner keyless rule then permits, draining its balance. The count accepts
+    // any non-negative constant; the interpreter cannot know the safe number, so
+    // each keyless `execute` rule must still pin it with `eq` to the exact number
+    // of contexts its batch unconditionally raises (a constant above it, or the
+    // pin in only one `or` branch, reopens the gap).
+    let count = |v: &Val| dsl::number(e, v).is_some_and(|n| n >= 0);
+    pinned(&[Index(1), Len], &count, false)
 }
 
 /// The contract a `CallContract` scope names; none for any other scope.

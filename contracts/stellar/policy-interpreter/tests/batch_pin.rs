@@ -5,8 +5,10 @@
 //! to whoever asks it, so a keyless rule scoped to it and bound to it answers
 //! any caller. Its predicate is then the only fence on what the batch calls,
 //! and must fix, on every path to a permit: `call_fn == execute`, the wait
-//! (argument 2) `== 0`, the number of calls `== m`, and the target and
-//! function name of each of the first `m` calls (`eq`, or `in` constants).
+//! (argument 2) `== 0`, the number of calls `== m`, the target and function
+//! name of each of the first `m` calls (`eq`, or `in` constants), and the
+//! grants count (argument 1) `== g` for a non-negative constant g
+//! (F-2026-20241).
 //! These tests pin that check at `bind_executor`, at a re-install under the
 //! binding, and at `enforce` against the rule the account passes, and that
 //! the executor's word for the exact context is still required.
@@ -73,6 +75,12 @@ fn wait_zero() -> ScVal {
 
 fn len_is(n: u32) -> ScVal {
     eq(path(alloc::vec![u(0), ScVal::Bool(true)]), u(n))
+}
+
+/// Pin the grants count (`call_arg_len(1)`), argument 1 of `execute`
+/// (F-2026-20241).
+fn grants_is(n: u32) -> ScVal {
+    eq(path(alloc::vec![u(1), ScVal::Bool(true)]), u(n))
 }
 
 fn target(i: u32) -> ScVal {
@@ -245,7 +253,8 @@ impl World {
         }
     }
 
-    /// Two calls: `venue.submit`, then `token` or `other` `.transfer`.
+    /// Two calls: `venue.submit`, then `token` or `other` `.transfer`. Raises no
+    /// grants of its own, so `call_arg_len(1) == 0` is pinned too (F-2026-20241).
     fn shape(&self) -> StdVec<ScVal> {
         alloc::vec![
             fn_is("execute"),
@@ -261,6 +270,7 @@ impl World {
                 ]
             ),
             eq(function(1), sym("transfer")),
+            grants_is(0),
         ]
     }
 
@@ -341,6 +351,13 @@ fn anything_less_than_the_full_shape_is_refused_221() {
         w.shape_but(4, None),
         w.shape_but(5, None),
         w.shape_but(6, None),
+        // The grants count dropped, or only bounded (F-2026-20241): it must be
+        // pinned with `eq`.
+        w.shape_but(7, None),
+        w.shape_but(
+            7,
+            Some(lte(path(alloc::vec![u(1), ScVal::Bool(true)]), u(0))),
+        ),
         // The wait above 0, or only bounded.
         w.shape_but(1, Some(eq(path(alloc::vec![u(2)]), u(1)))),
         w.shape_but(1, Some(lte(path(alloc::vec![u(2)]), u(0)))),
@@ -489,6 +506,71 @@ fn enforce_permits_the_pinned_batch_with_the_word() {
     assert_eq!(
         w.enforce(&w.execute_ctx(&good, 5), &rule, true),
         Outcome::Code(100)
+    );
+}
+
+/// F-2026-20241: a self-scoped keyless `execute` rule must pin the grants count
+/// (`call_arg_len(1)`), or a no-gate executor lets an anonymous caller append a
+/// smuggled grant and drain an inner rule through a contract payer callback. The
+/// unpinned shape is refused 221 at bind, at a re-install under the binding, and
+/// at enforce against the rule the account passes. Bypasses are closed and the
+/// residual is shown.
+#[test]
+fn the_grants_count_must_be_pinned() {
+    let w = World::new();
+    // The old shape: everything but the grants pin.
+    let unpinned = and(w.shape()[..7].to_vec());
+
+    // Installs unbound, but bind refuses it (221).
+    let a = w.rule(10, &w.executor);
+    assert_eq!(w.install(1, &unpinned, &a), None, "installs unbound");
+    assert_eq!(w.bind(&a), Some(221), "unpinned grants: bind refuses 221");
+
+    // A re-install under a binding cannot drop the grants pin.
+    let b = w.rule(11, &w.executor);
+    assert_eq!(w.install(1, &and(w.shape()), &b), None);
+    assert_eq!(w.bind(&b), None);
+    assert_eq!(
+        w.install(2, &unpinned, &b),
+        Some(221),
+        "re-install drops the grants pin: 221"
+    );
+
+    // enforce against an unpinned stored predicate refuses 221, even when a
+    // forged venue scope let the re-install skip the check.
+    let c = w.rule(12, &w.executor);
+    assert_eq!(w.install(1, &and(w.shape()), &c), None);
+    assert_eq!(w.bind(&c), None);
+    let forged = w.rule(12, &w.venue);
+    assert_eq!(
+        w.install(2, &unpinned, &forged),
+        None,
+        "venue scope skips pins_own"
+    );
+    let good = [w.call(&w.venue, "submit"), w.call(&w.other, "transfer")];
+    assert_eq!(
+        w.enforce(&w.execute_ctx(&good, 0), &c, true),
+        Outcome::Code(221),
+        "enforce refuses the unpinned stored batch"
+    );
+
+    // Bypass: the grants pin in only one `or` branch does not pin on every path.
+    let one_branch = or(alloc::vec![and(w.shape()), and(w.shape()[..7].to_vec())]);
+    assert_eq!(
+        w.bind_fresh(300, &one_branch),
+        Some(221),
+        "grants pinned in one or branch only is refused"
+    );
+
+    // Residual: a constant ABOVE the real count still binds (the interpreter
+    // only requires a non-negative `eq`), so the author must pin the exact
+    // number of contexts the batch raises. Documented in the crate README.
+    let mut larger = w.shape()[..7].to_vec();
+    larger.push(grants_is(99));
+    assert_eq!(
+        w.bind_fresh(301, &and(larger)),
+        None,
+        "a larger grants constant still binds (residual)"
     );
 }
 

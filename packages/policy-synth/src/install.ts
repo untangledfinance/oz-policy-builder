@@ -515,9 +515,16 @@ const smallInt = (v: Val): bigint | undefined =>
  *  interpreter's `pins_own` decides it (221 otherwise, at `bind_executor`, at a re-install under the
  *  binding and at `enforce`): the executor's `run` (`eq(call_fn, run)` on every path), or an
  *  IMMEDIATE `execute` of a fixed batch shape: on every path `eq(call_fn, execute)`, the wait
- *  (argument 2) `eq` 0, the number of calls `eq` a constant n <= m, where m counts the leading
- *  calls whose `target` and `function_name` are both an `eq` or an all-constant `in`. A quantifier
- *  pins nothing. A predicate the package cannot read pins nothing. */
+ *  (argument 2) `eq` 0, the number of grants (argument 1, `call_arg_len(1)`) `eq` a non-negative
+ *  constant (an `in` or a bound does not pin it: the batch's grants must be as many as the author
+ *  counted), the number of calls `eq` a constant n <= m, where m counts the leading calls whose
+ *  `target` and `function_name` are both an `eq` or an all-constant `in`. A quantifier pins
+ *  nothing. A predicate the package cannot read pins nothing.
+ *
+ *  What the grants pin does and does not do: it fixes how many grants the batch carries, not what
+ *  they name. A rule that pins the count to a number larger than the grants the flow needs still
+ *  admits that many contexts, and an `or` pins it only when every branch does. The author pins the
+ *  exact count the flow uses. */
 export function pinsOwn(e: Expr | null | undefined): boolean {
   if (e === null || e === undefined) return false
   const fn = (name: string) =>
@@ -533,6 +540,13 @@ export function pinsOwn(e: Expr | null | undefined): boolean {
     return (l: Val) => pathOf(l) === want
   }
   if (!fn('execute') || !pins(e, at([2]), (v) => smallInt(v) === 0n, false)) return false
+  // The grants count: without it the batch carries any number of grants, and each is a context the
+  // adapter vouches for to this account's policy.
+  const count = (v: Val) => {
+    const n = smallInt(v)
+    return n !== undefined && n >= 0n
+  }
+  if (!pins(e, at([1, true]), count, false)) return false
   let m = 0
   const field = (i: number, key: string) => pins(e, at([0, i, key]), () => true, true)
   while (field(m, 'target') && field(m, 'function_name')) m++
@@ -643,7 +657,7 @@ export const ruleWarnings = (
 
 /** Why a rule scoped to its own executor is refused: it pins neither `run` nor a whole immediate batch. */
 export const EXECUTOR_SELF_RULE = (executor: string) =>
-  `the rule is scoped to its executor ${executor} without pinning, on every branch, call_fn = run or an immediate execute of a fixed batch (call_fn = execute, the wait = 0, the number of calls = n, and the target and function_name of each of those calls): it answers that executor's own requests, so anything wider would approve a batch nobody shaped (the interpreter refuses it, 221)`
+  `the rule is scoped to its executor ${executor} without pinning, on every branch, call_fn = run or an immediate execute of a fixed batch (call_fn = execute, the wait = 0, the number of grants (call_arg_len(1)) = g, the number of calls = n, and the target and function_name of each of those calls): it answers that executor's own requests, so anything wider would approve a batch nobody shaped (the interpreter refuses it, 221)`
 
 /** Why the account itself or the interpreter may not be an executor (the interpreter refuses it,
  *  222, `InvalidExecutor`). An executor is the contract whose grants a bound rule accepts: the

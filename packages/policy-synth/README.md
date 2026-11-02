@@ -217,14 +217,20 @@ batch.
   execution adapter, and a rule scoped to the executor is refused unless its
   predicate pins, on every branch, `call_fn = run` or a whole immediate batch
   (`pinsOwn`, the interpreter's `pins_own`, which refuses anything else with
-  221): `call_fn = execute`, the wait (argument 2) `= 0`, the number of calls
-  `= n`, and the `target` and `function_name` of each of those n calls, each an
-  `eq` or an all-constant `in`. A quantifier pins nothing. An adapter with a gate
+  221): `call_fn = execute`, the wait (argument 2) `= 0`, the number of grants
+  (argument 1, `call_arg_len(1)`) `eq` a non-negative constant, the number of
+  calls `= n`, and the `target` and `function_name` of each of those n calls,
+  each an `eq` or an all-constant `in`. The grants pin takes `eq` only (not `in`
+  or a bound) and, in an `or`, must hold in every branch. It fixes how many
+  grants the batch carries, not what they name, so the author pins the exact
+  count the flow uses: a larger constant still admits that many contexts. A
+  quantifier pins nothing. An adapter with a gate
   never vouches for its own `execute`, so a rule scoped to it must pin `run`.
   With `signers` and `executor`, the rule is keyed and will also need the
   executor's grant.
 - **Writing the batch:** the intent rows `pin` (the wait, each target and
-  function), `count` (the number of calls, and of grants) and `same` (an argument
+  function), `count` (the number of calls, and of grants: a keyless rule
+  scoped to its own executor must carry the grants `count` at `[1]`) and `same` (an argument
   of one call equal to an argument of another, such as the liquidator tied to
   the recipient) write it; `deny` keeps an address off the line's own. The
   binding of the liquidator is a predicate convention the rule's author writes.
