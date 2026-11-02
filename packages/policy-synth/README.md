@@ -286,7 +286,10 @@ batch.
   `review_unsigned` return a warning in `warnings` that starts with `E-38`,
   names the followed rule and its admins (when read), and is worded for the
   executor's kind. A keyed follower, a keyless rule with its own predicate and
-  an inline rule get none.
+  an inline rule get none, but a keyed follower is not unaffected: the followed
+  owner's re-install widens what its agent signers may do. Give it a second
+  policy that holds its own cap (another interpreter instance with an inline
+  cap, or OpenZeppelin's `spending_limit`).
 - **A dedicated no-gate adapter:** keep keyless rules on a no-gate adapter
   that NO other rule can make execute: no rule of any kind may approve its
   `execute` except the keyless rules that pin the whole batch. That includes

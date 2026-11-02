@@ -649,8 +649,10 @@ export const wordLeaks = (rules: ObservedRule[], adapter: string): ObservedRule[
  *  predicate is its only fence, and that predicate is the followed rule's, which that rule's admins
  *  (its master set) can re-install with its account at will, without this account. Through an
  *  adapter with no gate the shape pin (221) holds only target and function, so anyone could then
- *  move funds; through a gated adapter the gate still limits destinations. A keyed follower keeps
- *  its own signers as a fence. Never refused: an issuer governing a borrower's keyless rule this way
+ *  move funds; through a gated adapter the gate still limits destinations. A keyed follower's
+ *  signers still authenticate each call, but the followed predicate bounds what they may do, so a
+ *  re-install of it widens them too: no warning is raised for that, and a second policy holding the
+ *  follower's own cap keeps them capped. Never refused: an issuer governing a borrower's keyless rule this way
  *  is the intended pattern. The finding id stays in the text, so it ties to the threat model.
  *  Without `executor` (the install bytes do not carry it) the adapter is named as the bound one. */
 export function KEYLESS_FOLLOWER(

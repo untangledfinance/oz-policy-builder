@@ -264,18 +264,37 @@ address and build, and custody derives that address from the gate itself.
 > - **Why it is not a bug, and not a contract guard.** This is the intended
 >   issuer-governed-keyless design. The interpreter evaluates one rule at a time
 >   and cannot tell a keyless follower from a keyed one at A's legitimate
->   re-install; refusing it would break the pattern. A **keyed** follower is
->   unaffected: its own signer still authorises every `enforce`.
+>   re-install; refusing it would break the pattern.
+> - **A keyed follower is widened too.** A re-install by A widens EVERY follower
+>   at once, a keyed one included. A keyed follower keeps its own signers as
+>   the authentication of each call, but what those signers may do is A's
+>   predicate: an agent signer of B who is not among B's owners gains whatever
+>   A's new predicate allows, with no action by B and B's stored bytes
+>   unchanged. Only B's owners, who can install any rule through rule 0, are
+>   unaffected. A predicate that carries a `read` also widens through A's
+>   oracle with no re-install at all. Pinning the predicate's hash does not
+>   help, because a follower's install hash commits to the reference, not to
+>   the bytes. To keep a keyed follower's agents inside a cap of B's own, give
+>   the rule a second policy that holds that cap: a second interpreter
+>   instance with an inline cap (the same instance cannot be attached twice,
+>   OpenZeppelin refuses `DuplicatePolicy`, 3009) or OpenZeppelin's
+>   `spending_limit`. Every policy on a rule must permit, so the cap stays B's.
+>   A **keyless** follower cannot carry a second policy (the interpreter
+>   refuses it, 210), so its only fence is A's predicate: follow only a rule
+>   whose admins hold B's trust, or use a keyed rule with its own cap.
 > - **Containment, accepted by the team:** (1) `policy-synth` raises an E-38
 >   warning (not a refusal) whenever a keyless rule follows another rule, at
 >   `install_policy`, `bind_policy` and in the review, naming the followed rule
 >   and its admins (PR #60, release `v5.1.0`); (2) this note and the STRIDE
->   entry. A borrower who wants A to only *tighten* the fence keeps the rule
->   **keyed**.
+>   entry; (3) for a keyed follower, the second policy with B's own cap above.
+>   A borrower who wants A to only *tighten* the fence keeps the rule **keyed**
+>   and gives it that second policy: a keyed rule alone is not enough, because
+>   its agent signers follow A's predicate.
 > - **Ask to the auditor.** Please confirm that live predicate propagation to a
->   keyless follower, with the followed owner able to loosen the fence, is an
->   acceptable trust assumption for the issuer-governed-keyless use, given the
->   warning and that a keyed follower is safe.
+>   follower, with the followed owner able to loosen the fence, is an
+>   acceptable trust assumption for the issuer-governed use, given the warning
+>   (keyless followers) and the second policy that holds a keyed follower's own
+>   cap.
 
 
 **Prime seat:** one seat serves one account and one owner key, both fixed at

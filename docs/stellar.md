@@ -801,7 +801,24 @@ to a `policy-synth` warning that names the followed rule and its admins (release
 `v5.0.0`), and is documented as finding E-38 in
 [the audit overview](./audit-overview.md) and
 [the threat model](../evidence/stride-threat-model.md) (section 6.8, with the
-on-chain proof in 7.2). A **keyed** follower is unaffected.
+on-chain proof in 7.2).
+
+**A keyed follower is widened too.** A re-install by the followed owner widens
+every follower at once, a keyed follower's agent signers included: the
+follower's signers authenticate each call, but what they may do is the followed
+predicate, so an agent signer who is not among the follower's owners gains
+whatever the new predicate allows, with no action by the follower and its
+stored bytes unchanged. Only the follower's owners, who can install any rule
+through rule 0, are unaffected. A predicate that carries a `read` also widens
+through the followed owner's oracle with no re-install, and pinning the
+predicate's hash does not help, because the follower's install hash commits to
+the reference. To keep a keyed follower's agents inside a cap of the
+follower's own, attach a second policy that holds that cap: another interpreter
+instance with an inline cap, or OpenZeppelin's `spending_limit`. Every policy on
+a rule must permit, so the cap stays the follower's. The same instance cannot be
+attached twice (OpenZeppelin refuses it, `DuplicatePolicy`, 3009). A keyless
+follower cannot carry a second policy (the interpreter refuses it, 210), so its
+only fence is the followed predicate.
 
 Enforcement happens on chain. The builder checks a rule before it is signed:
 

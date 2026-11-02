@@ -98,7 +98,12 @@ flagged by a `policy-synth` warning (release `v5.1.0`, which adds only that
 warning — the contracts are unchanged from `v5.0.0`) and documented as finding
 E-38 in [docs/audit-overview.md](./docs/audit-overview.md) and the
 [threat model](./evidence/stride-threat-model.md) (section 6.8, with the
-testnet proof in 7.2). A **keyed** follower is unaffected.
+testnet proof in 7.2). A **keyed** follower is not unaffected: a re-install by
+the followed owner widens every follower, its agent signers included (the
+follower's owners are the only ones it cannot reach). Attach a second policy that
+holds the follower's own cap (another interpreter instance with an inline cap, or
+OpenZeppelin's `spending_limit`) to keep those signers capped; a keyless follower
+cannot carry a second policy, so its only fence is the followed predicate.
 
 ## What the tools check
 
