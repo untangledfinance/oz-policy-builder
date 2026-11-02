@@ -6,7 +6,8 @@
 //!
 //! The deployed OZ account hashes `sha256(payload || XDR(rule ids))`. Each proof carries that preimage, and the seat
 //! reads the rule ids from it: `External(seat, account id)` in `verify` serves rule 0 only, `Delegated(seat)` in
-//! `__check_auth` serves rules other than 0 only, and only for the pinned account's `__check_auth` frame.
+//! `__check_auth` serves rules other than 0 only, and only when the first context targets the pinned account
+//! with the digest as its first argument; it reads no function name and no later context.
 //!
 //! Grant: `sha256("prime-seat-grant" || network id || account || seat || key || be64 start || be64 end
 //! || be32 generation when that generation is above zero)`, 32-byte contract ids, unix seconds. The owner
