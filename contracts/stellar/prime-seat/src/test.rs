@@ -48,15 +48,34 @@ fn ghash(
     s: u64,
     n: u64,
 ) -> [u8; 32] {
-    sha(&[
-        b"prime-seat-grant",
+    ghash_gen(net, account, seat, key, s, n, 0)
+}
+
+fn ghash_gen(
+    net: &[u8; 32],
+    account: &[u8; 32],
+    seat: &[u8; 32],
+    key: &[u8; 32],
+    s: u64,
+    n: u64,
+    gen: u32,
+) -> [u8; 32] {
+    let mut h = Sha256::new();
+    for p in [
+        &b"prime-seat-grant"[..],
         net,
         account,
         seat,
         key,
         &s.to_be_bytes(),
         &n.to_be_bytes(),
-    ])
+    ] {
+        h.update(p);
+    }
+    if gen > 0 {
+        h.update(gen.to_be_bytes());
+    }
+    h.finalize().into()
 }
 
 struct T {
@@ -126,6 +145,36 @@ impl T {
 
     fn grant(&self, key: &SigningKey, start: u64, end: u64) -> R {
         self.grant_by(key, start, end, &self.owner, &self.owner)
+    }
+
+    /// The grant hash including a non-zero per-key generation.
+    fn hash_gen(&self, key: &SigningKey, start: u64, end: u64, gen: u32) -> [u8; 32] {
+        ghash_gen(
+            &NET,
+            &raw(&self.e, &self.account),
+            &raw(&self.e, &self.seat),
+            &pk(key),
+            start,
+            end,
+            gen,
+        )
+    }
+
+    /// grant(...) with the owner signing over `gen` (the generation the next message must commit to).
+    fn grant_gen(&self, key: &SigningKey, start: u64, end: u64, gen: u32) -> R {
+        let sig = self
+            .owner
+            .sign(&self.hash_gen(key, start, end, gen))
+            .to_bytes();
+        self.client
+            .try_grant(
+                &bn(&self.e, &pk(key)),
+                &start,
+                &end,
+                &bn(&self.e, &pk(&self.owner)),
+                &bn(&self.e, &sig),
+            )
+            .map(|x| x.unwrap())
     }
 
     /// A session for `key` from two minutes ago until `NOW + 3600`.
@@ -253,6 +302,11 @@ impl T {
 
 fn is_crypto(r: &R) -> bool {
     matches!(r, Err(Ok(e)) if e.is_type(soroban_sdk::xdr::ScErrorType::Crypto))
+}
+
+/// A grant that failed its ed25519 signature check: an error other than the contract refusal #1.
+fn bad_sig(r: &R) -> bool {
+    matches!(r, Err(Ok(e)) if *e != REFUSED)
 }
 
 #[test]
@@ -723,6 +777,60 @@ fn a_delegated_use_of_a_dead_key_is_refused() {
     let t = setup();
     let k = sk(9);
     assert_eq!(t.check(&t.seat, &k, &k, &[1]), Err(Ok(REFUSED)));
+}
+
+// F-2026-20252: after the end entry expires and the owner re-grants the same key under the new
+// generation, an old end signed under the earlier generation can no longer revoke the live key.
+#[test]
+fn an_old_end_cannot_revoke_a_regranted_key_after_expiry() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    // Capture the owner-signed end at generation 0 (anyone can resubmit it later).
+    let old_end = t.owner.sign(&t.hash(&k, 0, 0)).to_bytes();
+    // End K, bumping the generation to 1. While the 0 entry lives, the same key cannot be re-granted.
+    assert_eq!(t.grant(&k, 0, 0), Ok(()));
+    assert_eq!(t.grant(&k, NOW - 120, NOW + 3600), Err(Ok(REFUSED)));
+    // ~180 days: advance past the temporary entry's max TTL so it is evicted.
+    let max = t.e.as_contract(&t.seat, || t.e.storage().max_ttl());
+    let seq = t.e.ledger().sequence();
+    t.e.ledger().set_sequence_number(seq + max + 1);
+    // A grant signed under generation 0 is now refused; the owner must sign under generation 1.
+    assert!(bad_sig(&t.grant(&k, NOW - 120, NOW + 3600)));
+    assert_eq!(t.grant_gen(&k, NOW - 120, NOW + 3600, 1), Ok(()));
+    let h = [5u8; 32];
+    assert_eq!(t.verify(&t.kd(), &t.proof(&k, &k, &h), &h), Ok(true));
+    // The attacker replays the OLD end (generation 0). On main it killed the re-granted key; now
+    // the generation mismatch makes the signature fail and the key stays live.
+    let replay = t
+        .client
+        .try_grant(
+            &bn(&t.e, &pk(&k)),
+            &0u64,
+            &0u64,
+            &bn(&t.e, &pk(&t.owner)),
+            &bn(&t.e, &old_end),
+        )
+        .map(|x| x.unwrap());
+    assert!(bad_sig(&replay), "{replay:?}");
+    assert_eq!(t.verify(&t.kd(), &t.proof(&k, &k, &h), &h), Ok(true));
+    assert_eq!(t.check(&t.seat, &k, &k, &[1]), Ok(()));
+}
+
+// F-2026-20252: a resubmitted end no longer verifies once the first end bumped the generation.
+#[test]
+fn a_resubmitted_end_no_longer_verifies() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    // First end, generation 0 -> 1. On main the identical end succeeds again and again; now it fails.
+    assert_eq!(t.grant(&k, 0, 0), Ok(()));
+    assert!(bad_sig(&t.grant_by(&k, 0, 0, &t.owner, &t.owner)));
+    assert!(bad_sig(&t.grant_by(&k, 0, 0, &k, &k)));
+    // A correctly re-signed end under generation 1 still works and bumps the generation again.
+    assert_eq!(t.grant_gen(&k, 0, 0, 1), Ok(()));
+    assert!(bad_sig(&t.grant_gen(&k, 0, 0, 1)));
+    assert_eq!(t.grant_gen(&k, 0, 0, 2), Ok(()));
 }
 
 // F-2026-20262: an empty rule-id list satisfied the vacuous `all` in both entry points on main.

@@ -8,9 +8,11 @@
 //! reads the rule ids from it: `External(seat, account id)` in `verify` serves rule 0 only, `Delegated(seat)` in
 //! `__check_auth` serves rules other than 0 only, and only for the pinned account's `__check_auth` frame.
 //!
-//! Grant: `sha256("prime-seat-grant" || network id || account || seat || key || be64 start || be64 end)`, 32-byte
-//! contract ids, unix seconds. The owner signs it; with `end == 0` it is an end, and the key may sign it too.
-//! Every grant entry lives for the maximum TTL; an end stores 0, so a revoked key never returns.
+//! Grant: `sha256("prime-seat-grant" || network id || account || seat || key || be64 start || be64 end
+//! || be32 generation when that generation is above zero)`, 32-byte contract ids, unix seconds. The owner
+//! signs it; with `end == 0` it is an end, and the key may sign it too.
+//! Every grant entry lives for the maximum TTL; an end stores 0 and bumps the key's persistent generation,
+//! so an end signed under an earlier generation cannot revoke a key granted again after the entry expires.
 #![no_std]
 
 use soroban_sdk::xdr::{FromXdr, ToXdr};
@@ -73,7 +75,12 @@ impl PrimeSeat {
         let (account, owner) = cfg(&e);
         let now = e.ledger().timestamp();
         let t = e.storage().temporary();
+        let p = e.storage().persistent();
         let old: Option<u64> = t.get(&key);
+        // Per-key generation in persistent storage. It is never removed, so it survives the ~180-day
+        // eviction of the temporary entry; each end bumps it. An end signed under an earlier generation
+        // no longer verifies, so an old end cannot revoke a key granted again after the entry expired.
+        let generation: u32 = p.get(&key).unwrap_or(0);
         let timely = start <= now && now <= end && end - start <= MAX_GRANT_WINDOW;
         let fresh = old != Some(0) && old < Some(end);
         if (by != owner && (end != 0 || by != key)) || (end != 0 && !(timely && fresh)) {
@@ -86,7 +93,15 @@ impl PrimeSeat {
         m.append(&key.clone().into());
         m.extend_from_array(&start.to_be_bytes());
         m.extend_from_array(&end.to_be_bytes());
+        // Gen 0 keeps the recorded vectors valid: the message is unchanged until the key's first end.
+        if generation > 0 {
+            m.extend_from_array(&generation.to_be_bytes());
+        }
         e.crypto().ed25519_verify(&by, &sha(&e, &m), &sig);
+        if end == 0 {
+            p.set(&key, &(generation + 1));
+            p.extend_ttl(&key, e.storage().max_ttl(), e.storage().max_ttl());
+        }
         t.set(&key, &end);
         t.extend_ttl(&key, e.storage().max_ttl(), e.storage().max_ttl());
         Ok(())

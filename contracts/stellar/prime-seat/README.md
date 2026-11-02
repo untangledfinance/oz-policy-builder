@@ -13,9 +13,9 @@ One seat serves one account. The constructor takes `(account, owner)` and stores
 | `__check_auth(payload, (key, sig, preimage), contexts)` | The `Delegated` signer interface, for rules other than rule 0. A live key signs `sha256(seat ‖ payload)`. The first context must be a call on the pinned account whose first argument is the account's digest. |
 | `batch_canonicalize_key(keys)` | One constant per seat, so the account refuses a second `External` entry for the same seat. |
 
-Grant hash: `sha256("prime-seat-grant" ‖ network id ‖ account ‖ seat ‖ key ‖ be64 start ‖ be64 end)`, with the account, seat and key as raw 32 bytes and times in unix seconds. An end is the same hash with start and end at 0. A unit test checks the hash, and a grant signed over it, against four fixed testnet vectors kept in `src/test.rs`.
+Grant hash: `sha256("prime-seat-grant" ‖ network id ‖ account ‖ seat ‖ key ‖ be64 start ‖ be64 end)`, with the account, seat and key as raw 32 bytes and times in unix seconds. An end is the same hash with start and end at 0. Once a key has been ended at least once, the hash also carries the key's per-key generation as a big-endian u32 appended after `end`; until then the generation is 0 and the hash is unchanged, so the recorded testnet vectors stay valid. A unit test checks the hash, and a grant signed over it, against four fixed testnet vectors kept in `src/test.rs`.
 
-Rules the contract enforces on a grant: `start <= now <= end`, `end - start <= 604,800`, a new end must be later than the stored one, and an ended key gets no new grant while its end entry lives. Every grant entry lives for the maximum TTL (about 180 days), and an end stores 0. Once an end entry expires, a grant the owner signed for that key can be valid again; only the owner signs grants. Every use compares the stored end with `ledger().timestamp()`, because TTL counts ledgers and the window counts seconds. The seat does not extend its own instance or code; the relayer extends them with an `ExtendFootprintTTL` operation.
+Rules the contract enforces on a grant: `start <= now <= end`, `end - start <= 604,800`, a new end must be later than the stored one, and an ended key gets no new grant while its end entry lives. Every grant entry lives for the maximum TTL (about 180 days), and an end stores 0. Each end also increments a per-key generation in persistent storage, which never expires; the grant message commits to it once it is above zero. Once an end entry expires, a grant the owner signed for that key can be valid again, signed over the current generation, and a replayed end signed under the earlier generation can no longer revoke it; only the owner signs grants. Every use compares the stored end with `ledger().timestamp()`, because TTL counts ledgers and the window counts seconds. The seat does not extend its own instance or code; the relayer extends them with an `ExtendFootprintTTL` operation.
 
 ## Which rule a seat may serve
 
@@ -65,7 +65,7 @@ A rule with the interpreter predicate bounds the session on chain. A `CallContra
 
 ## Notes for the relayer
 
-- A grant needs no authorization entry, and when an identical copy is submitted twice, the first to be applied sets the state. The second submitter gets contract error #1. Read the stored end before reporting a failure.
+- A grant needs no authorization entry, and when an identical grant is submitted twice, the first to be applied sets the state and the second submitter gets contract error #1. An end also bumps the key's persistent generation, so a resubmitted end no longer verifies its signature, and a later grant for the key must be signed over the new generation. Read the stored end before reporting a failure.
 - Extend the seat's instance and code TTL with `ExtendFootprintTTL`. A grant does not.
 
 ## Build and checks
