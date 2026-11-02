@@ -653,6 +653,11 @@ pub fn decode(env: &Env, bytes: &Bytes, lim: &Limits) -> Result<Node, DecodeErro
     let mut calls = Vec::new();
     for (l, _) in &all {
         let Leaf::Read(c, f, a, _) = l else { continue };
+        // F-2026-20271: a read target must be a contract address (ScAddress
+        // discriminant byte 7 == 1), not an account. Checked here, at install,
+        // once per read leaf, instead of re-serialising every target on every
+        // `enforce`/`bind_executor` decode.
+        ensure(c.clone().to_xdr(env).get(7) == Some(1))?;
         let fixed: Option<Vec<Val>> = a.iter().map(|l| literal_to_val(l).ok()).collect();
         let key = (c, f, fixed.map(|v| Vals::from_slice(env, &v)));
         if key.2.is_none() || !calls.contains(&key) {
@@ -832,8 +837,13 @@ fn decode_selector_leaf(
                 let ok = matches!(leaf, Leaf::Lit(_) | Leaf::CallPath(_) | Leaf::Now);
                 ensure(ok || matches!(leaf, Leaf::CallContract | Leaf::CallFn)).map(|_| leaf)
             };
+            // F-2026-20271: that the target is a CONTRACT address (not an
+            // account) is an install-only check, done once in `decode` over the
+            // read leaves rather than re-serialising every target on every
+            // `enforce` and `bind_executor` decode. `install` is the only writer
+            // of a stored predicate, so a stored read target is already a
+            // contract.
             let target: Address = expect(env, items, 1)?;
-            ensure(target.clone().to_xdr(env).get(7) == Some(1))?;
             let (f, args) = (expect(env, items, 2)?, each(&expect(env, items, 3)?, arg)?);
             Leaf::Read(target, f, args, steps(4, 0)?)
         }
