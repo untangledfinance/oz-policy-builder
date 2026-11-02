@@ -724,3 +724,75 @@ fn a_delegated_use_of_a_dead_key_is_refused() {
     let k = sk(9);
     assert_eq!(t.check(&t.seat, &k, &k, &[1]), Err(Ok(REFUSED)));
 }
+
+// F-2026-20262: an empty rule-id list satisfied the vacuous `all` in both entry points on main.
+#[test]
+fn an_empty_rule_id_list_is_refused_by_both_entry_points() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    let h = [5u8; 32];
+    // On main both predicates accept the empty list; after the fix both refuse it.
+    let p = t.proof_ids(&k, &k, &h, &[]);
+    assert_eq!(t.verify_ids(&t.kd(), &p, &h, &[]), Ok(false));
+    assert_eq!(t.check(&t.seat, &k, &k, &[]), Err(Ok(REFUSED)));
+    // The split still works for non-empty sets: verify serves all-zero, check serves non-zero.
+    assert_eq!(
+        t.verify_ids(&t.kd(), &t.proof_ids(&k, &k, &h, &[0]), &h, &[0]),
+        Ok(true)
+    );
+    assert_eq!(t.check(&t.seat, &k, &k, &[1]), Ok(()));
+}
+
+// F-2026-20262: a proof shorter than 96 bytes must return false, not trap in the slices.
+#[test]
+fn a_short_proof_returns_false_rather_than_trapping() {
+    let t = setup();
+    let h = Bytes::from_array(&t.e, &[0u8; 32]);
+    // On main a 10-byte and a 95-byte proof trap in proof.slice(..32) / slice(32..96).
+    let short = Bytes::from_slice(&t.e, &[0u8; 10]);
+    assert_eq!(
+        t.client.try_verify(&h, &t.kd(), &short).map(|x| x.unwrap()),
+        Ok(false)
+    );
+    let almost = Bytes::from_slice(&t.e, &[1u8; 95]);
+    assert_eq!(
+        t.client
+            .try_verify(&h, &t.kd(), &almost)
+            .map(|x| x.unwrap()),
+        Ok(false)
+    );
+}
+
+// F-2026-20262: a 96-byte proof carries an empty preimage; `rules` must return None, not slice it.
+#[test]
+fn a_ninety_six_byte_proof_with_no_preimage_is_a_clean_false() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    let h = Bytes::from_array(&t.e, &[0u8; 32]);
+    let mut v = std::vec::Vec::from(pk(&k));
+    v.extend_from_slice(&[0u8; 64]);
+    let p = Bytes::from_slice(&t.e, &v);
+    // On main rules slices an empty preimage at [32..] and traps; after the fix it is a clean false.
+    assert_eq!(
+        t.client.try_verify(&h, &t.kd(), &p).map(|x| x.unwrap()),
+        Ok(false)
+    );
+}
+
+// F-2026-20262: a preimage shorter than 32 bytes reaches __check_auth through the signature argument.
+#[test]
+fn a_short_preimage_in_check_auth_is_refused_not_trapped() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    let payload = [9u8; 32];
+    let pre = std::vec![1u8; 10];
+    let ctx = t.frame(&t.account, &sha(&[&pre]));
+    // On main rules slices the 10-byte preimage at [32..] and traps; after the fix it refuses cleanly.
+    assert_eq!(
+        t.check_raw(&t.seat, &t.seat, &k, &k, payload, pre, &ctx),
+        Err(Ok(REFUSED))
+    );
+}

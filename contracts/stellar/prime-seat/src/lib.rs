@@ -39,7 +39,7 @@ fn sha(e: &Env, m: &Bytes) -> Bytes {
 }
 
 fn rules(e: &Env, pre: &Bytes, digest: &Bytes) -> Option<Vec<u32>> {
-    if sha(e, pre) != *digest {
+    if pre.len() < 32 || sha(e, pre) != *digest {
         return None;
     }
     Vec::from_xdr(e, &pre.slice(32..)).ok()
@@ -95,9 +95,13 @@ impl PrimeSeat {
     /// The `External` signer interface for rule 0. Proof: a session key (32 bytes), its signature (64 bytes), then the
     /// preimage of `hash` (the account's payload and the XDR of its rule ids).
     pub fn verify(e: Env, hash: Bytes, key_data: Bytes, proof: Bytes) -> bool {
+        if proof.len() < 96 {
+            return false;
+        }
         let key = proof.slice(..32).try_into().ok().unwrap();
         let sig = proof.slice(32..96).try_into().ok().unwrap();
-        let rule0 = rules(&e, &proof.slice(96..), &hash).is_some_and(|r| r.iter().all(|i| i == 0));
+        let rule0 = rules(&e, &proof.slice(96..), &hash)
+            .is_some_and(|r| !r.is_empty() && r.iter().all(|i| i == 0));
         key_data == cfg(&e).0 && rule0 && signed(&e, &key, &sig, hash).is_ok()
     }
 
@@ -121,7 +125,8 @@ impl CustomAccountInterface for PrimeSeat {
             return Err(NO);
         };
         let digest = Bytes::try_from_val(&e, &x.args.get(0).ok_or(NO)?).map_err(|_| NO)?;
-        let moved = rules(&e, &p.2, &digest).is_some_and(|r| r.iter().all(|i| i != 0));
+        let moved =
+            rules(&e, &p.2, &digest).is_some_and(|r| !r.is_empty() && r.iter().all(|i| i != 0));
         if id(&e, &x.contract) != cfg(&e).0 || !moved {
             return Err(NO);
         }
