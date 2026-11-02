@@ -96,8 +96,9 @@ pub enum PolicyError {
     /// holding it could never authorise a call, and a master set holding it could
     /// never uninstall or rotate (the rule would be bricked).
     SignerIsInterpreter = 219,
-    /// The deploy-time `Limits` had a field of 0 or above its ceiling; the
-    /// constructor refuses, so no such instance exists.
+    /// The deploy-time `Limits` had a field below its floor or above its
+    /// ceiling (the floors are 1, 4, 256, 2, 1, 2); the constructor refuses, so
+    /// no such instance exists.
     LimitsOutOfRange = 220,
     /// A rule bound to an executor and scoped to that executor whose predicate
     /// pins, on every path, neither `call_fn == run` nor an immediate
@@ -167,7 +168,10 @@ pub const TTL_BUMP_TO: u32 = 518_400;
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct StoredDoc {
-    /// Part of the document lifecycle; requires a fresh interpreter deployment.
+    /// The executor a keyless rule is bound to. Set by `bind_executor` and kept
+    /// across a re-install; cleared only when the whole document is removed by
+    /// `uninstall`. Part of the document lifecycle, written and bumped with the
+    /// rest of the doc.
     pub executor: Option<Address>,
     pub predicate_bytes: Bytes,
     pub nonce: u32,
@@ -177,9 +181,10 @@ pub struct StoredDoc {
     pub master_set: soroban_sdk::Vec<Signer>,
     /// The contract a `CallContract` rule is scoped to, as the last install
     /// was told; none for any other scope. Only `bind_executor` reads it, to
-    /// refuse binding a self-scoped rule whose predicate leaves `run` open. A
-    /// direct install can misstate it, so `enforce` checks the scope of the
-    /// rule the account passes, not this.
+    /// refuse binding a self-scoped rule whose predicate pins neither
+    /// `call_fn == run` nor an immediate `execute` of a fixed batch shape
+    /// (`pins_own`). A direct install can misstate it, so `enforce` checks the
+    /// scope of the rule the account passes, not this.
     pub scope: Option<Address>,
     /// Where the predicate is: `predicate_bytes`, or the rule `(account,
     /// rule_id)` on this interpreter whose predicate this rule follows (then

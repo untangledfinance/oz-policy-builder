@@ -47,13 +47,14 @@ use crate::types::Limits;
 ///       .context.args[i]                              8
 ///
 /// Eight covers all of them with nothing to spare, and the cap matters because
-/// a path is walked per leaf: with `max_leaves` at 200 (the default) the worst case is 1600
-/// walk steps in one evaluation.
+/// a path is walked per leaf: at the `max_leaves` ceiling of 400 the worst case
+/// is 3200 walk steps in one evaluation. (200 is only the test `DEFAULT`, not an
+/// on-chain limit.)
 ///
 /// What eight does NOT reach is the inside of a NESTED sub-invocation, which
 /// starts at eleven. That is deliberate rather than an oversight: the root
 /// signature commits to the whole authorization tree, so nothing can be
-/// appended to it after signing, and the adapter's own `check_auths` walk
+/// appended to it after signing, and the adapter's own `scan_entry` walk
 /// refuses a forbidden target at ANY depth. The predicate does not need to
 /// restate either.
 pub const MAX_PATH_STEPS: u32 = 8;
@@ -173,7 +174,10 @@ pub enum EvalDecision {
 pub enum DenyReason {
     ArgMismatch,
     ContractScope,
-    /// A `scaled` step did not fit `i128`, or its denominator was zero.
+    /// A `scaled` step did not fit `i128`. A zero or non-positive denominator
+    /// cannot reach here: it is refused as MALFORMED_PREDICATE (201) at decode,
+    /// so the only evaluate-time cause is an overflow of `checked_mul`/
+    /// `checked_div`/`checked_add`.
     ArithmeticOverflow,
     UnsupportedNode,
     /// `in` membership failed. Distinct from ArgMismatch so a review card can
@@ -218,8 +222,8 @@ type Memo = Vec<((Address, Symbol, Vals), Option<Val>)>;
 // them again; `decode` (install) and `decode_stored` (enforce) establish them,
 // and `install` is the only writer of a stored predicate.
 //
-//  - `and` and `or` have at least one child; an `in` or `nin` has 1..=32
-//    entries, each a constant; a compare has
+//  - `and` and `or` have at least one child; an `in` or `nin` has between 1 and
+//    `max_in_operands` (ceiling 64) entries, each a constant; a compare has
 //    exactly two leaves; a quantifier has a vec leaf and a body node.
 //  - An ordering compare (`lt`, `lte`, `gt`, `gte`) has no constant that is not a
 //    number on either side, and `scaled` has none as an operand.
