@@ -22,9 +22,11 @@
 //!
 //! A STORED BATCH RUNS UNDER THE PRIME'S "RUN" RULE. `run` asks the Prime to
 //! approve `run(id)`, and the Prime answers through a rule scoped to this
-//! adapter, signed by it, whose predicate permits `run` alone - see `run`.
-//! Without that rule a stored batch cannot run; without its predicate the
-//! rule would let anyone have this adapter approve an immediate `execute`.
+//! adapter: a keyless rule that lists no signer, carries the policy interpreter
+//! as its only policy, is bound to this adapter with `bind_executor` and whose
+//! predicate permits `run` alone - see `run`. Without that rule a stored batch
+//! cannot run; without its predicate the rule would let anyone have this adapter
+//! approve an immediate `execute`.
 //!
 //! WHAT RUNS IS WHAT WAS APPROVED. The batch is stored whole, not hashed, so
 //! whoever runs it names only its number and cannot vary a single argument.
@@ -77,13 +79,13 @@
 //! funds or given an allowance, and a rule on the Prime that this adapter
 //! signs is bounded by its predicate alone.
 //!
-//! NOTHING WAITS. A stored batch runs under `run`, where the adapter is the
-//! one asking the Prime, so the Prime's token rules would have to be signed by
-//! this adapter. Those rules would answer an immediate `execute` too, where the
-//! adapter is also the one asking, and an agent allowed to call `execute`
-//! could move the Prime's funds through them instead of through its own capped
-//! rules; for a G account a stored batch would need its signature again
-//! anyway. So a null adapter takes no `min_wait` and runs every batch at once.
+//! NOTHING WAITS. A stored batch runs under `run`, where the adapter is the one
+//! asking the Prime. The Prime's token rules that answer such a request would
+//! answer an immediate `execute` the same way, where the adapter is also the one
+//! asking, so an agent allowed to call `execute` could move the Prime's funds
+//! through them instead of through its own capped rules; for a G account a stored
+//! batch would need its signature again anyway. So a null adapter takes no
+//! `min_wait` and runs every batch at once.
 //!
 //! Custody's funds stay out of reach: a custody gate pins the address and code
 //! of its one caller, which custody derives from that same gate.
@@ -332,19 +334,19 @@ impl ExecutionAdapter {
     /// when the Prime approved it, so the caller chooses only when, within the
     /// window.
     ///
-    /// THE PRIME APPROVES THE RUN, THROUGH A RULE THIS ADAPTER SIGNS. A venue
-    /// that asks the Prime for authorization mid-batch - Blend's `submit` -
-    /// is answered by a rule whose signer is this adapter, and the smart
-    /// account checks a contract signer with `require_auth_for_args`, which a
-    /// contract passes only when it is the one that asked the Prime. At once,
-    /// `execute` asks, and the venue's request sits inside that approval. Here
-    /// nobody would have asked first, the venue would be asking, and the
-    /// adapter's signature would fail (measured on testnet:
-    /// `Error(Auth, InvalidAction)`). So `run` asks, for `(id)`, and the Prime
-    /// answers it with a rule scoped to this adapter, signed by it, whose
-    /// predicate permits `run` and nothing else. No key signs; any submitter
-    /// can build the entry. The predicate is what keeps that rule from
-    /// approving an immediate `execute` or a `cancel` the same way.
+    /// THE PRIME APPROVES THE RUN, THROUGH A KEYLESS RULE BOUND TO THIS ADAPTER.
+    /// A venue that asks the Prime for authorization mid-batch - Blend's
+    /// `submit` - is answered by a rule scoped to this adapter. On the 0.8.0
+    /// account a rule cannot list this adapter as its own signer (the account
+    /// refuses it, error 3017); instead the rule lists no signer, carries the
+    /// policy interpreter as its only policy and is bound to this adapter with
+    /// `bind_executor`, and the interpreter asks this adapter for its word. At
+    /// once, `execute` asks, and the venue's request sits inside that approval.
+    /// Here nobody asks first, so `run` asks, for `(id)`, and the Prime answers
+    /// it with a rule scoped to this adapter, bound to it as its executor, whose
+    /// predicate permits `run` and nothing else. No key signs; any submitter can
+    /// build the entry. The predicate is what keeps that rule from approving an
+    /// immediate `execute` or a `cancel` the same way.
     pub fn run(e: Env, id: u32) {
         e.storage().instance().extend_ttl(KEEP_BELOW, KEEP_TO);
         // A batch stored before the last rebind is gone: it belonged to the gate
@@ -573,11 +575,18 @@ fn is_plain_object(e: &Env, v: &Val) -> bool {
 
 /// Bytes and strings a callee could read back as an address.
 ///
+/// THE LENGTH ALONE DECIDES, AND A MISMATCH REFUSES THE WHOLE BATCH. Any
+/// argument of 32, 40, 44, 48 or 56 bytes is compared against the encodings of
+/// the allowed addresses, and if it matches none the batch is refused with
+/// `AddressNotAllowed` - even when the bytes are a hash, a pool id or a salt
+/// that only happen to be that long. Such arguments must therefore stay off
+/// the batch unless they spell an allowed address. Data of any
+/// other length cannot denote an address under these conversions and passes.
+///
 /// This COMPARES rather than decodes. Neither conversion has a fallible form
 /// inside a contract, so parsing a value that turned out not to be an address
-/// would trap the whole batch instead of refusing one destination - and a
-/// 32-byte hash is a perfectly ordinary venue argument. Checking how each
-/// allowed address encodes costs the same and cannot trap.
+/// would trap the whole batch instead of refusing one destination. Checking how
+/// each allowed address encodes costs the same and cannot trap.
 ///
 /// Two more spellings can reach an address through a venue that decodes
 /// bytes: the XDR of an address value, which `Address::from_xdr` takes (40
@@ -588,12 +597,11 @@ fn is_plain_object(e: &Env, v: &Val) -> bool {
 /// of an allowed address, which a muxed one never does, and data of 69 bytes
 /// is refused outright because an allowed address is never spelled that way.
 ///
-/// Data of any other length cannot denote an address under these conversions
-/// and passes untouched, so venues that take signatures, memos or identifiers
-/// still work. The length decides WHICH encoding to compare before the loop
-/// starts: checking every encoding for every address cost a third more on a
-/// batch that carries strkeys, for no extra safety, since the others can never
-/// match.
+/// Data of a length other than those five passes untouched, so venues that take
+/// signatures, memos or identifiers of a different size still work. The length
+/// decides WHICH encoding to compare before the loop starts: checking every
+/// encoding for every address cost a third more on a batch that carries
+/// strkeys, for no extra safety, since the others can never match.
 ///
 /// THE LIMIT OF AN ABI-BLIND WALK: a number can carry 32 key bytes. A U256
 /// holding a stranger's key passes, and a venue that turned it back into bytes
