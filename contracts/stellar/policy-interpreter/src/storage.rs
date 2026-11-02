@@ -149,15 +149,18 @@ pub fn load(e: &Env, key: &(Address, u32)) -> StoredDoc {
 // the storage frame back with it, so a deny cannot buy an extension. That is
 // what makes this allow-path-only without an explicit branch.
 
-/// Bump when fewer than this many ledgers of TTL remain.
+/// Bump when this many ledgers of TTL remain, or fewer. The host's
+/// `extend_ttl(threshold, to)` renews the entry when its remaining TTL is at or
+/// below `threshold`, so the bump fires at exactly 100 ledgers left, not only
+/// below 100.
 pub const TTL_BUMP_THRESHOLD: u32 = 100;
 
 /// Bump back up to this many ledgers. Roughly 30 days at Stellar's ~5s close
-/// time (30 * 24 * 60 * 60 / 5 = 518,400). The bump runs only when fewer than
-/// `TTL_BUMP_THRESHOLD` ledgers (about eight minutes) remain, so a permit keeps
-/// the rule alive only if one lands in that last window; a rule authorised less
-/// often archives, and a restore brings it back. An abandoned rule ages out
-/// rather than occupying state rent forever.
+/// time (30 * 24 * 60 * 60 / 5 = 518,400). The bump runs only when
+/// `TTL_BUMP_THRESHOLD` ledgers (about eight minutes) or fewer remain, so a
+/// permit keeps the rule alive only if one lands in that last window; a rule
+/// authorised less often archives, and a restore brings it back. An abandoned
+/// rule ages out rather than occupying state rent forever.
 pub const TTL_BUMP_TO: u32 = 518_400;
 
 // ---- stored doc -----
