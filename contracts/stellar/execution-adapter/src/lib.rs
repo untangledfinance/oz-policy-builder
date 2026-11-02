@@ -395,16 +395,33 @@ fn check(e: &Env, prime: &Address, calls: &Vec<Call>, grants: &Vec<InvokerContra
 /// names is the caller's choice and costs nothing: only a contract whose
 /// `enforce` asks for this adapter's approval of this Prime can use it, which
 /// is the Prime's policy, with a rule its admins bound to this adapter.
+///
+/// IT NEVER VOUCHES FOR ANOTHER EXECUTE OR RUN. The followed context - the
+/// pair the Prime's policy is asked to approve - must not itself be another
+/// contract's `execute` or `run`. A second no-gate adapter of the same Prime
+/// vouches for any `enforce(prime, context)` word, so without this a rule
+/// scoped to adapter N but run through a second adapter N2 would have N2 vouch
+/// for N's `execute` and skip N's own batch pin. The check is on the name, so
+/// it refuses either name whatever contract carries it; a venue function that
+/// merely happens to be called `execute` or `run` is refused too, which costs
+/// nothing a null adapter needs.
 fn vouched(e: &Env, prime: &Address, entry: &InvokerContractAuthEntry) {
     let InvokerContractAuthEntry::Contract(c) = entry else {
         panic_with_error!(e, E::Uncheckable)
     };
     let args = &c.context.args;
     let account = args.get(0).map(|a| Address::try_from_val(e, &a));
+    let followed_ok = match args.get(1).map(|v| Context::try_from_val(e, &v)) {
+        Some(Ok(Context::Contract(cc))) => {
+            cc.fn_name != symbol_short!("execute") && cc.fn_name != symbol_short!("run")
+        }
+        _ => true,
+    };
     let ok = c.context.fn_name == symbol_short!("enforce")
         && c.sub_invocations.is_empty()
         && args.len() == 2
-        && account == Some(Ok(prime.clone()));
+        && account == Some(Ok(prime.clone()))
+        && followed_ok;
     if !ok {
         panic_with_error!(e, E::Uncheckable);
     }

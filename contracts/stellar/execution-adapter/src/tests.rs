@@ -1231,6 +1231,34 @@ mod null_gate {
         assert_eq!(paid(&n, &n.stranger), 100);
     }
 
+    /// F-2026-20246: a word whose followed context is another contract's
+    /// `execute` or `run` is refused. A second no-gate adapter vouches for any
+    /// `enforce(prime, context)` word, so without this a rule scoped to one
+    /// adapter could be run through a second and skip its own batch pin. Tested
+    /// alone and behind a word that would otherwise pass, for both names.
+    #[test]
+    fn it_refuses_a_word_following_another_execute_or_run() {
+        let n = null_world();
+        let other = Address::generate(&n.e);
+        let batch = Vec::from_array(&n.e, [pay(&n, n.stranger.to_val())]);
+        for f in ["execute", "run"] {
+            let ctx = soroban_sdk::auth::Context::Contract(soroban_sdk::auth::ContractContext {
+                contract: other.clone(),
+                fn_name: Symbol::new(&n.e, f),
+                args: Vec::new(&n.e),
+            });
+            let args = (n.prime.clone(), ctx).into_val(&n.e);
+            let g = word(&n, &n.hello, "enforce", args, Vec::new(&n.e));
+            for words in [
+                Vec::from_array(&n.e, [g.clone()]),
+                Vec::from_array(&n.e, [enforce_word(&n, &n.prime), g.clone()]),
+            ] {
+                contract_error(c(&n).try_execute(&batch, &words, &0), E::Uncheckable);
+            }
+        }
+        assert_eq!(paid(&n, &n.stranger), 0);
+    }
+
     /// Anything that is not exactly that word is refused, before the Prime is
     /// asked: another account, another function, a nested invocation, another
     /// number of arguments, a first argument that is no address, a deploy.
