@@ -638,6 +638,8 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
     o: {
       admin?: boolean
       to?: string
+      /** The arguments of bind_executor, in place of (rule, executor). */
+      args?: xdr.ScVal[]
       extra?: (a: xdr.SorobanAuthorizationEntry) => xdr.SorobanAuthorizationEntry[]
     } = {}
   ) =>
@@ -645,7 +647,7 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
       const ic = callArgs(env)
       ic.contractAddress(new Address(o.to ?? INTERP).toScAddress())
       ic.functionName('bind_executor')
-      ic.args([toScVal([ACCOUNT, 4]), toScVal(ADAPTER)])
+      ic.args(o.args ?? [toScVal([ACCOUNT, 4]), toScVal(ADAPTER)])
       const host = opOf(env)
       const [acct, check] = host.auth()
       if (!acct || !check) throw new Error('no entries')
@@ -693,6 +695,24 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
       contracts: { [ADAPTER]: 'contract' },
     })
     expect(plain.problems.join('\n')).toMatch(/not an execution adapter/)
+  })
+
+  it('an executor that is the account or the interpreter is a problem (222)', async () => {
+    for (const [who, text] of [
+      [ACCOUNT, /account itself.*222/],
+      [INTERP, /interpreter itself.*222/],
+    ] as const) {
+      const r = reviewUnsigned({
+        network: 'testnet',
+        xdr: await binding({
+          args: [toScVal([ACCOUNT, 4]), toScVal(who)],
+        }),
+        smartAccount: ACCOUNT,
+        contracts: { [who]: 'null-gate adapter' as const },
+      })
+      expect(r.signable).toBe(false)
+      expect(r.problems.join('\n')).toMatch(text)
+    }
   })
 
   it('a binding carries exactly one source-as-admin entry: a second, or one for another call, is a problem (M-2)', async () => {

@@ -367,6 +367,30 @@ describe('planBind: the binding of a rule to an executor', () => {
     )
   })
 
+  it('refuses the account or the interpreter as the executor, as the interpreter does (222)', async () => {
+    const code = 'BIND_BUILD_FAILED'
+    await refused(
+      planBind({ ...i, executor: ACCOUNT }, INTERP, bindChain(observed())),
+      code,
+      /account itself.*222/
+    )
+    await refused(
+      planBind({ ...i, executor: INTERP }, INTERP, bindChain(observed())),
+      code,
+      /interpreter itself.*222/
+    )
+    await refused(
+      planInstall({ ...input, executor: ACCOUNT }, rule, chain({ [ACCOUNT]: 'null-gate adapter' })),
+      'INSTALL_BUILD_FAILED',
+      /account itself.*222/
+    )
+    await refused(
+      planInstall({ ...input, executor: INTERP }, rule, chain({ [INTERP]: 'null-gate adapter' })),
+      'INSTALL_BUILD_FAILED',
+      /interpreter itself.*222/
+    )
+  })
+
   it('E-36: bound to a no-gate adapter, refused while a keyed rule scoped to it could vouch', async () => {
     const code = 'BIND_BUILD_FAILED'
     const leaky = observed({

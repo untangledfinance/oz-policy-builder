@@ -501,6 +501,59 @@ fn executor_binding_requires_account_and_admin() {
     assert_eq!(doc.executor, Some(executor));
 }
 
+/// F-2026-20242: a rule may be bound only to an execution adapter. Binding to
+/// the smart account itself or to this interpreter is refused with
+/// InvalidExecutor (222). The account case is an escalation: a
+/// venue-scoped keyless rule bound to the account never reaches `pins_own`, and
+/// `enforce` would then satisfy the executor's approval with the account's own
+/// authorisation, permitting with no grant and no signer.
+#[test]
+fn binding_to_the_account_or_the_interpreter_is_refused_222() {
+    let s = setup();
+    let client = PolicyInterpreterClient::new(&s.env, &s.contract_id);
+    let admins = soroban_sdk::vec![&s.env, delegated(&s.admin)];
+    let operators = soroban_sdk::vec![&s.env, delegated(&s.operator)];
+    s.env.mock_all_auths();
+
+    let invalid = Some(Ok(soroban_sdk::Error::from_contract_error(222)));
+    // Bind to the smart account itself.
+    let r1 = make_rule(&s.env, 1, &s.venue, operators.clone());
+    client.install(
+        &make_params(&s.env, 1, admins.clone()),
+        &r1,
+        &s.smart_account,
+    );
+    let k1 = (s.smart_account.clone(), r1.id);
+    assert_eq!(
+        client.try_bind_executor(&k1, &s.smart_account).err(),
+        invalid,
+        "the account is refused as executor"
+    );
+    // Bind to this interpreter.
+    let r2 = make_rule(&s.env, 2, &s.venue, operators.clone());
+    client.install(
+        &make_params(&s.env, 1, admins.clone()),
+        &r2,
+        &s.smart_account,
+    );
+    let k2 = (s.smart_account.clone(), r2.id);
+    assert_eq!(
+        client.try_bind_executor(&k2, &s.contract_id).err(),
+        invalid,
+        "the interpreter is refused as executor"
+    );
+    // A real adapter still binds.
+    let r3 = make_rule(&s.env, 3, &s.venue, operators);
+    client.install(&make_params(&s.env, 1, admins), &r3, &s.smart_account);
+    let k3 = (s.smart_account.clone(), r3.id);
+    let adapter = Address::generate(&s.env);
+    client.bind_executor(&k3, &adapter);
+    let doc: policy_interpreter::StoredDoc = s.env.as_contract(&s.contract_id, || {
+        s.env.storage().persistent().get(&k3).unwrap()
+    });
+    assert_eq!(doc.executor, Some(adapter));
+}
+
 #[test]
 fn executor_binding_survives_reinstall_and_is_removed_with_document() {
     let s = setup();

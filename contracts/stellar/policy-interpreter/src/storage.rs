@@ -109,6 +109,15 @@ pub enum PolicyError {
     /// `bind_executor`, by a re-install under a binding, and by `enforce`
     /// against the rule the account itself passes.
     RunNotPinned = 221,
+    /// `bind_executor` was asked to bind a rule to the smart account itself or
+    /// to this interpreter. A rule bound to its own account never reaches
+    /// `pins_own` (its scope is a venue, not the account), so the grants pin and
+    /// the batch-shape pin are both skipped, and `enforce` would then satisfy
+    /// the executor's approval with the account's own authorisation, letting a
+    /// keyless rule permit with no grant. Binding to the interpreter fails
+    /// closed until rebound. Only an execution adapter may be bound. Refused at
+    /// `bind_executor`.
+    InvalidExecutor = 222,
 }
 
 // ---- deny -----

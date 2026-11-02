@@ -48,6 +48,7 @@ import { messageOf, Refusal } from './envelope.ts'
 import {
   checkAuthArg,
   executorProblem,
+  invalidExecutor,
   isAddressEntry,
   keyedSafeOnNoGate,
   ruleWarnings,
@@ -466,6 +467,8 @@ export function reviewUnsigned(i: {
           : `no interpreter is pinned for ${network}, so ${call.contract} cannot be checked from the bytes`
       )
     const kind = i.contracts?.[bind.executor]
+    const invalid = invalidExecutor(bind.executor, account, call.contract)
+    if (invalid) flag(invalid)
     const problem =
       kind === undefined
         ? `executor ${bind.executor}: what it is, and so what it will vouch for, is not in the bytes; review with readContracts`

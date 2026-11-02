@@ -176,6 +176,17 @@ impl PolicyInterpreter {
         rule.0.require_auth();
         let mut doc = load(e, &rule);
         require_master(e, &doc.master_set);
+        // Only an execution adapter may be bound. The smart account and this
+        // interpreter are refused: a rule bound to its own account is scoped to
+        // a venue, so it never reaches `pins_own` (the grants and batch-shape
+        // pins are skipped), and `enforce` would meet the executor's approval
+        // with the account's own authorisation; a rule bound to the interpreter
+        // can never be authorised and would only fail closed.
+        deny_unless(
+            e,
+            executor != rule.0 && executor != e.current_contract_address(),
+            E::InvalidExecutor,
+        );
         if doc.scope.as_ref() == Some(&executor) {
             let lim = storage::load_limits(e);
             let bytes = predicate(e, &doc.source, &doc.predicate_bytes);

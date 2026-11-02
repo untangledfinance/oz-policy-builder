@@ -230,7 +230,8 @@ batch.
   binding of the liquidator is a predicate convention the rule's author writes.
   The interpreter guards only the shape.
 - **Bind:** `bind_policy` builds `bind_executor` once the rule is on the account
-  (the install transaction returns its id). It reads the rule with its stored
+  (the install transaction returns its id). It refuses an executor that is the account
+  or the interpreter (the interpreter's 222). It reads the rule with its stored
   predicate, executor and admins, and refuses when the rule is not policed by
   the interpreter, when its predicate cannot be read, when the executor is not
   an execution adapter or the scope-to-executor shape above does not hold, or

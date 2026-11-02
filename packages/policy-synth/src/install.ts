@@ -645,6 +645,25 @@ export const ruleWarnings = (
 export const EXECUTOR_SELF_RULE = (executor: string) =>
   `the rule is scoped to its executor ${executor} without pinning, on every branch, call_fn = run or an immediate execute of a fixed batch (call_fn = execute, the wait = 0, the number of calls = n, and the target and function_name of each of those calls): it answers that executor's own requests, so anything wider would approve a batch nobody shaped (the interpreter refuses it, 221)`
 
+/** Why the account itself or the interpreter may not be an executor (the interpreter refuses it,
+ *  222, `InvalidExecutor`). An executor is the contract whose grants a bound rule accepts: the
+ *  account (which calls the interpreter on every rule check) or the interpreter itself would make
+ *  its own calls count as that grant. */
+export const INVALID_EXECUTOR = (executor: string, what: 'account' | 'interpreter') =>
+  `executor ${executor} is the ${what} itself: its own calls would stand in for the grant of an execution adapter, and the interpreter refuses it (222). Bind a rule to an execution adapter`
+
+/** The refusal for an executor that is the account or the interpreter, or undefined. */
+export const invalidExecutor = (
+  executor: string,
+  account: string,
+  interpreter: string
+): string | undefined =>
+  executor === account
+    ? INVALID_EXECUTOR(executor, 'account')
+    : executor === interpreter
+      ? INVALID_EXECUTOR(executor, 'interpreter')
+      : undefined
+
 /** Why a rule may not be bound to `executor`, from what it is on the ledger: only an execution
  *  adapter hands out the grant a bound rule needs, and a gated adapter never vouches for its own
  *  `execute`, so a rule scoped to it that pins an immediate batch (and not `run`) would never permit.
@@ -783,6 +802,9 @@ export async function planBind(
   chain: BindChain
 ) {
   const no = (m: string) => new Refusal('BIND_BUILD_FAILED', m)
+  // the interpreter refuses the account or itself as an executor (222).
+  const invalid = invalidExecutor(i.executor, i.smartAccount, interpreter)
+  if (invalid) throw no(invalid)
   const [rule, kind, live, built, all] = await Promise.allSettled([
     chain.readRule(i.ruleId),
     chain.kind(i.executor),
@@ -960,6 +982,10 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     throw no(
       'the rule names no signer, so it would govern no key; a keyless rule names the `executor` it will be bound to'
     )
+  if (i.executor) {
+    const invalid = invalidExecutor(i.executor, i.smartAccount, interpreter)
+    if (invalid) throw no(invalid)
+  }
   // Scoped to its own executor, a rule answers the executor's own requests: the interpreter binds
   // it only if it pins `run` or a whole immediate batch (221), and it is refused here first.
   if (i.executor === rule.contract && !pinsOwn(rule.expr)) throw no(EXECUTOR_SELF_RULE(i.executor))
