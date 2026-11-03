@@ -2,7 +2,7 @@
 
 The Prime seat (crate `prime-seat`) is an owner's seat on one Prime Account on Stellar, and that owner's session keys. The seat owner is an ed25519 key. Its holder must produce a raw ed25519 signature over the 32-byte grant hash. In the reference integration a NEAR-routed MPC holds the key; any signer that can raw-sign that hash, such as a server-held keypair or a custody service configured for raw ed25519 signing, can serve. Interactive wallets that sign only transactions or prefixed messages produce signatures the seat refuses. The seat verifies only ed25519 signatures. The owner key signs only grants and ends, and the seat votes and acts through a session key that the owner granted, for at most 7 days.
 
-One seat serves one account. The constructor takes `(account, owner)` and stores the account's 32-byte contract id and the owner key. The app deploys every seat first, reads back the stored account and owner against the key it derived offline, and only then creates the account.
+One seat serves one account. The constructor takes `(account, owner)` and stores the account's 32-byte contract id and the owner key. The client application deploys every seat first, reads back the stored account and owner against the key it derived offline, and only then creates the account.
 
 ## Interface
 
@@ -35,10 +35,10 @@ Rule 0 holds each native G account as `Delegated(G)` and each seat as `External(
 
 | Policy | Install parameter |
 |---|---|
-| `simple_threshold` | `threshold` = M, the approvals the app shows |
+| `simple_threshold` | `threshold` = M, the approvals the client application shows |
 | `weighted_threshold` | native weight K, seat weight 1, `threshold` K, where K is the number of seats plus one |
 
-Invariants the app checks on read-back:
+Invariants the client application checks on read-back:
 
 - Every `Delegated` entry in rule 0 is a G account address. Rule 0 holds no `Delegated` contract address. OpenZeppelin checks duplicates for `Delegated` and `External` apart, so `Delegated(seat)` can sit beside `External(seat)`. The seat refuses the `Delegated` copy in rule 0, and the read-back refuses the layout too.
 - Every seat appears once, as `External(seat, account id)`.
@@ -59,7 +59,7 @@ Refuse and flag everything else on install and on read-back. In particular:
 
 - Bounded rules are `CallContract`-scoped only. The interpreter refuses `Default` scope at install.
 - A rule scoped to `CallContract(SIMPLE)` or `CallContract(WEIGHTED)` that lists a seat is dangerous. The threshold policies need only the account's authorization to change a threshold or a weight, so a session could lower rule 0's threshold and then hold rule 0.
-- The chain still allows `Delegated(seat)` in a rule with no policy. The seat sees only the account's own `__check_auth` frame, never the call being authorized, so it cannot limit what such a rule reaches (residual R7). Installing the rule takes a decision that carries a native signature, and the app must refuse to build it.
+- The chain still allows `Delegated(seat)` in a rule with no policy. The seat sees only the account's own `__check_auth` frame, never the call being authorized, so it cannot limit what such a rule reaches (residual R7). Installing the rule takes a decision that carries a native signature, and the client application must refuse to build it.
 
 A rule with the interpreter predicate bounds the session on chain. A `CallContract(XLM)` rule with a transfer-only predicate refused an account admin call in the testnet runs.
 

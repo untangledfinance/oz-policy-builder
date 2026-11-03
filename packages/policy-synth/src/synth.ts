@@ -192,7 +192,7 @@ export function unbounded(intent: Intent): Synthesis['ambiguities'] {
 /** The least a `scaled` slippage floor's ratio (num/den) may be before it stops being a floor: a
  *  ratio below this admits an output far under what was put in (the degenerate 1/10^18 the audit
  *  found). The threshold exists only to reject such a near-zero floor, so it sits at one in a
- *  million (1/10^6): low enough to leave an honest floor on a swap between very different-valued
+ *  million (1/10^6): low enough to leave a legitimate floor on a swap between very different-valued
  *  assets alone (a 1/1000 ratio is a real floor), while still catching the degenerate case. It
  *  stays an ask, not a block: a ratio below it raises the waivable slippage question and the review
  *  card shows the actual floor (SYNTH-CORE-02). */

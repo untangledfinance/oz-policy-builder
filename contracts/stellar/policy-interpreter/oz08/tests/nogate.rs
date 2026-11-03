@@ -345,7 +345,7 @@ impl World {
         ])
     }
 
-    /// The liquidate rule's predicate: PayFi's "Liquidation by anyone" shape.
+    /// The liquidate rule's predicate: the keyless "liquidation by anyone" shape.
     fn liquidate(&self) -> ScVal {
         let (paid, payer) = (at_arg(0, 2), at_arg(0, 0));
         let debt = self.read("debt", alloc::vec![self.a(&self.account)]);

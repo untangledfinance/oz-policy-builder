@@ -87,7 +87,7 @@ on testnet are 0.14M for a SAC `balance`, 0.76M for a Reflector `lastprice` and
 **Read targets must be kept alive:** A transaction that reads an archived contract (its
 instance, its code, or an entry the view touches) restores it, and the restore counts
 toward the transaction's read and write limits: on testnet, three views of two archived
-OctoLend contracts needed 151 KB of write against the 132 KB limit, so the enforce could
+lending-market contracts needed 151 KB of write against the 132 KB limit, so the enforce could
 not be submitted at all. Put every read target (and what its view reads) under the same
 keep-alive as the rule. `worst_case.rs` assumes live targets and says so.
 
@@ -344,7 +344,7 @@ one, without a rule per length.
 
 - **Cost:** Measured in the Soroban host with the real wasm (CPU instructions of
   one `enforce`; the limits are 400M instructions and 41,943,040 bytes of
-  memory per transaction). The four-check PayFi rule: 4.49M, 6.18 MB (4 reads).
+  memory per transaction). The four-check reference rule: 4.49M, 6.18 MB (4 reads).
   A 32-element payout (the rule below, 195 leaves, at the `DECODE_LIMITS` values): 4.6M. A six-leaf body over
   32 elements whose fields sit eight steps deep: 8.3M. A body that also makes
   one `read` (made once for all 32): 5.1M and one external call. Install
@@ -538,7 +538,7 @@ Read this before writing a rule with a `read`.
   differ only in `path` are one call, and `enforce` makes it once and reuses the
   result for every leaf (a failed call is remembered too, so each leaf that
   uses it denies). So one price feed read for a floor, an LTV and a freshness
-  bound is one call, and the full PayFi set (feed, debt, collateral, custody
+  bound is one call, and the full reference set (feed, debt, collateral, custody
   balance) is four. A read with ANY call-derived argument (a call path,
   `call_contract`, `call_fn`, `now`) counts as its own call at decode, even if
   two such leaves would resolve to the same arguments: decode cannot know
@@ -583,14 +583,14 @@ Read this before writing a rule with a `read`.
   memory whatever the target's size, and the memo is per `enforce`, so the same read in
   two contexts runs twice. The Limits section has the measured per-transaction budget
   for `max_reads` reads: at the ceiling (8) a `__check_auth` holds **2 contexts inside the
-  80% margin, 3 at all, and breaks at 4**. The four-read PayFi rule is smaller: about
+  80% margin, 3 at all, and breaks at 4**. The four-read reference rule is smaller: about
   6.2 MB per context in an earlier measurement through the OpenZeppelin account (7.5 MB
   for one context, 6.2 MB for each further one). Plan the contexts of one transaction
   from the rule's reads: roughly `33 MB / (1.4 MB x reads + 1.3 MB)` contexts, fewer when the
   authorised calls themselves run in the same budget (an adapter `execute` batch whose
   inner calls each hit a read rule). The transaction aborts with
   `Budget ExceededLimit`, so it fails closed; a batch that passes with two calls can fail
-  with six. CPU is not the limit: the PayFi rule is about 5.5M of the 400M instruction
+  with six. CPU is not the limit: the reference rule is about 5.5M of the 400M instruction
   budget (1.4%).
 - **Read targets must stay live:** See the Limits section: an archived target is restored
   inside the transaction and can push it past the write limit.

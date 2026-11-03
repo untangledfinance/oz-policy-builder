@@ -1,6 +1,6 @@
 // The owner's side of the review (P0-3): what an unsigned install or removal does, read out of
 // the bytes alone. It asks no RPC and takes nothing from the agent but the XDR, so a wallet or the
-// Prime app can run it on the transaction it is about to sign. It checks that the bytes are shaped
+// client application can run it on the transaction it is about to sign. It checks that the bytes are shaped
 // as the builder shapes them and are internally consistent; it cannot tell a consistent rewrite
 // from the owner's intent, so the review shows the authority the bytes grant for the owner to read.
 

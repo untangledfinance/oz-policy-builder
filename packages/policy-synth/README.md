@@ -423,7 +423,7 @@ Install inputs for authority:
 
 `install_policy` returns its review beside the XDR, and both reach the owner
 through the agent. `review_unsigned` (or `reviewUnsigned({ network, xdr,
-smartAccount })` from the package root) lets a wallet or the Prime app review
+smartAccount })` from the package root) lets a wallet or a client application review
 the bytes it is about to sign without the agent. It asks no RPC and reads
 nothing but the XDR, the network, the package's own pins, the two bounds from
 the environment and the clock. The one exception is `readContracts: true` (or

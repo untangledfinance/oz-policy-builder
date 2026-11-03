@@ -79,7 +79,7 @@ const accountEntry = (env: xdr.TransactionEnvelope) =>
     .find(
       (e) => e.credentials().switch().name === 'sorobanCredentialsAddress'
     ) as xdr.SorobanAuthorizationEntry
-/** The owner names the account they mean to change, as the Prime app does. */
+/** The owner names the account they mean to change, as the client application does. */
 const review = (
   x: string,
   o: { smartAccount?: string | undefined; network?: 'testnet' | 'mainnet' } = {}
@@ -132,7 +132,7 @@ const transfer = new xdr.SorobanAuthorizedInvocation({
   subInvocations: [],
 })
 
-describe('reviewUnsigned: an honest build, read back from its bytes', () => {
+describe('reviewUnsigned: a well-formed build, read back from its bytes', () => {
   it('an install: nothing to stop a signature, and the authority and the predicate as built', async () => {
     const b = await install()
     const r = review(b.unsignedXdr, { smartAccount: ACCOUNT })
@@ -175,12 +175,12 @@ describe('reviewUnsigned: an honest build, read back from its bytes', () => {
     expect(text).toContain('total:  no total limit')
     expect(text).toMatch(/authorisation: {2}by rule 0, valid through ledger \d+/)
     expect(text).toContain('must be at most  500')
-    // The honest, capped build warns about nothing (no over-restriction).
+    // The well-formed, capped build warns about nothing (no over-restriction).
     expect(r.warnings.some((w) => w.includes('what is the most'))).toBe(false)
   })
 
   it('warns when the installed predicate leaves an amount uncapped', async () => {
-    // Take the honest build and edit its predicate to an uncapped transfer (as an override, or a
+    // Take the well-formed build and edit its predicate to an uncapped transfer (as an override, or a
     // bypass, could): the review walks the finished predicate and warns, so an uncapped rule is never
     // signed in silence.
     install.done = (await install()).unsignedXdr
@@ -496,7 +496,7 @@ describe('reviewUnsigned: an honest build, read back from its bytes', () => {
 describe('reviewUnsigned: an install that follows another rule', () => {
   const SOURCE = contract(41)
   const payload = encodeReference({ account: SOURCE, ruleId: 2 })
-  /** The honest build, made to follow rule 2 of SOURCE (as install_policy with `follow` builds it). */
+  /** The well-formed build, made to follow rule 2 of SOURCE (as install_policy with `follow` builds it). */
   const follower = async () =>
     edit((await install()).unsignedXdr, (env) => {
       const args = callArgs(env).args()
@@ -632,7 +632,7 @@ describe('reviewUnsigned: an install that follows another rule', () => {
 
 describe('reviewUnsigned: a binding of a rule to an executor', () => {
   const ADAPTER = contract(51)
-  /** The honest install made into what bind_policy builds: the interpreter's bind_executor of rule 4,
+  /** The well-formed install made into what bind_policy builds: the interpreter's bind_executor of rule 4,
    *  the account's entry for it, the source's check of that entry, and the source as the admin. */
   const binding = async (
     o: {
@@ -785,7 +785,7 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
     expect(swapped.problems.join('\n')).toMatch(
       /3 authorisation entries .*0 for the source account as the rule's admin/
     )
-    // The honest one, read, is signable.
+    // The well-formed one, read, is signable.
     expect(
       reviewUnsigned({
         network: 'testnet',
@@ -1062,9 +1062,9 @@ describe('reviewUnsigned: the same bytes, changed', () => {
       'another grammar',
       (env: xdr.TransactionEnvelope) => {
         const p = callArgs(env).args()[4]?.map()?.[0]?.val().map() ?? []
-        p.find((e) => e.key().sym().toString() === 'grammar_version')?.val(xdr.ScVal.scvU32(6))
+        p.find((e) => e.key().sym().toString() === 'grammar_version')?.val(xdr.ScVal.scvU32(99))
       },
-      /asks for grammar_version 6; this builder writes grammar_version 7/,
+      /asks for grammar_version 99; this builder writes grammar_version 7/,
     ],
     [
       'a signer in the authorisation other than the source',

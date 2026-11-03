@@ -15,24 +15,25 @@ it. Every size below was measured on this tree.
 
 | Component | Path | Language | sLOC | Tests | Audit scope |
 |---|---|---|---|---|---|
-| Policy interpreter | `contracts/stellar/policy-interpreter/src` | Rust, soroban-sdk 27.0.2 | 881 | 440 (173 unit, 267 in 15 suites, of which the 18 conformance cases also run in release), 26 against OpenZeppelin's 0.8.0 account | in |
-| Execution adapter | `contracts/stellar/execution-adapter/src` | Rust | 277 | 67 | in |
-| Custody gate | `contracts/stellar/custody-gate/src` | Rust | 53 | 3 | in |
-| Prime seat | `contracts/stellar/prime-seat/src` | Rust | 97 | 21 | in |
-| Policy synthesiser, `@crediolabs/policy-synth` | `packages/policy-synth/src` | TypeScript | 4,818 | 26 test files | in |
+| Policy interpreter | `contracts/stellar/policy-interpreter/src` | Rust, soroban-sdk 27.0.2 | 1,080 | 451 (the 18 conformance cases also run in release), 29 against OpenZeppelin's 0.8.0 account | in |
+| Execution adapter | `contracts/stellar/execution-adapter/src` | Rust | 340 | 76 | in |
+| Custody gate | `contracts/stellar/custody-gate/src` | Rust | 74 | 8 | in |
+| Prime seat | `contracts/stellar/prime-seat/src` | Rust | 131 | 29 | in |
+| Policy synthesiser, `@crediolabs/policy-synth` | `packages/policy-synth/src` | TypeScript | 5,244 | 32 test files (1,836 tests) | in |
 | CLI, `@crediolabs/policy-builder-cli` | `packages/policy-builder-cli/src`, `bin` | TypeScript | 76 | 1 test file | in |
 | MCP server, `@crediolabs/policy-builder-mcp` | `packages/policy-builder-mcp/src`, `bin` | TypeScript | 133 | 3 test files | in |
 | `test-blend-pool` | `contracts/stellar/test-blend-pool/src` | Rust | 22 | none | out: a Blend-shaped stub for tests |
 
 sLOC counts the non-blank, non-comment lines of the formatted source (`rustfmt`,
 `biome format`; CI checks both), with test files and `#[cfg(test)]` module
-declarations left out. To reproduce:
+declarations left out. The Rust figures were measured on the 6.0.0 tree,
+events included. To reproduce:
 
 ```sh
 # from the repository root; a contract (here the interpreter):
 ( cd contracts/stellar/policy-interpreter &&
-  ls src/*.rs | grep -v -E '/(tests?|dsl_tests|dsl_ext_tests)\.rs$' | xargs cat \
-  | grep -v -E '^\s*(//|$)|^\s*#\[cfg\(test\)\]$|^\s*mod (tests?|dsl_tests|dsl_ext_tests);$' | wc -l )
+  ls src/*.rs | grep -v -E '/(tests?|dsl_tests|dsl_ext_tests|keyless_accept)\.rs$' | xargs cat \
+  | grep -v -E '^\s*(//|$)|^\s*#\[cfg\(test\)\]$|^\s*mod (tests?|dsl_tests|dsl_ext_tests|keyless_accept);$' | wc -l )
 # the synthesiser:
 ( cd packages/policy-synth &&
   find src -name '*.ts' ! -name '*.test.ts' | xargs cat | grep -v -E '^\s*(//|/\*|\*|$)' | wc -l )
@@ -43,35 +44,55 @@ declarations left out. To reproduce:
 
 ## In scope and out of scope
 
-**In scope (the code submitted for audit):** this repository at tag `v5.2.0`, the
+**In scope (the code submitted for audit):** this repository at tag `v6.0.0`, the
 current release: the `src/` of the
 interpreter, the adapter, the gate and the Prime seat
 (`contracts/stellar/prime-seat/src`), test modules excluded; the `src/` of
 `policy-synth`; and the `src/` and `bin/` of the CLI and the MCP server. The
-same package code is published to npm at version 5.2.0 as
+same package code is published to npm at version 6.0.0 as
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp`.
 
-The contracts in scope are byte-identical to those at `v5.1.0` (interpreter
-`6704996f…`, adapter `bf85432c…`, gate `b01024f3…`, seat `393f0e5d…`), so a
-contract review done against `v5.1.0` carries over. `v5.2.0` changes only
-`policy-synth`, and those changes are in scope:
+`v6.0.0` changes all four contracts, in answer to the auditor's preliminary
+review (the changes are in scope for the files below). The OpenZeppelin `Policy` shapes of the
+interpreter's `install`, `enforce` and `uninstall` are unchanged.
 
-- **Signing for OpenZeppelin's 0.8.0 account.** `buildSelfCall` (behind
-  `install_policy`, `revoke_policy` and `bind_policy`) reads the account's
-  code and authorises `__check_auth` with the 0.7.2-line digest for
-  `91a2cd56…` or the 0.8.0 `AuthDigestPreimage` struct for `8286422f…`, and
-  refuses any other build or unreadable code (`OZ_ACCOUNT_AUTH`,
-  `checkAuthArg`, `accountAuthOf` in `install.ts`); 5.1.0 signed the
-  0.7.2-line digest for every account.
-- **The owner-side review.** `review_unsigned` checks either form byte for
-  byte and, with `readContracts`, that the form is the one the account's
-  build asks for (`review.ts`).
-- **The testnet policy pins.** The testnet OpenZeppelin policies move to
-  `v0.8.0` builds; the earlier `v0.7.2` instances stay refused as scopes and
-  readable as policies (`SUPERSEDED_OZ_POLICIES` in `config.ts`).
+- **Interpreter:** a rule scoped to its own executor must pin the grants count
+  (`call_arg_len(1)`) as well as the batch shape (221); `bind_executor` refuses
+  the account and the interpreter as an executor (`InvalidExecutor`, 222) and
+  takes a `version` argument; one persistent version counter per rule is shared
+  by `install`, `bind_executor` and `uninstall` and survives an uninstall (the
+  admins authorise `uninstall` for the next version); a self-scoped keyless
+  follower is committed at `bind_executor` to the call targets and functions the
+  followed predicate pins (221 on a mismatch); the read-target contract check
+  runs once at install; comment corrections (TTL bump threshold, limits, error
+  descriptions).
+- **Custody gate:** a `payees` list, a subset of `allowed`, is the only set
+  `pull` pays; the constructor refuses a payee that is not allowed (3).
+- **Execution adapter:** call targets, call arguments and a grant's inner
+  arguments are held to `payees`, and only a grant's context contract may be
+  allowed-but-not-payee, so the interpreter is named only as a policy; a no-gate
+  word that follows another contract's `execute` or `run` is refused; a rebind
+  floors the stored batches so a previous custody is not bound to batches
+  stored before it; redundant host work and the unused `hazmat-address` feature
+  are gone; comment corrections.
+- **Prime seat:** a per-key generation (persistent, bumped by each end) is part
+  of the grant message once above zero, so an old end or an old grant no longer
+  verifies; the seven-day window is a named constant; an empty rule-id list and
+  a short proof or preimage are refused without a trap; header comments match
+  the code.
+- **Policy synthesiser:** pins and requires the grants count, builds
+  `bind_executor` with the version it reads, refuses the account or the
+  interpreter as an executor, reads the three-argument bind in the review.
+- **Events:** the interpreter (`Installed`, `ExecutorBound`, `Uninstalled`,
+  `MasterSetRotated`), the adapter (`BatchStored`, `Ran`, `Cancelled`,
+  `Rebound`), the gate (`Pulled`) and the seat (`Granted`, for a grant and an
+  end) publish an event as the last statement of the call, after every check,
+  authorisation and storage write. A watcher reads state changes from events
+  instead of storage and transaction history. Topics and data are in each
+  crate's README and [stellar.md](stellar.md#events).
 
-The CHANGELOG entry for 5.2.0 lists the rest.
+The CHANGELOG entry for 6.0.0 lists the rest.
 
 **Out of scope, each with what Prime assumes of it:**
 
@@ -81,7 +102,7 @@ The CHANGELOG entry for 5.2.0 lists the rest.
 | Soroban host and RPC | the host builds each authorisation context from what was really called, and refuses re-entry into a contract already on the stack |
 | Custody account | a classic Stellar account whose own signers and thresholds decide what it approves |
 | Owners' wallets and the owner key of a Prime seat | sign only what their holder means to sign. A seat's owner key raw-signs the 32-byte grant hash; a NEAR-routed MPC holds it in the reference integration |
-| The Prime app (separate repository) | builds transactions and refuses dangerous rule shapes before any wallet signs; an extra control, never one the contracts rely on |
+| The client application (separate repository) | builds transactions and refuses dangerous rule shapes before any wallet signs; an extra control, never one the contracts rely on |
 | `scripts/`, `deployments/`, `evidence/`, fixtures | deployment and test tooling |
 
 ## What the contracts enforce
@@ -106,10 +127,24 @@ binding and the predicate carry its authority.
   An `execute` or a `cancel` still needs a grant from the adapter.
 - A rule scoped to its bound adapter must pin, on every path, `call_fn == run`
   or an immediate `execute` of a fixed batch: `call_fn == execute`, a wait of
-  0, the number of calls, and each call's target and function name.
+  0, the number of grants (`call_arg_len(1)`, `eq` a non-negative constant), the
+  number of calls, and each call's target and function name.
   `bind_executor` checks it against the scope `install` recorded, a re-install
   checks it under a kept binding, and `enforce` checks it again against the
-  rule OpenZeppelin passes, which no install argument can misstate (221).
+  rule OpenZeppelin passes, which no install argument can misstate (221). The
+  grants pin fixes how many grants the batch carries, not what they name: the
+  rule's author pins the exact count the flow raises (see the finding H-1
+  note below).
+- `bind_executor` refuses the account itself and the interpreter as an executor
+  (`InvalidExecutor`, 222): the account calls the interpreter on every rule
+  check and a rule scoped to its own account skips the batch pin, so either
+  would stand in for an adapter's grant.
+- One persistent version counter per rule, shared by `install` (its
+  `install_nonce` must be the counter plus one), `bind_executor` (its `version`
+  argument) and `uninstall`, which the policy admins authorise for the next
+  version, and which an uninstall does not remove. A signed bind or uninstall
+  that was held back is refused once the rule has moved on, and a re-install
+  after an uninstall keeps climbing.
 - OpenZeppelin's `remove_policy` refuses to leave a rule with no signer and no
   policy (3004), so a keyless rule with one policy keeps its predicate.
 - OpenZeppelin's 0.8.0 account refuses a delegated signer that is also a
@@ -117,32 +152,53 @@ binding and the predicate carry its authority.
   that check at first use. A keyless rule lists no signer, so a stored batch
   still runs with no key.
 
-**Custody gate:** pays only addresses on the list fixed at construction, only
-when its one caller asks, and only while that caller runs the approved build.
-No admin, no setter, no upgrade.
+**Custody gate:** pays only addresses on `payees`, a list fixed at construction
+that is a subset of `allowed` (the constructor refuses a payee that is not
+allowed), only when its one caller asks, and only while that caller runs the
+approved build. The policy interpreter is on `allowed` (a grant names it as the
+policy to ask) and must not be on `payees`: it must never hold value, because a
+`read` leaf runs its target as the interpreter and keeps the effects. The
+constructor cannot tell which address is the interpreter, so that the
+interpreter is off `payees` is a property of the gate's configuration that the
+contract does not enforce, and the control for finding E-10; `policy-synth`'s
+`bind_policy` warns when a gated executor's gate pays the interpreter or its
+payees cannot be read. No admin, no setter, no upgrade.
 
 **Execution adapter, with a gate:** checks every call target, every call
 argument at any depth (strkey, raw-key and address-XDR spellings compared;
 muxed M-strkeys refused), every executor authorization and every batch grant --
-including nested sub-invocations -- against one list: the gate's allowed
-addresses plus the gate. A batch naming an address the gate does not list is
-refused; grants are NOT refused wholesale -- a grant whose addresses are all
-listed is accepted (the Prime's own payout legitimately carries grants), and
-deploy-type entries are refused (`Uncheckable`). The walk is ABI-blind, so a
+including nested sub-invocations -- against the gate's lists: call targets,
+call arguments and everything inside a grant against `payees` plus the gate,
+and a grant's context contract against `allowed` plus the gate. So the
+interpreter is accepted only as a grant's context contract, never as a target,
+an argument or a destination buried in a grant. A batch naming an address the
+gate does not list is refused; grants are NOT refused wholesale -- a grant whose
+addresses are all listed is accepted (the Prime's own payout legitimately
+carries grants), and deploy-type entries are refused (`Uncheckable`). The walk is ABI-blind, so a
 256-bit value could carry 32 key bytes and pass (a limit noted in the source).
 A batch can wait; the adapter's address commits to the gate and both wait
-numbers, and only the gate's custody can `rebind` it.
+numbers, and only the gate's custody can `rebind` it. A rebind floors the stored
+batches: one stored before it is refused at `run` (`NotScheduled`), so a
+previous custody, which can no longer cancel, is not bound to a batch that
+still draws on its old allowance. A zeroed allowance only pauses a batch.
 
 > **Gated-adapter residual (E-36 analogue; auditor, please confirm).** A keyed
 > rule on a gated adapter whose predicate leaves its call list open could, like
 > finding H-1 on a no-gate adapter, let a keyed holder vouch a keyless inner
-> rule beyond its root pin. The containment here is NOT grant refusal: it is the
-> root pins on the full call list and the grants count, exact-context grants (a
-> smuggled grant is inert when no pinned call asks for that context), and the
-> gate's address list. An independent 27/27 on-chain PoC found no such path in
-> the Prime rule set. A `policy-synth` check that warns on a keyed execute rule
-> bound to a gated adapter without a pinned call count, targets and functions is
-> a planned follow-up.
+> rule beyond its root pin. The containment here is NOT grant refusal: a grant
+> whose addresses are all on the gate's list is accepted, and a gated batch may
+> carry grants. It is the root pins on the full call list and the grants count
+> (`call_arg_len(1)` pinned to the number the flow raises), exact-context grants
+> (a smuggled grant is inert when no pinned call asks for that context), and the
+> gate's address list, which a grant's addresses must also satisfy. An
+> independent 27/27 on-chain PoC found no such path in the Prime rule set. Unlike
+> the keyless rules of a no-gate adapter, the interpreter does not make a keyed
+> rule on a gated adapter pin its grants: that pin is the rule author's, and
+> nothing refuses a keyed rule that omits it. The interpreter is also never a
+> payee of the gate (see the custody gate above) and, in a gated batch, appears
+> only as a grant's context contract. A `policy-synth` check that warns on a
+> keyed execute rule bound to a gated adapter without a pinned call count,
+> targets, functions and grants count is a planned follow-up.
 
 **Execution adapter, with no gate:** checks no address, so the Prime can
 bundle its own calls atomically. The flow is narrow:
@@ -152,7 +208,10 @@ bundle its own calls atomically. The flow is narrow:
 - the adapter hands a callee no authorisation (`Uncheckable`). In an immediate
   `execute` it accepts one kind of grant, its word to the Prime's policy:
   `enforce(prime, context)` on a contract the batch names, for its own Prime,
-  with nothing nested; anything else is refused (`Uncheckable`). To each
+  with nothing nested, and whose followed context is not another contract's
+  `execute` or `run` (so a second no-gate adapter of the same Prime cannot
+  vouch for a rule scoped to the first one's `execute`); anything else is
+  refused (`Uncheckable`). To each
   contract named it adds the same word for the `execute` it is running. It
   hands them out just before it asks the Prime, and the host keeps them for
   that one approval, each matched once;
@@ -164,7 +223,12 @@ bundle its own calls atomically. The flow is narrow:
   owners' rule 0) work as before: the agent needs one rule for `execute` and
   one for each token it moves, each with its own cap. A keyed batch that
   carries words now passes the adapter, and the Prime's rules decide;
-- **invariant (STRIDE E-36, High; residual Medium with the mitigations):** no
+- **invariants (STRIDE E-35 and E-36, High; residual Medium with the
+  mitigations).** First, every keyless rule scoped to the adapter pins the
+  number of grants (`call_arg_len(1)`) to the exact number of contexts its
+  batch raises, which the interpreter enforces (221). Without it, any caller
+  could add a word for a context the batch's own payer raises, and a keyless
+  inner rule would vouch for it (see the H-1 note). Second, no
   keyed rule scoped to a no-gate adapter may omit `call_arg_len(1) == 0` (no
   words). Without that pin, an agent's door rule plus one word lets the agent
   cite the account's keyless inner rules (each bounds one call; the
@@ -182,8 +246,8 @@ bundle its own calls atomically. The flow is narrow:
 A custody gate never pays a no-gate adapter: the gate pins its caller's
 address and build, and custody derives that address from the gate itself.
 
-> **Known finding H-1 (reviewer, accepted).** STRIDE E-36, High; residual
-> Medium with the containment below. See
+> **Known finding H-1 (reviewer, accepted).** STRIDE E-35 and E-36, High;
+> residual Medium with the containment below. See
 > [stride-threat-model.md](../evidence/stride-threat-model.md), section 6.7
 > and the E-36 row in section 8.
 >
@@ -203,13 +267,37 @@ address and build, and custody derives that address from the gate itself.
 >   rules signed by the adapter. The no-gate word reopens it for an account
 >   that lets a keyed rule approve the same adapter its keyless rules are
 >   bound to.
-> - **Why it is not a contract guard.** The interpreter evaluates one rule at
->   a time. It never sees the account's other rules. At install it also cannot
->   tell whether the executor a rule is bound to is a gated or a no-gate
->   adapter. A contract-level refusal would therefore have to refuse keyed or
->   keyless rules on every executor, which breaks legitimate gated designs.
->   The adapter cannot tell a keyed caller from a keyless one either: it only
->   sees the account's approval.
+> - **The keyless variant (closed by the grants pin).** The same word can be
+>   used with no keyed rule at all. A keyless liquidation rule that pinned the
+>   wait, the number of calls and each call's target and function, but not the
+>   number of grants, let ANY caller add a word. The caller chooses the payer
+>   of the first pinned call. A contract account as payer, whose
+>   `__check_auth` calls `xlm.transfer(account, payer, X)`, raises one more
+>   context inside the batch, one matching word vouches for it, and the inner
+>   XLM rule permits it: the caller takes the whole balance the inner rule
+>   covers for one repayment. The interpreter now refuses a keyless rule scoped
+>   to its own executor unless every `execute` branch pins `call_arg_len(1)` `eq`
+>   a non-negative constant (221, at `bind_executor`, at a re-install and at
+>   `enforce`), and refuses the account or the interpreter as an executor (222),
+>   so the batch pin cannot be skipped by scoping a rule to the account. With
+>   the grants pinned, the same batch is refused. Every keyless liquidation
+>   rule pins the exact count its flow raises (the reference liquidation rule
+>   pins 5 grants in one `or` branch and 3 in the other), and a rule without the
+>   pin is refused.
+> - **What the pin does not do.** The interpreter cannot know how many
+>   contexts a batch unconditionally raises. A pin above that number admits
+>   that many extra contexts (a smuggled word per spare slot), an `or` pins only
+>   when every branch does, and a batch whose nested contexts vary with state
+>   cannot be secured by a count at all. The author pins the exact number;
+>   `policy-synth` writes the count the author states (`count` at `[1]`) and
+>   refuses a keyless self-scoped rule that states none.
+> - **Why the rest is not a contract guard.** The interpreter evaluates one
+>   rule at a time. It never sees the account's other rules. At install it also
+>   cannot tell whether the executor a rule is bound to is a gated or a no-gate
+>   adapter. A contract-level refusal of keyed rules would therefore have to
+>   refuse keyed or keyless rules on every executor, which breaks legitimate
+>   gated designs. The adapter cannot tell a keyed caller from a keyless one
+>   either: it only sees the account's approval.
 > - **Containment, accepted by the team:**
 >   1. *Operational.* Use a DEDICATED no-gate adapter for the keyless rules.
 >      It gets its own `run_window`, so its own address. No rule of any kind
@@ -229,6 +317,9 @@ address and build, and custody derives that address from the gate itself.
 >      and plain OpenZeppelin rules are not inspected there; they are part of
 >      the operational invariant.
 >   3. *Documentation.* This note and the STRIDE entry.
+>   4. *The grants pin, on chain.* The interpreter refuses a keyless rule
+>      scoped to its own executor that leaves the grants count unpinned (221),
+>      so the keyless variant above cannot be installed or bound.
 > - **Ask to the auditor.** Please confirm:
 >   - (a) The Soroban host keeps an invoker contract grant
 >     (`authorize_as_current_contract`) only for the invoker's next sub-call,
@@ -239,6 +330,15 @@ address and build, and custody derives that address from the gate itself.
 >     that one approval.
 >   - (b) The dedicated-adapter invariant above, with `policy-synth`'s
 >     refusal, is sufficient containment for H-1.
+>
+>   **Answer (preliminary review, applied).** It is not sufficient on its own:
+>   the invariant covers keyed rules, and a keyless rule that leaves the grants
+>   unpinned lets an anonymous caller smuggle a word. The grants pin above is
+>   the added control. The residual, stated openly: a pin larger than the
+>   number of contexts the batch raises, and batches whose nested contexts vary
+>   with state, are the rule author's to avoid. Please confirm that the
+>   interpreter's pin together with the dedicated-adapter invariant is the
+>   intended containment.
 
 > **Known finding E-38 (trust assumption, accepted).** STRIDE E-38, Medium.
 > See [stride-threat-model.md](../evidence/stride-threat-model.md), section 6.8,
@@ -286,7 +386,11 @@ address and build, and custody derives that address from the gate itself.
 >   warning (not a refusal) whenever a keyless rule follows another rule, at
 >   `install_policy`, `bind_policy` and in the review, naming the followed rule
 >   and its admins (PR #60, release `v5.1.0`); (2) this note and the STRIDE
->   entry; (3) for a keyed follower, the second policy with B's own cap above.
+>   entry; (3) for a keyed follower, the second policy with B's own cap above;
+>   (4) since 6.0.0, a follower scoped to its own executor is committed at
+>   `bind_executor` to the call targets and functions A's predicate pinned then,
+>   and `enforce` refuses (221) when A's live predicate pins others, so A keeps
+>   control of amounts but cannot retarget the follower (STRIDE E-41).
 >   A borrower who wants A to only *tighten* the fence keeps the rule **keyed**
 >   and gives it that second policy: a keyed rule alone is not enough, because
 >   its agent signers follow A's predicate.
@@ -315,32 +419,53 @@ preimage of the account's digest, from which the seat reads the rule ids:
   own rule 0. The binding to one account is not cryptographic on the
   0.7.2-line digest, which carries no account field; the `Delegated` path below
   is bound to the account by its own frame. No authority over the first account
-  is gained, the key still signs each proof, and the reference app lists a seat
+  is gained, the key still signs each proof, and the reference client application lists a seat
   only for the account it serves (SEAT-01).
 - `__check_auth`, the `Delegated` signer interface, used in rules other than
   rule 0: the first context must be a call on the stored account whose first
   argument is the account's digest, with only non-zero rule ids, and a live
   session key signs `sha256(seat ‖ payload)`.
 
-Three statements in the seat crate's own docs do not match this behaviour, and
-are corrected here until the crate is next built, since editing a file under
-`contracts/` would change the verified build hash. The owner key signs over
-`sha256(seat ‖ payload)`, the seat's own authorisation payload; `lib.rs:5`
-calls it the account digest. An end is accepted with any `start`; `README:16`
-expects `start = 0`. An end carries no freshness check, so anyone can re-submit
-the same end bytes and each replay refreshes the end entry's TTL; `README:66`
-expects the second submission to fail. That last point is useful: a relayer can
-keep an end marker alive past its roughly 180-day expiry at the cost of rent,
-which closes the residual of STRIDE D-11 (SEAT-02).
+**Ends and the per-key generation.** Each end bumps a per-key generation, a
+`u32` in persistent storage that never expires and only grows, and the grant
+message carries it (big-endian, after `end`) once it is above zero. Until a
+key's first end the message is byte-identical to the recorded vectors. An end
+is therefore valid for one generation only: re-submitting the same end bytes
+fails its signature (so a relayer can no longer replay an end), and an old end
+cannot revoke a key the owner granted again after the end entry expired. The
+same holds for a grant signed in advance with a future start: it was signed
+over an older generation and fails once the key has been ended. A grant the
+owner signs after the end entry expires must be signed over the current
+generation. Replaying an end no longer
+keeps the end marker alive (SEAT-02): the end entry can lapse after about 180
+days, after which only a grant signed under the current generation brings the
+key back (STRIDE D-11).
+
+Two statements in the seat crate's own docs still do not match this behaviour,
+and are corrected here: the owner key signs over `sha256(seat ‖ payload)`, the
+seat's own authorisation payload, where `lib.rs` calls it the account digest;
+and an end is accepted with any `start`, where the README expects `start = 0`.
+Empty rule-id lists are refused by both entry points, a `verify` proof under 96
+bytes returns false, and a preimage under 32 bytes is read as no rule ids and
+refused, none of them a trap (the rule split needs a non-empty list).
 
 ## Known behaviours
 
-- `uninstall` needs only the policy admins and deletes the rule's document
-  with its binding. A keyless rule then refuses every call (206 with no
+- `uninstall` needs only the policy admins, authorising `(rule, next version)`,
+  and deletes the rule's document with its binding; the version counter stays,
+  so a re-install needs the next one and an old signed install, bind or
+  uninstall cannot be replayed. A keyless rule then refuses every call (206 with no
   document, 210 once one is installed again, since the new install stores no
   binding); a keyed
   bound rule runs without the adapter's check once a document is installed
   again.
+- A rule that another rule follows keeps being read after the account removes
+  it with rule-0 signatures only (the interpreter's entry stays when `uninstall`
+  fails): its followers' permits renew it, and its master set can re-install it
+  with a wider predicate. Only `uninstall` with the master set revokes the
+  followers. A permit extends an entry only in its last 100 ledgers, so a
+  keep-alive job must cover every rule, every followed source and the version
+  counters.
 - The keyless shape is verified against an OpenZeppelin 0.8.0 account (built
   from the `v0.8.0` tag `ddc327e`; it builds the same wasm, `8286422f…`, as
   the earlier commit `8e25220`, which differs only in release notes and
@@ -358,9 +483,9 @@ which closes the residual of STRIDE D-11 (SEAT-02).
   (`PrimeTarget`).
 - A seat sees only its account's frame, so it cannot limit the calls of a
   rule that lists it as `Delegated` with no policy. Installing such a rule
-  takes a decision that carries a native owner's signature, and the Prime
-  app must refuse to build one (residual R7 in the seat's README).
-- A seat checks the digest form of the account build the Prime app deploys
+  takes a decision that carries a native owner's signature, and the client
+  application must refuse to build one (residual R7 in the seat's README).
+- A seat checks the digest form of the account build the client application deploys
   (`91a2cd56…`, `sha256(payload ‖ XDR(rule ids))`). On an account build that
   hashes differently, every seat signature fails, so a Prime with seats stays
   on `91a2cd56…`. OpenZeppelin's 0.8.0 account (`8286422f…`) has its signers
@@ -368,20 +493,22 @@ which closes the residual of STRIDE D-11 (SEAT-02).
   signature_payload }`; the synthesiser signs either form, chosen from the
   account's live code (release 5.2.0), and refuses any other build.
 - A Prime seat removed from rule 0 keeps acting in the `Delegated` rules that
-  still list it: the seat reads nothing about the owner list, and the Prime
-  app rewrites the rules that list a removed seat (STRIDE E-23, open, Low).
+  still list it: the seat reads nothing about the owner list, and the client
+  application rewrites the rules that list a removed seat (STRIDE E-23, open, Low).
 
 ## Builds and testnet
 
 Each crate's `build-wasm.sh` gives the hash CI compares
 (`contracts/build-hashes.json` and `deployments/`):
 
-| Contract | sha256 of the Linux build | Testnet |
+| Contract | sha256 of the Linux build (size) | Testnet |
 |---|---|---|
-| Policy interpreter | `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4` (referenced rules and the batch pin; `v4.1.0` built `810f53f1…`) | instance `CDER6P73…`, the policy-synth pin; it replaced `CD46LN75…` (`810f53f1…`) and `CDZV4AG4…` (`69cad1d5…`), which policy-synth does not trust |
-| Execution adapter | `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0` (the no-gate word; `v4.1.0` built `4985cd12…`) | code uploaded (`deployments/execution-testnet.json`, which lists `4985cd12…` and `3dd675c0…` as superseded) |
-| Custody gate | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | code uploaded |
-| Prime seat | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | code uploaded |
+| Policy interpreter | `c6273cb1880233c541e67592a687d01b309b15ce2c41158d043f50cce96955e5` (84,280 bytes) | uploaded, and a fresh verification instance `CADKAYWU…` deployed, on 2 November 2026, and a second fresh instance on 3 November 2026 ([evidence](../evidence/README.md#the-600-fixes-preliminary-review-2-november-2026)). Instance `CDER6P73…` (wasm `6704996f…`) is the policy-synth pin; policy-synth does not trust the superseded instances recorded in `deployments/interpreter-testnet.json` |
+| Execution adapter | `eafcd011a3c2e0aae08402e9fbd5f39e65d1feb370e45035ee20a25d4c95b725` (31,667 bytes) | uploaded, fresh no-gate and gated adapters deployed for verification; `deployments/execution-testnet.json` records the build and its upload |
+| Custody gate | `89e48fcb5c9f037f1d702d2cb6ed3be99f24a7794c0f5df712b7ba887db50dbb` (13,205 bytes) | uploaded, fresh gates deployed for verification (two on 2 November 2026, two on 3 November 2026); recorded in `deployments/execution-testnet.json` |
+| Prime seat | `f39587ad8a190e31955a6fab1c274372fa724180c4ab1bad72846e08f1f2bd51` (19,758 bytes) | uploaded, a fresh seat deployed for verification |
+
+All four are under the network's `CONTRACT_MAX_SIZE_BYTES` of 131,072.
 
 ## Read next
 

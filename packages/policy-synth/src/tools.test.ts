@@ -23,7 +23,7 @@ import { readRules } from './rules.ts'
 import { explain, run, TOOLS } from './tools.ts'
 import { encode, hashOf } from './wire.ts'
 
-// PayFi's settlement account on testnet: 38 rule ids handed out, 21+ removed.
+// A settlement account on testnet: 38 rule ids handed out, 21+ removed.
 const SETTLEMENT = 'CAF4HZO4DARULJGBJCNDEXLR5ZXEKLVI4TMX7VDGTESTJ222U4SXVQXS'
 const ACCOUNT = 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P'
 const SIGNER = 'GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB'
@@ -1562,7 +1562,7 @@ describe('get_interpreter_info', () => {
     expect(r.rules[7]?.expr).toEqual(r.rules[6]?.expr)
     expect(r.rules[7]?.follows).toMatchObject({ account: ACCOUNT, ruleId: 6, nonce: 1 })
   })
-  it('readRules lists every rule of an account that has removed many (PayFi settlement: 15 or more live, past 21 removed ids)', async () => {
+  it('readRules lists every rule of an account that has removed many (15 or more live, past 21 removed ids)', async () => {
     const r = await readRules(connect({ network: 'testnet' }), 'testnet', SETTLEMENT, PIN)
     const ids: number[] = r.rules.map((x) => x.id)
     expect(r.complete).toBe(true)

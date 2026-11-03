@@ -216,8 +216,8 @@ enum MarketSlot {
 }
 
 /// A lending market as the liquidation meets it: `repay` pulls the borrowed
-/// asset from the borrower (a nested request of the borrower, as OctoLend's
-/// does), `withdraw_collateral` asks the borrower, and the rule reads the
+/// asset from the borrower (a nested request of the borrower, as a real
+/// lending market's does), `withdraw_collateral` asks the borrower, and the rule reads the
 /// debt, the cover, a price and when it was set.
 #[contract]
 pub struct Market;

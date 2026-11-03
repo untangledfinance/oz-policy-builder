@@ -1,6 +1,6 @@
-# Prime architecture
+# Architecture
 
-Untangled Prime lets an agent put part of a treasury to work while the funds
+The system lets an agent put part of a treasury to work while the funds
 stay in the institution's own custody and can reach only the destinations the
 institution listed. It runs on Stellar. This page covers the whole system;
 [stellar.md](stellar.md) has the contracts and the numbers, and
@@ -64,8 +64,10 @@ the limit, the venue receives them, and whatever comes back goes to custody. If
 any call in the batch fails, the whole transaction reverses.
 
 A move can also wait. The execution adapter stores the batch, anyone can run it
-once the wait is over, and custody or the Prime account can cancel it until
-then. The stored batch runs under a rule with no signer, bound to the adapter,
+once the wait is over, and custody (of the gate the adapter is bound to now) or
+the Prime account can cancel it until then. If the adapter is rebound to another
+gate, every batch stored before the rebind stops being runnable, so a previous
+custody has nothing left to cancel. The stored batch runs under a rule with no signer, bound to the adapter,
 whose predicate permits the adapter's `run` alone, so running it needs no key.
 
 ```mermaid
@@ -102,7 +104,7 @@ flowchart LR
 | The custody gate | Our contract, deployed by custody; no admin, no settings |
 | Where results go | Straight to custody; a Blend position is held in the Prime account's name, and every withdrawal is pinned to custody |
 | Per-move limits | Amount bands in policy-interpreter predicates |
-| Stopping it | Custody sets the allowance to zero or lets it expire, and can cancel any stored move |
+| Stopping it | Custody sets the allowance to zero (which pauses a stored move, it does not drop it) or lets it expire, and can cancel any stored move while its gate is the one bound; a rebind to another gate drops every move stored before it |
 | Recovery | The Prime owners pull to the recovery address; the pull waits the adapter's minimum wait, and custody or the Prime account can cancel it until it runs |
 
 ## Components
@@ -137,20 +139,20 @@ flowchart TB
 | Prime seat | letting a session key stand in for one owner on one account | us |
 | A seat's owner key | signing only the grants and ends its holder means | the holder: a NEAR-routed MPC in the reference integration, or any signer that raw-signs the grant hash |
 | Policy builder | writing rules and returning them unsigned for the owners' wallets | us, in this repository |
-| Prime app and relayer | building transactions and paying fees; they hold no authority over funds | us, in a separate repository |
+| Client application and relayer | building transactions and paying fees; they hold no authority over funds | us, in a separate repository |
 
 ## Trust boundaries
 
 | Party | Can | Cannot |
 |---|---|---|
-| Custody's signers at their threshold | grant, lower and revoke the limit; cancel stored moves and recoveries | move funds past the gate without the Prime account; change a gate's list (a new gate is needed) |
+| Custody's signers at their threshold | grant, lower and revoke the limit; cancel stored moves and recoveries while their gate is the one bound | move funds past the gate without the Prime account; change a gate's list (a new gate is needed) |
 | The Prime owners at their threshold | install and remove rules, add and remove owners, recover to the recovery address, draw within the limit to any address on the gate's list | pay an address the gate does not list; exceed custody's limit |
 | The agent | move funds inside the rules that list it | act outside a rule, recover, cancel, change a rule |
 | Anyone | run a stored batch once its wait is over and before its window closes; run an immediate batch through a no-gate adapter when the Prime's keyless rules bound to that adapter permit it (a liquidation) | change what the batch does, or run it twice; pass a keyless rule with a batch its predicate does not permit |
 | A session key | vote for its seat's owner in rule 0, and act alone inside rules that list its seat, until its end or the owner's end | act on an account other than the one its seat is bound to on chain |
 | The holder of a seat's owner key | grant and end sessions for that seat | act for any other owner or seat |
-| The Prime app and the relayer | submit and pay for transactions, hold session keys in the browser | forge an owner's grant, a native signature or a custody signature |
-| Us, the builders | run the tooling, the agent and the apps; deploy new code | change a deployed gate, adapter, interpreter or seat: none has an admin or an upgrade path |
+| The client application and the relayer | submit and pay for transactions, hold session keys in the browser | forge an owner's grant, a native signature or a custody signature |
+| Us, the builders | run the tooling, the agent and the client applications; deploy new code | change a deployed gate, adapter, interpreter or seat: none has an admin or an upgrade path |
 
 The most money at risk at any moment is the limit custody granted, plus anything
 supplied to a venue.
@@ -175,24 +177,24 @@ and a start and end at most 7 days apart. Until the end, the session key votes
 for the owner in rule 0 and acts inside the rules that list the seat, with no
 further prompt to the owner key.
 
-In the Prime app's rule-0 layout every decision needs one native owner. Rule 0
+In the client application's rule-0 layout every decision needs one native owner. Rule 0
 carries a weighted threshold: each native account weighs K, each seat 1, and K
 is the number of seats at creation plus one, so seats alone stay below the
 threshold (a seat added later sits at weight 0). The seat serves rule 0 only
 through `External` and other rules only through `Delegated`, so one session
 cannot pass rule 0 alone through a duplicate entry.
 
-Some checks that keep one key from counting twice live in the app: the owner
+Some checks that keep one key from counting twice live in the client application: the owner
 keys must differ, no seat may sit in two accounts, and no plain key may sit
 beside its own seat. The second holds on chain, because a seat is bound to one
-account at construction; the app enforces the first and the third.
+account at construction; the client application enforces the first and the third.
 
 ### Starting a session
 
 ```mermaid
 sequenceDiagram
   participant O as Owner key
-  participant A as Prime app
+  participant A as Client application
   participant S as Seat
   A->>A: make a fresh session key
   A->>O: grant hash: account, seat, key, start, end
@@ -221,8 +223,11 @@ sequenceDiagram
 The session ends at its end time, when the owner key or the session key itself
 signs an end, or when the owners remove the seat. An end stores 0 for the key,
 which refuses every later grant for it until that entry expires from temporary
-storage, about 180 days on; after that only a grant the owner signs can bring
-the key back. Removing an owner of any kind must always be possible; the app
+storage, about 180 days on, and bumps a per-key generation in persistent storage
+that the next grant's signed message must carry. After the entry expires only a
+grant the owner signs over the current generation can bring the key back; an old
+end or an old grant no longer verifies, so a replayed end cannot revoke a key
+granted again. Removing an owner of any kind must always be possible; the client application
 rewrites or switches off rules that would block it.
 
 ## Why it is built this way
@@ -232,7 +237,10 @@ existing custody and approvals; Prime adds a limit and a list. The gate has no
 admin, no setters and no upgrade path, so changing the list means a new gate
 and a new approval by custody's full threshold. The gate also pins the build of
 the one adapter that may call it, because a Soroban contract id commits only to
-the deployer and salt.
+the deployer and salt. The gate keeps two lists: `allowed`, every address a batch may
+mention (a grant names the policy interpreter, for instance), and `payees`, a
+subset it may pay. The interpreter is never a payee, because anything sent to it
+can be swept through a rule that reads it ([stellar.md](stellar.md#custody-gate)).
 
 **Our own contracts on Stellar:** Soroban allows one host-function call per
 transaction, so a batch needs a contract that makes several calls atomically
@@ -273,9 +281,12 @@ so replacing a rule is the safe way to change who signs it.
   the set changes. Remove a signer by adding a new rule without it and removing
   the old one.
 - **`remove_context_rule` can leave an interpreter entry behind:** the
-  interpreter's `uninstall` needs the policy admins' own authorisation; when it
-  fails, the account removes the rule anyway, and the entry stays until it
-  archives. Nothing reads it again.
+  interpreter's `uninstall` needs the policy admins' own authorisation (for the
+  rule's next version); when it fails, the account removes the rule anyway, and
+  the entry stays. The account never asks about that rule again, but a rule that
+  another rule follows keeps being read: its followers' permits renew its
+  lifetime, and its admins can re-install it. Only `uninstall` with the master
+  set revokes the followers. An entry nobody follows ages out.
 - **`uninstall` drops an executor binding:** it needs only the policy admins. A
   rule with no signer then refuses every call (error 206 with no document, 210
   once one is installed again); a keyed rule installed again has no binding
@@ -288,7 +299,7 @@ so replacing a rule is the safe way to change who signs it.
   the adapter holds. It must never hold funds or an allowance. In an immediate
   `execute` it hands out one grant, its word to the Prime's policy, so a rule
   bound to it passes for the calls the batch names. A keyless rule scoped to it
-  must pin the whole batch shape (221), and the predicates of the rules bound
+  must pin the whole batch shape, the number of grants included (221), and the predicates of the rules bound
   to it are the only fence ([stellar.md](stellar.md#no-gate)). A keyed rule scoped to it must hold the
   grants to none (STRIDE E-36); a dedicated no-gate adapter for keyless rules
   avoids the hazard. A bundle that failed can be submitted again by whoever
@@ -298,7 +309,7 @@ so replacing a rule is the safe way to change who signs it.
 - **Owner count:** an OpenZeppelin account takes 15 signers in rule 0 and
   refuses 16.
 - **The last owner:** an OpenZeppelin account accepts removing its only rule-0
-  signer and is then unreachable, so the app must refuse that step.
+  signer and is then unreachable, so the client application must refuse that step.
 
 **Notes for rule writers:**
 

@@ -27,11 +27,11 @@ It is built as two halves:
 
 | Component | Path | Size (sLOC) |
 | --- | --- | --- |
-| Policy interpreter | `contracts/stellar/policy-interpreter` | 881 |
-| Execution adapter | `contracts/stellar/execution-adapter` | 277 |
-| Custody gate | `contracts/stellar/custody-gate` | 53 |
-| Prime seat | `contracts/stellar/prime-seat` | 97 |
-| Policy synthesiser | `packages/policy-synth` | 4,818 |
+| Policy interpreter | `contracts/stellar/policy-interpreter` | 1,080 |
+| Execution adapter | `contracts/stellar/execution-adapter` | 340 |
+| Custody gate | `contracts/stellar/custody-gate` | 74 |
+| Prime seat | `contracts/stellar/prime-seat` | 131 |
+| Policy synthesiser | `packages/policy-synth` | 5,244 |
 | CLI | `packages/policy-builder-cli` | 76 |
 | MCP server | `packages/policy-builder-mcp` | 133 |
 
@@ -47,27 +47,28 @@ The packages pin one interpreter instance on testnet (`packages/policy-synth/src
 | Its wasm sha256 | `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4` |
 | Its deploy-time limits | reads 8, leaves 400, bytes 24,576, elems 32, in 32, depth 5 (read from the instance with `limits()`; immutable) |
 
-The pinned instance runs this tree's interpreter source (`6704996f…`,
-`contracts/build-hashes.json`). It replaced `CD46LN75…`, which runs `810f53f1…`
-(this source before referenced rules and the batch pin), and that one replaced
-`CDZV4AG4…`, which runs `69cad1d5…` (before the keyless executor rules). The
-packages trust neither earlier build (`deployments/interpreter-testnet.json`
-lists both as superseded).
+The pinned instance runs wasm `6704996f…`. This tree's interpreter (`c6273cb1…`,
+84,280 bytes, in `contracts/build-hashes.json`) is uploaded and verified on a
+fresh testnet instance (`CADKAYWU…`, see
+[evidence](./evidence/README.md#the-600-fixes-preliminary-review-2-november-2026)),
+and the pin has not moved to it. The packages
+do not trust the superseded instances recorded in
+`deployments/interpreter-testnet.json`.
 
 The current release, and the code submitted for the external audit, is this
-repository at tag `v5.2.0`; the audit started on 26 October 2026 and is in
-progress. The contracts are unchanged from `v5.1.0` (interpreter `6704996f…`,
-adapter `bf85432c…`); `v5.2.0` adds to `policy-synth` the signing for
-OpenZeppelin's 0.8.0 account (`8286422f…`) beside the 0.7.2-line one, and moves
-the testnet OpenZeppelin policies to `v0.8.0` builds
-([audit-overview](./docs/audit-overview.md#in-scope-and-out-of-scope) has the
-scope). It is published to npm at version 5.2.0 as `@crediolabs/policy-synth`,
+repository at tag `v6.0.0`; the audit started on 26 October 2026 and is in
+progress. `v6.0.0` changes all four contracts in answer to the auditor's
+preliminary review (a grants-count pin and a version counter in the interpreter,
+a `payees` list in the gate, a rebind floor in the adapter, a per-key generation
+in the seat; see the [CHANGELOG](./CHANGELOG.md) for the list and
+[audit-overview](./docs/audit-overview.md#in-scope-and-out-of-scope) for the
+scope). It is published to npm at version 6.0.0 as `@crediolabs/policy-synth`,
 `@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp`:
 
 ```sh
-npm install @crediolabs/policy-synth@5.2.0 @stellar/stellar-sdk
-npm install -g @crediolabs/policy-builder-cli@5.2.0     # the policy-builder command
-npx -y @crediolabs/policy-builder-mcp@5.2.0             # the MCP server over stdio
+npm install @crediolabs/policy-synth@6.0.0 @stellar/stellar-sdk
+npm install -g @crediolabs/policy-builder-cli@6.0.0     # the policy-builder command
+npx -y @crediolabs/policy-builder-mcp@6.0.0             # the MCP server over stdio
 ```
 
 To run a checkout of this repo, build the packages in dependency order. The
@@ -87,7 +88,7 @@ node packages/policy-builder-mcp/dist/bin/server.js            # stdio
 another account's rule instead of carrying its own predicate: it reads the
 followed rule's predicate live at `enforce`, and the owner of the followed rule
 changes it by their own normal two-party re-install, with no action by the
-follower. Only the predicate is shared; the follower's signers, binding, nonce
+follower. Only the predicate is shared; the follower's signers, binding, version
 and authorisation stay its own. This is deliberate, so an issuer can govern a
 borrower's fence. The trust assumption to know: if the following rule is
 **keyless** and bound to an adapter with no gate, that predicate is its *entire*
@@ -95,7 +96,7 @@ fence, and the followed owner can loosen it alone, after which anyone who
 satisfies it moves the follower's funds. This is the intended
 issuer-governed-keyless pattern, not a bug and not refused on chain; it is
 flagged by a `policy-synth` warning (release `v5.1.0`, which adds only that
-warning — the contracts are unchanged from `v5.0.0`) and documented as finding
+warning; the contracts are unchanged from `v5.0.0`) and documented as finding
 E-38 in [docs/audit-overview.md](./docs/audit-overview.md) and the
 [threat model](./evidence/stride-threat-model.md) (section 6.8, with the
 testnet proof in 7.2). A **keyed** follower is not unaffected: a re-install by
@@ -170,7 +171,7 @@ measurements behind the limits.
 > [!IMPORTANT]
 > **Audit status:** an external audit of the interpreter, the custody gate, the
 > execution adapter, the Prime seat and the three TypeScript packages in this repository, at
-> tag `v5.2.0`, is in progress; its scope is in
+> tag `v6.0.0`, is in progress; its scope is in
 > [docs/audit-overview.md](./docs/audit-overview.md). The contracts have also
 > been through internal adversarial review and STRIDE threat models, indexed in
 > [evidence/README.md](./evidence/README.md).

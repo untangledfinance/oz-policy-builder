@@ -5,7 +5,7 @@
 # a bare cargo build bakes the crate root and registry paths into the wasm, so
 # its hash differs per machine. Remapping both makes the output depend on the
 # source alone - on Linux. macOS builds a different hash from the same source,
-# so a hash that is deployed, pinned in the app or compared in CI comes from a
+# so a hash that is deployed, pinned in the client application or compared in CI comes from a
 # Linux build (CI, or a rust:1.97.1 container).
 set -euo pipefail
 
