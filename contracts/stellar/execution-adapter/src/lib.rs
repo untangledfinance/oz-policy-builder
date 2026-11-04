@@ -76,8 +76,8 @@
 //! that one approval, each matched once; nothing is stored, so none outlives
 //! the call. The adapter holds nothing, and anyone the Prime's rules let call
 //! `execute` can run any batch they permit through it: it must never be sent
-//! funds or given an allowance, and a rule on the Prime that this adapter
-//! signs is bounded by its predicate alone.
+//! funds or given an allowance. No key signs for it: a keyless rule bound to it
+//! answers for the Prime, and that rule's predicate decides what it permits.
 //!
 //! NOTHING WAITS. A stored batch runs under `run`, where the adapter is the one
 //! asking the Prime. The Prime's token rules that answer such a request would
@@ -636,8 +636,8 @@ fn is_plain_object(e: &Env, v: &Val) -> bool {
 ///
 /// This COMPARES rather than decodes. Neither conversion has a fallible form
 /// inside a contract, so parsing a value that turned out not to be an address
-/// would trap the whole batch instead of refusing one destination. Checking how
-/// each allowed address encodes costs the same and cannot trap.
+/// would trap in the host, with no contract error. Checking how each allowed
+/// address encodes costs the same, cannot trap and refuses `AddressNotAllowed`.
 ///
 /// Two more spellings can reach an address through a venue that decodes
 /// bytes: the XDR of an address value, which `Address::from_xdr` takes (40
