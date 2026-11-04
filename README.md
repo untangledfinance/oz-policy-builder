@@ -47,8 +47,9 @@ The packages pin one interpreter instance on testnet (`packages/policy-synth/src
 | Its wasm sha256 | `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4` |
 | Its deploy-time limits | reads 8, leaves 400, bytes 24,576, elems 32, in 32, depth 5 (read from the instance with `limits()`; immutable) |
 
-The pinned instance runs wasm `6704996f…`. This tree's interpreter (`c6273cb1…`,
-84,280 bytes, in `contracts/build-hashes.json`) is uploaded and verified on a
+The pinned instance runs wasm `6704996f…`. This tree's interpreter (`89a1bf40…`,
+85,288 bytes, in `contracts/build-hashes.json`) is not uploaded yet; its
+predecessor (`c6273cb1…`, 84,280 bytes) is uploaded and verified on a
 fresh testnet instance (`CADKAYWU…`, see
 [evidence](./evidence/README.md#the-600-fixes-preliminary-review-2-november-2026)),
 and the pin has not moved to it. The packages

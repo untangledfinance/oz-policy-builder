@@ -18,10 +18,15 @@ Contract builds (Linux, `build-wasm.sh`; all under the network's 131,072-byte
 
 | Contract | sha256 | Size |
 |---|---|---|
-| Policy interpreter | `c6273cb1880233c541e67592a687d01b309b15ce2c41158d043f50cce96955e5` | 84,280 |
+| Policy interpreter | `89a1bf4023ab77c6fc6b6f0cc7622acaabc30a67966d09142ee75ff977a2728b` | 85,288 |
 | Execution adapter | `eafcd011a3c2e0aae08402e9fbd5f39e65d1feb370e45035ee20a25d4c95b725` | 31,667 |
 | Custody gate | `89e48fcb5c9f037f1d702d2cb6ed3be99f24a7794c0f5df712b7ba887db50dbb` | 13,205 |
 | Prime seat | `f39587ad8a190e31955a6fab1c274372fa724180c4ab1bad72846e08f1f2bd51` | 19,758 |
+
+The testnet verification below ran on the interpreter build `c6273cb1…` (84,280
+bytes). The interpreter above also commits a follower's `and` / `or` grouping and
+records the commitment at a re-install that changes what a bound rule follows
+(F-2026-20245); that build is not uploaded to testnet yet.
 
 Testnet verification, on 2 November 2026 and 3 November 2026 on fresh instances
 (throwaway keys; transactions in
@@ -73,8 +78,11 @@ OpenZeppelin shapes. The three npm packages move together to 6.0.0.
   is refused (`NonceReplay`, 202).
 - **Interpreter, followers.** A keyless follower scoped to its own executor is
   committed at `bind_executor` to the call targets and functions the followed
-  predicate pins; `enforce` refuses (221) when the live followed predicate pins
-  other ones. The followed owner keeps control of amounts.
+  predicate pins and to how those pins are grouped under `and` / `or`; `enforce`
+  refuses (221) when the live followed predicate pins other ones, or when such a
+  follower carries no commitment. A re-install that changes the source of a bound
+  rule (inline to follower, another followed rule) records the commitment again.
+  The followed owner keeps control of amounts.
 - **Custody gate and adapter, payees.** The gate takes `payees`, a subset of
   `allowed` (`PayeeNotAllowed`, 3), and `pull` pays only `payees`. The adapter
   holds call targets, call arguments and a grant's inner arguments to `payees`;

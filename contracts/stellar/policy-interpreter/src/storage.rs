@@ -204,7 +204,8 @@ pub struct StoredDoc {
     pub source: Source,
     /// For a self-scoped keyless FOLLOWER (`source` is `Rule` and the rule is
     /// bound to its own scope), the digest of the call targets and functions the
-    /// followed predicate pinned at `bind_executor` (`dsl::call_pin_digest`).
+    /// followed predicate pinned at `bind_executor`, or at an `install` that made
+    /// the rule a self-scoped follower (`dsl::call_pin_digest`).
     /// `enforce` refuses (221) when the live followed predicate pins different
     /// ones, so the followed owner keeps control of amounts but cannot retarget
     /// the follower (F-2026-20245). None for every other rule.

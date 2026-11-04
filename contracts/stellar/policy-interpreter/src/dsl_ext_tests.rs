@@ -1613,3 +1613,73 @@ fn call_pin_digest_tracks_in_set_target_pins() {
         "an in-set of one is not an eq pin"
     );
 }
+
+/// F-2026-20245 (structure): `call_pin_digest` commits to how the pins are
+/// grouped, not only to the sequence of pins. Trees that list the same
+/// target and function pins in the same order but pair them through different
+/// `and` / `or` nodes must hash differently, or a followed owner could pair a
+/// committed target with another committed function.
+#[test]
+fn call_pin_digest_commits_to_the_and_or_structure() {
+    let env = Env::default();
+    let u = |x: u32| ScVal::U32(x);
+    let or = |kids: &[ScVal]| tup(&[sym("or"), tup(kids)]);
+    let t = |i: u32, v: ScVal| cmp("eq", path(&[u(0), u(i), sym("target")]), v);
+    let f = |i: u32, v: &str| cmp("eq", path(&[u(0), u(i), sym("function_name")]), sym(v));
+    let dig = |p: &ScVal| {
+        let node = decode(&env, &raw(&env, p)).expect("decodes");
+        crate::dsl::call_pin_digest(&env, &node)
+    };
+
+    // Each pair lists the same four pins in the same order (t=A, f=X, t=B, f=Y).
+    // The old flat digest could not tell them apart.
+    let paired = or(&[
+        and(&[t(0, account(1)), f(0, "x")]),
+        and(&[t(0, account(2)), f(0, "y")]),
+    ]);
+    let crossed = and(&[
+        or(&[t(0, account(1)), f(0, "x")]),
+        or(&[t(0, account(2)), f(0, "y")]),
+    ]);
+    let flat_and = and(&[t(0, account(1)), f(0, "x"), t(0, account(2)), f(0, "y")]);
+    let flat_or = or(&[t(0, account(1)), f(0, "x"), t(0, account(2)), f(0, "y")]);
+    let grouped = [
+        dig(&paired),
+        dig(&crossed),
+        dig(&flat_and),
+        dig(&flat_or),
+        dig(&and(&[
+            and(&[t(0, account(1)), f(0, "x")]),
+            and(&[t(0, account(2)), f(0, "y")]),
+        ])),
+    ];
+    for (i, a) in grouped.iter().enumerate() {
+        assert!(!a.is_empty());
+        for b in grouped.iter().skip(i + 1) {
+            assert_ne!(a, b, "two different groupings share a digest");
+        }
+    }
+
+    // Same grouping, each target tied to the other function: a different tree.
+    let swapped = or(&[
+        and(&[t(0, account(1)), f(0, "y")]),
+        and(&[t(0, account(2)), f(0, "x")]),
+    ]);
+    assert_ne!(dig(&paired), dig(&swapped));
+
+    // The grouping is committed with the children, so the same tree still hashes
+    // the same, and a conjunct that pins no target or function (an amount bound)
+    // is free to change or appear, as E-38 says.
+    let with_amount = |bound: i128| {
+        or(&[
+            and(&[
+                t(0, account(1)),
+                f(0, "x"),
+                cmp("lte", path(&[u(0), u(0), sym("args"), u(2)]), n(bound)),
+            ]),
+            and(&[t(0, account(2)), f(0, "y")]),
+        ])
+    };
+    assert_eq!(dig(&paired), dig(&with_amount(100)));
+    assert_eq!(dig(&with_amount(100)), dig(&with_amount(900)));
+}

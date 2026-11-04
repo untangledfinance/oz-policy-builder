@@ -540,24 +540,30 @@ pub fn pins(
 }
 
 /// A deterministic digest of the constants a predicate pins each call's
-/// `target` and `function_name` to, in AST order. It covers both ways `pins_own`
-/// accepts such a pin:
-/// - `eq(call_path[0, i, target|function_name], lit(v))`: the call index `i`, a
-///   field byte and the XDR of `v`.
-/// - `in(call_path[0, i, target|function_name], [lit, ...])`: the call index
-///   `i`, the field byte, an `in` marker, the entry count and the XDR of every
+/// `target` and `function_name` to, and of how those pins are combined. It is a
+/// prefix-free encoding of the pin records in AST order, each led by a kind byte:
+/// - `1` `and` / `2` `or`: the kind byte, the number of children that carry a
+///   record (a big-endian `u32`), then those children. A child that pins no call
+///   target or function adds nothing, so a followed owner can still add or drop
+///   an amount conjunct (E-38), but cannot regroup the pins: `and(or(t=A, t=B),
+///   or(f=X, f=Y))` and `or(and(t=A, f=X), and(t=B, f=Y))` pair targets and
+///   functions differently and hash differently (F-2026-20245).
+/// - `3` `eq(call_path[0, i, target|function_name], lit(v))`: the call index `i`,
+///   a field byte (0 target, 1 function), the length of the XDR of `v` and the XDR.
+/// - `4` `in(call_path[0, i, target|function_name], [lit, ...])`: the call index
+///   `i`, the field byte, the entry count, then the length and XDR of every
 ///   entry. The entries are sorted by their bytes first, so a reordered but
 ///   otherwise equal set hashes the same (`in` membership does not depend on
 ///   order); adding, removing or replacing any entry is a change and is caught.
 ///
-/// Both forms are needed because `pins_own` admits an `in` set as a target or
+/// Both pin forms are needed because `pins_own` admits an `in` set as a target or
 /// function pin (`dsl::pins` with `set = true`), and the canonical keyless batch
 /// shape pins a call's target with an `in` set, so an `eq`-only digest would let
-/// a followed owner retarget a keyless follower by editing the set's contents
-/// (F-2026-20245). Amounts and other `call_path` pins are not included, so a
-/// followed owner keeps control of amounts (E-38). The digest is empty for a
-/// predicate that pins no call target or function (for example a `run` rule),
-/// which is a stable value too.
+/// a followed owner retarget a keyless follower by editing the set's contents.
+/// Amounts and other `call_path` pins are not included, so a followed owner keeps
+/// control of amounts (E-38). The digest is empty for a predicate that pins no
+/// call target or function (for example a `run` rule), which is a stable value
+/// too.
 pub fn call_pin_digest(env: &Env, root: &Node) -> Bytes {
     let target = Symbol::new(env, "target").to_val();
     let function = Symbol::new(env, "function_name").to_val();
@@ -566,11 +572,36 @@ pub fn call_pin_digest(env: &Env, root: &Node) -> Bytes {
     out
 }
 
+const DIGEST_AND: u8 = 1;
+const DIGEST_OR: u8 = 2;
+const DIGEST_EQ: u8 = 3;
+const DIGEST_IN: u8 = 4;
+
 fn digest_node(env: &Env, node: &Node, target: &Val, function: &Val, out: &mut Bytes) {
     match node {
         Node::And(kids) | Node::Or(kids) => {
-            kids.iter()
-                .for_each(|k| digest_node(env, k, target, function, out));
+            // Only a child that records something is counted and kept; the count
+            // and the kind byte are what make the grouping part of the digest.
+            let parts: Vec<Bytes> = kids
+                .iter()
+                .map(|k| {
+                    let mut part = Bytes::new(env);
+                    digest_node(env, k, target, function, &mut part);
+                    part
+                })
+                .filter(|part| !part.is_empty())
+                .collect();
+            if parts.is_empty() {
+                return;
+            }
+            let kind = if matches!(node, Node::And(_)) {
+                DIGEST_AND
+            } else {
+                DIGEST_OR
+            };
+            out.push_back(kind);
+            out.append(&Bytes::from_array(env, &(parts.len() as u32).to_be_bytes()));
+            parts.iter().for_each(|part| out.append(part));
         }
         Node::Compare(CompareOp::Eq, a, b) => {
             digest_eq(env, a, b, target, function, out);
@@ -619,16 +650,17 @@ fn digest_eq(env: &Env, sel: &Leaf, lit: &Leaf, target: &Val, function: &Val, ou
     let Some((i, field)) = call_field(env, sel, target, function) else {
         return;
     };
+    let xdr = v.to_xdr(env);
+    out.push_back(DIGEST_EQ);
     out.append(&Bytes::from_array(env, &i.to_be_bytes()));
     out.push_back(field);
-    out.append(&v.to_xdr(env));
+    out.append(&Bytes::from_array(env, &xdr.len().to_be_bytes()));
+    out.append(&xdr);
 }
 
 /// Digest an `in(call_path[0, i, target|function_name], [lit, ...])` target or
-/// function pin. The entries are sorted by their XDR bytes so a reordered but
-/// equal set hashes the same. The `in` marker byte is 1; no ScVal XDR begins
-/// with 1 (a discriminant is a 4-byte big-endian int, so its first byte is 0),
-/// so an `in` record never aliases an `eq` record's trailing XDR.
+/// function pin (kind byte 4). The entries are sorted by their XDR bytes so a
+/// reordered but equal set hashes the same.
 fn digest_in(
     env: &Env,
     needle: &Leaf,
@@ -649,9 +681,9 @@ fn digest_in(
         xdrs.push(v.to_xdr(env).iter().collect());
     }
     xdrs.sort();
+    out.push_back(DIGEST_IN);
     out.append(&Bytes::from_array(env, &i.to_be_bytes()));
     out.push_back(field);
-    out.push_back(1u8);
     out.append(&Bytes::from_array(env, &(xdrs.len() as u32).to_be_bytes()));
     for x in xdrs.iter() {
         out.append(&Bytes::from_array(env, &(x.len() as u32).to_be_bytes()));

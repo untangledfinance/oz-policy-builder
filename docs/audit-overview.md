@@ -63,8 +63,9 @@ interpreter's `install`, `enforce` and `uninstall` are unchanged.
   takes a `version` argument; one persistent version counter per rule is shared
   by `install`, `bind_executor` and `uninstall` and survives an uninstall (the
   admins authorise `uninstall` for the next version); a self-scoped keyless
-  follower is committed at `bind_executor` to the call targets and functions the
-  followed predicate pins (221 on a mismatch); the read-target contract check
+  follower is committed at `bind_executor` (or at an `install` that changes what
+  it follows) to the call targets and functions the followed predicate pins and
+  how they are grouped (221 on a mismatch); the read-target contract check
   runs once at install; comment corrections (TTL bump threshold, limits, error
   descriptions).
 - **Custody gate:** a `payees` list, a subset of `allowed`, is the only set
@@ -388,7 +389,8 @@ address and build, and custody derives that address from the gate itself.
 >   and its admins (PR #60, release `v5.1.0`); (2) this note and the STRIDE
 >   entry; (3) for a keyed follower, the second policy with B's own cap above;
 >   (4) since 6.0.0, a follower scoped to its own executor is committed at
->   `bind_executor` to the call targets and functions A's predicate pinned then,
+>   `bind_executor` (or at an `install` that changes what it follows) to the call
+>   targets and functions A's predicate pinned then, and how they are grouped,
 >   and `enforce` refuses (221) when A's live predicate pins others, so A keeps
 >   control of amounts but cannot retarget the follower (STRIDE E-41).
 >   A borrower who wants A to only *tighten* the fence keeps the rule **keyed**
@@ -503,7 +505,7 @@ Each crate's `build-wasm.sh` gives the hash CI compares
 
 | Contract | sha256 of the Linux build (size) | Testnet |
 |---|---|---|
-| Policy interpreter | `c6273cb1880233c541e67592a687d01b309b15ce2c41158d043f50cce96955e5` (84,280 bytes) | uploaded, and a fresh verification instance `CADKAYWU…` deployed, on 2 November 2026, and a second fresh instance on 3 November 2026 ([evidence](../evidence/README.md#the-600-fixes-preliminary-review-2-november-2026)). Instance `CDER6P73…` (wasm `6704996f…`) is the policy-synth pin; policy-synth does not trust the superseded instances recorded in `deployments/interpreter-testnet.json` |
+| Policy interpreter | `89a1bf4023ab77c6fc6b6f0cc7622acaabc30a67966d09142ee75ff977a2728b` (85,288 bytes) | not uploaded yet. Its predecessor `c6273cb1…` (84,280 bytes, before the F-2026-20245 follower changes) was uploaded, and a fresh verification instance `CADKAYWU…` deployed, on 2 November 2026, and a second fresh instance on 3 November 2026 ([evidence](../evidence/README.md#the-600-fixes-preliminary-review-2-november-2026)). Instance `CDER6P73…` (wasm `6704996f…`) is the policy-synth pin; policy-synth does not trust the superseded instances recorded in `deployments/interpreter-testnet.json` |
 | Execution adapter | `eafcd011a3c2e0aae08402e9fbd5f39e65d1feb370e45035ee20a25d4c95b725` (31,667 bytes) | uploaded, fresh no-gate and gated adapters deployed for verification; `deployments/execution-testnet.json` records the build and its upload |
 | Custody gate | `89e48fcb5c9f037f1d702d2cb6ed3be99f24a7794c0f5df712b7ba887db50dbb` (13,205 bytes) | uploaded, fresh gates deployed for verification (two on 2 November 2026, two on 3 November 2026); recorded in `deployments/execution-testnet.json` |
 | Prime seat | `f39587ad8a190e31955a6fab1c274372fa724180c4ab1bad72846e08f1f2bd51` (19,758 bytes) | uploaded, a fresh seat deployed for verification |

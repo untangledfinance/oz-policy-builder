@@ -213,15 +213,31 @@ impl PolicyInterpreter {
         bump(e, &key, p.install_nonce);
 
         // A re-install keeps the binding, so it must not weaken a self-scoped
-        // rule's predicate under it (see `bind_executor`). The follower pin
-        // commitment (F-2026-20245) is part of the binding and is kept too.
-        let (executor, follow_pins) = match prior {
-            Some(p) => (p.executor, p.follow_pins),
+        // rule's predicate under it (see `bind_executor`).
+        let (executor, kept) = match prior {
+            Some(p) => (p.executor, Some((p.source, p.follow_pins))),
             None => (None, None),
         };
         let called = called_contract(scope);
-        let open = executor.is_some() && executor == called && !pins_own(e, &root);
-        deny_unless(e, !open, E::RunNotPinned);
+        let self_scoped = executor.is_some() && executor == called;
+        deny_unless(e, !self_scoped || pins_own(e, &root), E::RunNotPinned);
+
+        // F-2026-20245: the follower pin commitment belongs to the binding AND to
+        // the followed rule. A self-scoped follower keeps its commitment only when
+        // it still follows the same rule (so a re-install does not take on a
+        // retarget the followed owner made meanwhile; `bind_executor` takes the
+        // current one on). Any other self-scoped follower (a rule bound inline and now
+        // following, a different followed rule, a rule newly self-scoped) is
+        // committed here to the targets and functions of the predicate it follows
+        // now, exactly as `bind_executor` would, under the same two authorisations.
+        // An inline or not self-scoped rule carries none.
+        let follow_pins = match (&source, self_scoped) {
+            (Source::Rule(..), true) => match kept {
+                Some((was, Some(commitment))) if was == source => Some(commitment),
+                _ => Some(e.crypto().sha256(&dsl::call_pin_digest(e, &root)).into()),
+            },
+            _ => None,
+        };
 
         let doc = StoredDoc {
             predicate_bytes: match source {
@@ -356,10 +372,18 @@ impl PolicyInterpreter {
             // F-2026-20245: a keyless follower committed at `bind_executor` to the
             // call targets and functions of the followed predicate. If the
             // followed owner has since re-installed with different ones, refuse.
+            // A follower with no commitment is refused too. `bind_executor` and
+            // `install` both record one, so a self-scoped follower without it
+            // was not written by either, and the followed owner could retarget it.
             if own {
-                if let Some(committed) = &doc.follow_pins {
-                    let got: BytesN<32> = e.crypto().sha256(&dsl::call_pin_digest(e, &root)).into();
-                    deny_unless(e, &got == committed, E::RunNotPinned);
+                match (&doc.source, &doc.follow_pins) {
+                    (Source::Rule(..), Some(committed)) => {
+                        let got: BytesN<32> =
+                            e.crypto().sha256(&dsl::call_pin_digest(e, &root)).into();
+                        deny_unless(e, &got == committed, E::RunNotPinned);
+                    }
+                    (Source::Rule(..), None) => deny(e, E::RunNotPinned),
+                    (Source::Inline, _) => {}
                 }
             }
             // Require bound-adapter approval of this exact account/context,
