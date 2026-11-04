@@ -407,7 +407,7 @@ impl PolicyInterpreter {
         // back with the rest of the frame, so only a permit keeps the bump.
         // The rule is ONE entry, so its doc, nonce, signers hash and master
         // set share a lifecycle and cannot archive apart.
-        // A referenced rule must not archive under the rules that follow it.
+        // A follower's permit also renews the rule it follows, in the same window.
         let store = e.storage().persistent();
         store.extend_ttl(&key, TTL_BUMP_THRESHOLD, TTL_BUMP_TO);
         // Keep the rule's version entry alive alongside the rule, so the replay

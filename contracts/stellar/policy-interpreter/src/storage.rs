@@ -171,8 +171,9 @@ pub const TTL_BUMP_THRESHOLD: u32 = 100;
 /// time (30 * 24 * 60 * 60 / 5 = 518,400). The bump runs only when
 /// `TTL_BUMP_THRESHOLD` ledgers (about eight minutes) or fewer remain, so a
 /// permit keeps the rule alive only if one lands in that last window; a rule
-/// authorised less often archives, and a restore brings it back. An abandoned
-/// rule ages out rather than occupying state rent forever.
+/// authorised less often archives, and a restore brings it back. A rule with no
+/// permit of its own or a follower's in that window archives, so an unused rule
+/// does not cost rent forever.
 pub const TTL_BUMP_TO: u32 = 518_400;
 
 // ---- stored doc -----

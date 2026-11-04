@@ -284,8 +284,8 @@ so replacing a rule is the safe way to change who signs it.
   interpreter's `uninstall` needs the policy admins' own authorisation (for the
   rule's next version); when it fails, the account removes the rule anyway, and
   the entry stays. The account never asks about that rule again, but a rule that
-  another rule follows keeps being read: its followers' permits renew its
-  lifetime, and its admins can re-install it. Only `uninstall` with the master
+  another rule follows keeps being read: a follower's permit renews its
+  lifetime when it lands in the entry's last 100 ledgers, and its admins can re-install it. Only `uninstall` with the master
   set revokes the followers. An entry nobody follows ages out.
 - **`uninstall` drops an executor binding:** it needs only the policy admins. A
   rule with no signer then refuses every call (error 206 with no document, 210

@@ -674,8 +674,8 @@ account and a seat needs both.
   and the interpreter's entry for `(account, rule id)` stays until it archives.
   The account gives every new rule a fresh id, so the account never asks about
   that rule again, but the entry is not dead: **a rule that is followed by
-  another keeps being read.** A followed orphan stays readable, every permit of
-  a follower renews its lifetime indefinitely, and its master set can re-install
+  another keeps being read.** A followed orphan stays readable, a permit of a
+  follower that lands in the entry's last 100 ledgers renews its lifetime, and its master set can re-install
   it with a wider predicate (`install` does not check that the account still
   holds the rule). Only `uninstall` with the master set revokes the followers
   (they then refuse with 206). An orphan nobody follows costs rent and ages out.

@@ -92,7 +92,7 @@ not be submitted at all. Put every read target (and what its view reads) under t
 keep-alive as the rule. `worst_case.rs` assumes live targets and says so.
 
 **Rent:** A stored rule pays rent for its bytes, and the permit that finds a rule's
-entry under 100 ledgers from expiry bumps it to 518,400 ledgers inside the AGENT's own
+entry at 100 ledgers or fewer from expiry bumps it to 518,400 ledgers inside the AGENT's own
 `enforce` transaction. Measured on testnet at the rates then (read a network's
 rent rate before choosing its byte limit): installing costs about 0.07 XLM per KB
 of rule, a full bump about 0.35 XLM per KB (17.6 XLM for a 49 KB rule). A keep-alive
@@ -163,7 +163,7 @@ is `CONTRACT_SCOPE` (101), whichever side they are on.
 The grammar version is `SELF_VERSION` (`src/version.rs`); `install` accepts a
 document of that grammar version only (200). Most leaves are answered from the authorized call itself, and
 `enforce` writes no value. A permit bumps the rule's stored entry's TTL when
-fewer than 100 ledgers remain on it; it creates nothing and alters no value, and
+100 ledgers or fewer remain on it; it creates nothing and alters no value, and
 a deny is rolled back with the frame. The exception is `read`, below: **`enforce`
 calls the contracts a predicate reads**, so a rule with a `read` sees more than
 the authorized call.
