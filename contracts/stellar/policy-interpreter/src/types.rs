@@ -6,7 +6,8 @@
 //! the host via `Val::from_xdr` and walks the resulting native soroban-sdk
 //! tree — see `dsl.rs`. Holding the raw bytes (rather than the parsed
 //! `Vec<Val>`) lets install hash-check them with `env.crypto().sha256` and
-//! enforce the 32 KB cap before any parsing work.
+//! enforce the `max_predicate_bytes` cap (configurable 256..40,960; 32 KiB is
+//! only the test default) before any parsing work.
 
 use soroban_sdk::{contracttype, Bytes, BytesN};
 
@@ -75,9 +76,10 @@ impl Limits {
 
 /// OZ's `ContextRule`, in full.
 ///
-/// Every field is declared even though the interpreter only reads `id`,
-/// `context_type` (to refuse the scopes that reach the admin surface) and
-/// `signers`. A `#[contracttype]` struct
+/// Every field is declared even though the interpreter reads only `id`,
+/// `context_type` (to refuse the scopes that reach the admin surface),
+/// `signers` and, in `enforce`, `policies` (its length, for the keyless
+/// single-policy check). A `#[contracttype]` struct
 /// decodes from a host map keyed by field name and requires an EXACT field
 /// set - a subset raises `Error(Object, UnexpectedSize)` and the call traps
 /// before any policy logic runs. This type is the wire shape the smart

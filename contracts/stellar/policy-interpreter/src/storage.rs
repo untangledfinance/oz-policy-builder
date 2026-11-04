@@ -32,8 +32,8 @@ use crate::types::{Limits, Signer};
 // number, so a failed comparison against it is an ordinary ARG_MISMATCH, and a
 // non-positive denominator is refused as MALFORMED_PREDICATE at decode.
 //
-// 102 has one meaning only, arithmetic overflow: a `scaled` step that
-// overflows `i128` denies with it (see `ArithmeticOverflow` below). Keeping
+// 102 has one meaning only, arithmetic overflow: a `scaled` step or a `sum`
+// that overflows `i128` denies with it (see `ArithmeticOverflow` below). Keeping
 // each number to one meaning is what the rule against recycling protects:
 // a consumer that remembers `102 = ARITHMETIC_OVERFLOW` is never wrong, and
 // a consumer that meets a reserved number knows it means nothing here.
@@ -51,8 +51,8 @@ pub enum PolicyError {
     ArgMismatch = 100,
     ContractScope = 101,
     /// A `scaled` step overflowed `i128` (`checked_mul`/`checked_div`/
-    /// `checked_add`). Denies rather than panicking the frame on the arithmetic
-    /// itself. A constant product or fold that overflows is refused at install
+    /// `checked_add`), or a `sum` did (the running `checked_add`). Denies rather
+    /// than panicking the frame on the arithmetic itself. A constant product or fold that overflows is refused at install
     /// instead, whether or not `add` is constant.
     ArithmeticOverflow = 102,
     UnsupportedNode = 103,
@@ -96,8 +96,9 @@ pub enum PolicyError {
     /// holding it could never authorise a call, and a master set holding it could
     /// never uninstall or rotate (the rule would be bricked).
     SignerIsInterpreter = 219,
-    /// The deploy-time `Limits` had a field of 0 or above its ceiling; the
-    /// constructor refuses, so no such instance exists.
+    /// The deploy-time `Limits` had a field below its floor or above its
+    /// ceiling (the floors are 1, 4, 256, 2, 1, 2); the constructor refuses, so
+    /// no such instance exists.
     LimitsOutOfRange = 220,
     /// A rule bound to an executor and scoped to that executor whose predicate
     /// pins, on every path, neither `call_fn == run` nor an immediate
@@ -108,6 +109,15 @@ pub enum PolicyError {
     /// `bind_executor`, by a re-install under a binding, and by `enforce`
     /// against the rule the account itself passes.
     RunNotPinned = 221,
+    /// `bind_executor` was asked to bind a rule to the smart account itself or
+    /// to this interpreter. A rule bound to its own account never reaches
+    /// `pins_own` (its scope is a venue, not the account), so the grants pin and
+    /// the batch-shape pin are both skipped, and `enforce` would then satisfy
+    /// the executor's approval with the account's own authorisation, letting a
+    /// keyless rule permit with no grant. Binding to the interpreter fails
+    /// closed until rebound. Only an execution adapter may be bound. Refused at
+    /// `bind_executor`.
+    InvalidExecutor = 222,
 }
 
 // ---- deny -----
@@ -142,21 +152,28 @@ pub fn load(e: &Env, key: &(Address, u32)) -> StoredDoc {
 
 // ---- TTL self-extend -----
 //
-// `enforce` bumps an entry whose remaining TTL has fallen below
-// `TTL_BUMP_THRESHOLD` back up to `TTL_BUMP_TO`. The bump happens before the
+// `enforce` extends the rule's entry, its version entry and, for a follower,
+// the followed rule's entry back up to `TTL_BUMP_TO` when the remaining TTL is
+// at or below `TTL_BUMP_THRESHOLD`. `bind_executor` extends the rule's entry the
+// same way, and `bump` (`install`, `bind_executor`, `uninstall`) extends the
+// version entry; no other call renews an entry. The bump happens before the
 // predicate check: a denied enforcement panics, and the Soroban host rolls
 // the storage frame back with it, so a deny cannot buy an extension. That is
 // what makes this allow-path-only without an explicit branch.
 
-/// Bump when fewer than this many ledgers of TTL remain.
+/// Bump when this many ledgers of TTL remain, or fewer. The host's
+/// `extend_ttl(threshold, to)` renews the entry when its remaining TTL is at or
+/// below `threshold`, so the bump fires at exactly 100 ledgers left, not only
+/// below 100.
 pub const TTL_BUMP_THRESHOLD: u32 = 100;
 
 /// Bump back up to this many ledgers. Roughly 30 days at Stellar's ~5s close
-/// time (30 * 24 * 60 * 60 / 5 = 518,400). The bump runs only when fewer than
-/// `TTL_BUMP_THRESHOLD` ledgers (about eight minutes) remain, so a permit keeps
-/// the rule alive only if one lands in that last window; a rule authorised less
-/// often archives, and a restore brings it back. An abandoned rule ages out
-/// rather than occupying state rent forever.
+/// time (30 * 24 * 60 * 60 / 5 = 518,400). The bump runs only when
+/// `TTL_BUMP_THRESHOLD` ledgers (about eight minutes) or fewer remain, so a
+/// permit keeps the rule alive only if one lands in that last window; a rule
+/// authorised less often archives, and a restore brings it back. A rule with no
+/// permit of its own or a follower's in that window archives, so an unused rule
+/// does not cost rent forever.
 pub const TTL_BUMP_TO: u32 = 518_400;
 
 // ---- stored doc -----
@@ -167,7 +184,10 @@ pub const TTL_BUMP_TO: u32 = 518_400;
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct StoredDoc {
-    /// Part of the document lifecycle; requires a fresh interpreter deployment.
+    /// The executor a keyless rule is bound to. Set by `bind_executor` and kept
+    /// across a re-install; cleared only when the whole document is removed by
+    /// `uninstall`. Part of the document lifecycle, written and bumped with the
+    /// rest of the doc.
     pub executor: Option<Address>,
     pub predicate_bytes: Bytes,
     pub nonce: u32,
@@ -177,14 +197,23 @@ pub struct StoredDoc {
     pub master_set: soroban_sdk::Vec<Signer>,
     /// The contract a `CallContract` rule is scoped to, as the last install
     /// was told; none for any other scope. Only `bind_executor` reads it, to
-    /// refuse binding a self-scoped rule whose predicate leaves `run` open. A
-    /// direct install can misstate it, so `enforce` checks the scope of the
-    /// rule the account passes, not this.
+    /// refuse binding a self-scoped rule whose predicate pins neither
+    /// `call_fn == run` nor an immediate `execute` of a fixed batch shape
+    /// (`pins_own`). A direct install can misstate it, so `enforce` checks the
+    /// scope of the rule the account passes, not this.
     pub scope: Option<Address>,
     /// Where the predicate is: `predicate_bytes`, or the rule `(account,
     /// rule_id)` on this interpreter whose predicate this rule follows (then
     /// `predicate_bytes` is empty). Set only by this rule's own install.
     pub source: Source,
+    /// For a self-scoped keyless FOLLOWER (`source` is `Rule` and the rule is
+    /// bound to its own scope), the digest of the call targets and functions the
+    /// followed predicate pinned at `bind_executor`, or at an `install` that made
+    /// the rule a self-scoped follower (`dsl::call_pin_digest`).
+    /// `enforce` refuses (221) when the live followed predicate pins different
+    /// ones, so the followed owner keeps control of amounts but cannot retarget
+    /// the follower (F-2026-20245). None for every other rule.
+    pub follow_pins: Option<BytesN<32>>,
 }
 
 /// A rule's predicate source. (An `Option` of a tuple has no XDR conversion

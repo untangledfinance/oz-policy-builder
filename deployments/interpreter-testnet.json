@@ -10,7 +10,7 @@
   "interpreterSource": {
     "commit": "f8a6f8ceea87a678af4fc76516886410553f54a4",
     "reproducibleWasmSha256": "6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4",
-    "note": "Built with ./build-wasm.sh on Linux x86_64 (the same bytes from a second path; pinned in contracts/build-hashes.json). Testnet only. The interpreter with referenced rules (a rule follows another rule's predicate) and the immediate-batch pin for a rule scoped to its executor (221), and DEPLOY-TIME LIMITS: __constructor(Limits) stores reads / leaves / bytes / elems / in entries / depth once in instance storage (each between a floor and a hard ceiling: reads 1..8, leaves 4..400, bytes 256..40,960, elems 2..64, in 1..64, depth 2..8, else error 220) and limits() returns them; install, check and enforce hold a predicate to them. This instance was deployed with reads 8, leaves 400, bytes 24,576 (PayFi's largest rule is 8.8 KB), elems 32, in 32, depth 5 (see `limits`). Nothing else deployed was touched."
+    "note": "Built with ./build-wasm.sh on Linux x86_64 (the same bytes from a second path; pinned in contracts/build-hashes.json). Testnet only. The interpreter with referenced rules (a rule follows another rule's predicate) and the immediate-batch pin for a rule scoped to its executor (221), and DEPLOY-TIME LIMITS: __constructor(Limits) stores reads / leaves / bytes / elems / in entries / depth once in instance storage (each between a floor and a hard ceiling: reads 1..8, leaves 4..400, bytes 256..40,960, elems 2..64, in 1..64, depth 2..8, else error 220) and limits() returns them; install, check and enforce hold a predicate to them. This instance was deployed with reads 8, leaves 400, bytes 24,576 (the largest reference rule is 8.8 KB), elems 32, in 32, depth 5 (see `limits`). Nothing else deployed was touched."
   },
   "uploadTx": {
     "interpreter": "5c5028f24b6272ef5b7e7afd492cdaf6910d836a7ad3582f175de8a64d980134"
@@ -99,5 +99,220 @@
       },
       "commit": "5728d23"
     }
-  ]
+  ],
+  "testnetVerification": {
+    "note": "Fresh instances deployed on testnet to verify the [SCA] fixes (patched wasms): new addresses, with the four patched wasms uploaded.",
+    "recorded": "2026-11-02T20:36:12.262Z",
+    "deployer": "throwaway friendbot key",
+    "uploads": {
+      "policy_interpreter": {
+        "sha256": "c6273cb1880233c541e67592a687d01b309b15ce2c41158d043f50cce96955e5",
+        "size": 84280,
+        "uploadTx": "f9d6bffb67d6d57dd36e382c003a001db91095367284e41f215713e851e063a5"
+      },
+      "execution_adapter": {
+        "sha256": "eafcd011a3c2e0aae08402e9fbd5f39e65d1feb370e45035ee20a25d4c95b725",
+        "size": 31667,
+        "uploadTx": "f3a65ae12118f92e2e04c16ee551150008be2d3391ddabdef1518f434a6511cc"
+      },
+      "custody_gate": {
+        "sha256": "89e48fcb5c9f037f1d702d2cb6ed3be99f24a7794c0f5df712b7ba887db50dbb",
+        "size": 13205,
+        "uploadTx": "2b1c2c4ef1a27f7a82b6b5d5821ec8fdc5ff39f2869a02d075179b490ff80d23"
+      },
+      "prime_seat": {
+        "sha256": "f39587ad8a190e31955a6fab1c274372fa724180c4ab1bad72846e08f1f2bd51",
+        "size": 19758,
+        "uploadTx": "fb4d42109961c374f6d4a53ef7e22456fde600f969dddfd07b902cd4bfc737bf"
+      }
+    },
+    "interpreter": "CADKAYWUKXICWTUJABTOOLKJXKF4NRVTMBXNG7T6JT7UYBIHXTGDR4QW",
+    "interpreterCreateTx": "f43d3dbd9e4f5854cd52f8324c1ccab3e707e7252a538e27f144dc1f97d30784",
+    "wasmSha256": {
+      "interpreter": "c6273cb1880233c541e67592a687d01b309b15ce2c41158d043f50cce96955e5"
+    },
+    "uploadTx": {
+      "interpreter": "f9d6bffb67d6d57dd36e382c003a001db91095367284e41f215713e851e063a5"
+    },
+    "grammar": 7,
+    "limits": {
+      "max_reads": 8,
+      "max_leaves": 400,
+      "max_predicate_bytes": 24576,
+      "max_elems": 32,
+      "max_in_operands": 32,
+      "max_depth": 5
+    },
+    "smartAccount": {
+      "address": "CBDL3KAJF5L2PDLJTULBHH7EUJE3W44OG5EE7YVTLAW32SFKV7C4CTQ4",
+      "wasmSha256": "8286422f205951f37f4249401b403471fc432340dde6925432d31bb8a90cce27",
+      "createTx": "5bf2378215cd87ed35dfd666d592782d7043b2cca23977c07bc43c9b3c26f146",
+      "note": "OZ 0.8.0 multisig account, fresh, one Delegated signer (throwaway key)."
+    },
+    "testAssetSac": "CDYGYHZT6HBTQYOQBX6XNUEX7WU72CVUBENOO4QDFOO4S5QSHILYPH2T",
+    "round2": {
+      "note": "Round 2: enforce-level and seat verification (additive).",
+      "seat": "CAU2MFRTSNY2XCA4ZAG4Z4VJ3JVHDPWMEZH7P3CNGLMR4TYUYCXM2ITF",
+      "enforceRules": {
+        "note": "keyless rules on the OZ account for the F-20241 enforce PoC",
+        "root": {
+          "id": 1,
+          "scope": "no-gate adapter",
+          "grantsPin": 1
+        },
+        "inner": {
+          "id": 2,
+          "scope": "SAC"
+        }
+      },
+      "validExecuteTx": "8b1ee67312c68891123c6d94adaba6b88a93c71b422ff355b6df50014c3179a9",
+      "smuggleRefusedCode": 100,
+      "gate2": "CCZDKGQXBUZRLECVWAKJPKS7LKHPW4CWLL4AKTJKFO4Y3JJUF5JIQ4IA",
+      "gatedAdapter2": "CB7JBRA5WD5NH5DTGK5MGPY4RCZSMIK6VONWIFTJIKX7JGX7C63TUAN6"
+    },
+    "round3": {
+      "note": "Round 3: the remaining on-chain checks (contract-payer grants-count PoC, follower retarget at enforce, gate pull, rebind floor, stored take-over run, adapter and gate events) on a second set of fresh instances. Additive: every field above is unchanged. New addresses only; the wasm builds are the ones uploaded in this record's uploads.",
+      "recorded": "2026-11-03",
+      "driver": "throwaway friendbot keys; drivers and run log are kept outside this repository",
+      "interpreter": {
+        "address": "CA6IGORHZ4M4BSC5TF7NK3EIAMQU5Q72GL6OTFS424Y5IC7OSZ2O5EL4",
+        "createTx": "754cc2452f31118071923f139be85daed113a8c6d22ae9cc47517f44f4551a47",
+        "wasmSha256": "c6273cb1880233c541e67592a687d01b309b15ce2c41158d043f50cce96955e5"
+      },
+      "smartAccount": {
+        "address": "CBWLXJUW3OJSKR6HSIASVW5A57H7LD7IZUTKWBTHE2CVHODT4F7AWR3M",
+        "createTx": "d0bf2b59dcdc93bd22481cd8a3f7c1f2747ec18d9c5e21e898b342d6a5d21d5b",
+        "wasmSha256": "8286422f205951f37f4249401b403471fc432340dde6925432d31bb8a90cce27",
+        "note": "OpenZeppelin 0.8.0 multisig account, one Delegated signer (throwaway key)."
+      },
+      "testAssets": {
+        "TUSD": {
+          "address": "CCUWLFUDN54MCGRDXIGMPHTTYKZI2EKLWG2XBUCOLRWSVEARSMY2EYSH",
+          "createTx": "a889238e6543903b441cbfbaa555329fd7556bd9c64e6bd153d457dd42ae7569"
+        },
+        "XLMX": {
+          "address": "CBNRM6WY5LZUSTY5JJGFJUUBIC2HNFCBLLFFUFP4PGGJECJ2QFGKOK4R",
+          "createTx": "540755b2c37f5f7f0d605f5cff6fc67f1d64e793b5c55e317a2cc00201db0d52"
+        },
+        "FLWD": {
+          "address": "CD54ZPUZ3GSDCWDXBDX2JXBSQVHY5LBCJ3NRLM4IU7UJOK5MBB3H2224",
+          "createTx": "f91c9bae890bc7140ed3a7c2287df01f8fe042e24f851b2f5071fce1d58886f0"
+        }
+      },
+      "thief": {
+        "address": "CANBKKPYVCN6VPAZBEEBMA5SDWR5RT43RC7GBK2OHYU26N7RPSXRWAPW",
+        "createTx": "0174b6bd84b3136328b9dafbd906ac790c3dd0a2e5a792458b3d4a51100ecf40",
+        "wasmSha256": "b55e6a03a19c99b52bef35c2958a63884043da8b5105c5d5234bf7d462efe05b",
+        "uploadTx": "f112c401e23d7f19da73bf96e0c46f86e28b8151f95dac9d227b39c4a340337e",
+        "note": "Test-only attacker contract: a contract-account payer whose __check_auth, once armed, raises an extra token.transfer from the victim account. Its source is kept outside this repository and it is not part of any release."
+      },
+      "grantsCountEnforce": {
+        "note": "Contract-payer variant of the grants-count proof of concept, on the fresh account. Root rule (scope = executor N) pins an immediate execute of [TUSD.transfer(payer -> account, 1 TUSD), XLMX.transfer(account -> payer, 5 XLMX)] with eq(call_arg_len(1), 1); inner rule 2 (scope XLMX) permits transfer from the account with no per-call bound.",
+        "rules": {
+          "inner": {
+            "id": 2,
+            "installTx": "e3ef685d139df5d20c4919493ff5280e00b73c2d089efa433671ebd58514eabc",
+            "bindTx": "3af0f3c238076963a499c071d7debe27e2f25c9a12bd9998efcd114540074366"
+          },
+          "rootPinned1": {
+            "id": 5,
+            "installTx": "9d699b3b19eb37989374c19870b5ad16cb4bc3c74914f569d26c28b84f03f666",
+            "bindTx": "c8df1ad4e83747c1f5218f874853412425382028c14fed8af2444e8255dd597c"
+          },
+          "rootPinned2Control": {
+            "id": 4,
+            "installTx": "09f236cdb031c1b2dea049b265c3bcba8dea5d612e3d4c1ac1ac571274b9432e",
+            "bindTx": "cba28ed769938fee697b21d906c0f04adf913de3d4e97c510a58ec10f7d9d23c",
+            "removedTx": "20f05a16019cb4984f4b740226dcb989462116335cfda0e43c6ee0e1a778f20e"
+          }
+        },
+        "contractPayerBatchTx": "dc07095849c648aef27179197be6d503159db11c9e851b603cf2f25cfea0da1f",
+        "smuggleRefused": {
+          "code": 100,
+          "raisedBy": "interpreter",
+          "note": "armed Thief, its callback context spliced into the account entry plus a second word (2 grants, pin 1); simulation in enforcing mode"
+        },
+        "noWordRefused": "Error(Auth, InvalidAction): the extra context has no executor word",
+        "misPinnedControlDrainTx": "d164da453563f71a884e1fab28490874810befc7bee9190d2234c5a5932c27e7",
+        "misPinnedControlNote": "The same smuggle against a root rule pinned to the wrong count (2) runs: the Thief takes 2,000 + 5 XLMX. The pin is what stops it."
+      },
+      "followerRetarget": {
+        "note": "The followed owner is a separate account that re-installs its own rule on the interpreter under the same id with the next nonce; the follower is an ordinary account rule whose predicate is the reference (owner, 11).",
+        "followedOwner": "GAVKATCSSSLUSAWSM4IKHWV62EKT6M4DVIB22TMOQTBMLYSOZNHNQXA4",
+        "followedRuleId": 11,
+        "followerRuleId": 6,
+        "followerInstallTx": "3ff0f70a55def0d5756c47a28457c819cd88c828b74249925d511da5a512332a",
+        "followerBindTx": "19663eb1583f8969d34f0ba1c6bf33b53a869d27b073476b8bb22c8c61185a6b",
+        "innerRule": {
+          "id": 8,
+          "installTx": "c0e959bb9b7c580fea1ba2e9d384db90501337f129466da38bf0fbb61a23e114",
+          "bindTx": "46dd913ddfe705a7788eeb2a423bd2698b9b2e673c853ea172d8ac542ce47952"
+        },
+        "executor": "CAKOME5E7NA6NAFS67PKHCANZM3Q5N7VO4WQD6SZDM5Y7PJOK6FRU755",
+        "steps": [
+          {
+            "step": "followed install, amount 1,000,000 (nonce 1)",
+            "tx": "3e497925693fd059cf9add9e1ee7de5463cbece940e773ea743804f5ae1a6f6c"
+          },
+          {
+            "step": "batch amount 1,000,000",
+            "result": "permit",
+            "tx": "9d5bf29fa847aee70a88154be95270ca421bc590b68b5c8b1fdfd231f5b31c0f"
+          },
+          {
+            "step": "amount change to 2,000,000 (nonce 2)",
+            "tx": "6976be19fa5f49e687ad52ea4d83a9edffcacfb37d1ec41842831b1503440b84"
+          },
+          {
+            "step": "batch amount 2,000,000",
+            "result": "permit",
+            "tx": "6a3677849e0ac8af45114ee5c02b1aaaee7f8077568f6a44616e058bbe77ab2c"
+          },
+          {
+            "step": "batch amount 1,000,000 after the change",
+            "result": "refused 100"
+          },
+          {
+            "step": "retarget by eq to another token (nonce 3)",
+            "tx": "6df949f89141e7ace62b2ecbe1c0ec8d061d9cd31fd9a54675d6dc79eedc51c3"
+          },
+          {
+            "step": "batch after the eq retarget",
+            "result": "refused 221"
+          },
+          {
+            "step": "retarget by an in set that still matches the batch (nonce 4)",
+            "tx": "07fbe7578ccf022ae32e4ecd98502929f6be2446990d565aeef47236fe8bb37e"
+          },
+          {
+            "step": "batch after the in-set retarget",
+            "result": "refused 221"
+          },
+          {
+            "step": "restore the targets, amount 3,000,000 (nonce 5)",
+            "tx": "b42367453834c553b2378d0e9218a205ec99bbff16587dab54d215345c8efed2"
+          },
+          {
+            "step": "batch amount 3,000,000",
+            "result": "permit",
+            "tx": "43388733c4468f7371ccc20eff2282323be151684045df980d461e42d591a49e"
+          }
+        ]
+      },
+      "seatEvictionRead": {
+        "seat": "CAU2MFRTSNY2XCA4ZAG4Z4VJ3JVHDPWMEZH7P3CNGLMR4TYUYCXM2ITF",
+        "endEntryTemporary": {
+          "value": 0,
+          "liveUntilLedger": 8636185
+        },
+        "generationEntryPersistent": {
+          "value": 1,
+          "liveUntilLedger": 8636185
+        },
+        "ledgersLeftAtRead": 3102199,
+        "maxEntryTtl": 3110400,
+        "note": "Read only. A re-grant after the eviction of the end entry cannot be reproduced in real time (about 180 days)."
+      }
+    }
+  }
 }

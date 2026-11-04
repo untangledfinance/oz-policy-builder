@@ -167,6 +167,14 @@
                   "storage": [
                     {
                       "key": {
+                        "symbol": "floor"
+                      },
+                      "val": {
+                        "u32": 0
+                      }
+                    },
+                    {
+                      "key": {
                         "symbol": "gate"
                       },
                       "val": {

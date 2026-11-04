@@ -142,7 +142,7 @@ http on loopback. No tool input takes an endpoint.
 | `verify_policy` | Permitted call(s), derived deny cases, minimality; `ok`, `complete`, `unexamined`, `untested`. **`ok` without `complete: true` does not prove every limit** (`untested` conjuncts were not tried): read `complete`. |
 | `install_policy` | Unsigned `add_context_rule`: the account authorises it, and the interpreter installs the predicate in the same transaction. Verifies the interpreter live, reads every rule on the account, and applies the guardrails below. The account must run an OpenZeppelin build this package signs for, read live: the 0.7.2-line `91a2cd56…` (its signer authorises the digest `sha256(payload ‖ XDR(rule ids))`) or the `v0.8.0` `8286422f…` (the struct `AuthDigestPreimage { account, context_rule_ids, signature_payload }`); any other build, or code that cannot be read, is refused. The same holds for `revoke_policy` and `bind_policy`. With `follow` the rule follows an existing rule's predicate instead of carrying one (see "Rules that follow another rule"). |
 | `revoke_policy` | Unsigned `remove_context_rule`. The rule is read and returned as `removes`, with its review when the account runs a known OpenZeppelin build. The account asks each attached policy to uninstall; the interpreter's `uninstall` needs the policy admins' own authorisation, so unless they sign too, the interpreter keeps its entry for the removed rule until it archives. Nothing reads that entry again, except a rule (on any account) that follows it: that rule keeps enforcing the stored predicate, and its permits keep the entry alive, until the policy admins uninstall it. |
-| `bind_policy` | Unsigned `bind_executor((smartAccount, ruleId), executor)` on the interpreter: the rule then needs that executor's grant for every call (its own `run` excepted), and a keyless rule permits only what the executor vouches for. The rule is read first; see "Keyless rules and the executor binding". |
+| `bind_policy` | Unsigned `bind_executor((smartAccount, ruleId), executor, version)` on the interpreter (`version` is the rule's counter plus one, read live): the rule then needs that executor's grant for every call (its own `run` excepted), and a keyless rule permits only what the executor vouches for. The rule is read first; see "Keyless rules and the executor binding". |
 | `get_interpreter_info` | The pin, its `limits` and the `ceilings`. `verifyLive` adds what is deployed now. |
 | `review_unsigned` | The owner's side: an unsigned install, removal or binding read from its bytes alone, with no RPC. `problems` lists what is wrong in the bytes; the review follows, and the owner must read it (see "The owner's review"). Also `reviewUnsigned` from the package root. |
 
@@ -217,32 +217,47 @@ batch.
   execution adapter, and a rule scoped to the executor is refused unless its
   predicate pins, on every branch, `call_fn = run` or a whole immediate batch
   (`pinsOwn`, the interpreter's `pins_own`, which refuses anything else with
-  221): `call_fn = execute`, the wait (argument 2) `= 0`, the number of calls
-  `= n`, and the `target` and `function_name` of each of those n calls, each an
-  `eq` or an all-constant `in`. A quantifier pins nothing. An adapter with a gate
+  221): `call_fn = execute`, the wait (argument 2) `= 0`, the number of grants
+  (argument 1, `call_arg_len(1)`) `eq` a non-negative constant, the number of
+  calls `= n`, and the `target` and `function_name` of each of those n calls,
+  each an `eq` or an all-constant `in`. The grants pin takes `eq` only (not `in`
+  or a bound) and, in an `or`, must hold in every branch. It fixes how many
+  grants the batch carries, not what they name, so the author pins the exact
+  count the flow uses: a larger constant still admits that many contexts. A
+  quantifier pins nothing. An adapter with a gate
   never vouches for its own `execute`, so a rule scoped to it must pin `run`.
   With `signers` and `executor`, the rule is keyed and will also need the
   executor's grant.
 - **Writing the batch:** the intent rows `pin` (the wait, each target and
-  function), `count` (the number of calls, and of grants) and `same` (an argument
+  function), `count` (the number of calls, and of grants: a keyless rule
+  scoped to its own executor must carry the grants `count` at `[1]`) and `same` (an argument
   of one call equal to an argument of another, such as the liquidator tied to
   the recipient) write it; `deny` keeps an address off the line's own. The
   binding of the liquidator is a predicate convention the rule's author writes.
   The interpreter guards only the shape.
 - **Bind:** `bind_policy` builds `bind_executor` once the rule is on the account
-  (the install transaction returns its id). It reads the rule with its stored
+  (the install transaction returns its id). It reads the rule's version counter
+  (the interpreter's `("ver", account, ruleId)` entry, which an uninstall does not
+  remove; 0 when absent) and names the next one in the call, so a signed bind
+  that was held back is refused once the rule is re-installed or bound again.
+  `version` comes back in the result. It refuses an executor that is the account
+  or the interpreter (the interpreter's 222). It reads the rule with its stored
   predicate, executor and admins, and refuses when the rule is not policed by
   the interpreter, when its predicate cannot be read, when the executor is not
   an execution adapter or the scope-to-executor shape above does not hold, or
   when the rule's admins are not the source account alone. Each admin signs
   `bind_executor`, and the builder signs as the source. It returns the rule as
   `binds`, with its review, and `rebinds` when the rule was bound to another
-  executor. Refusals use `BIND_BUILD_FAILED`.
+  executor. Refusals use `BIND_BUILD_FAILED`. For a gated adapter it also reads
+  the gate's `payees` (the `allowed` list when the configuration has no `payees`
+  field) and returns a warning when they include the interpreter, or cannot be
+  read: the interpreter must never be paid, and the gate cannot know its
+  address, so keeping it off `payees` is not enforced by the contract.
 - **Review:** the Authority node of a keyless rule says "no key", names the
   executor and, for an adapter with no gate, that anyone may run an immediate
   batch through it, so the predicate is the only fence. `review_unsigned` reads a
   `bind_executor` from its bytes: the rule `(account, id)`, the executor, the
-  interpreter, which must be the pin, and the account's, the source's and the
+  version (at least 1), the interpreter, which must be the pin, and the account's, the source's and the
   admin's authorisation entries. The executor is a problem unless
   `readContracts: true` shows it to be an execution adapter. The rule's predicate
   is not in those bytes: `bind_policy`'s review shows it.
@@ -271,7 +286,10 @@ batch.
   `review_unsigned` return a warning in `warnings` that starts with `E-38`,
   names the followed rule and its admins (when read), and is worded for the
   executor's kind. A keyed follower, a keyless rule with its own predicate and
-  an inline rule get none.
+  an inline rule get none, but a keyed follower is not unaffected: the followed
+  owner's re-install widens what its agent signers may do. Give it a second
+  policy that holds its own cap (another interpreter instance with an inline
+  cap, or OpenZeppelin's `spending_limit`).
 - **A dedicated no-gate adapter:** keep keyless rules on a no-gate adapter
   that NO other rule can make execute: no rule of any kind may approve its
   `execute` except the keyless rules that pin the whole batch. That includes
@@ -405,7 +423,7 @@ Install inputs for authority:
 
 `install_policy` returns its review beside the XDR, and both reach the owner
 through the agent. `review_unsigned` (or `reviewUnsigned({ network, xdr,
-smartAccount })` from the package root) lets a wallet or the Prime app review
+smartAccount })` from the package root) lets a wallet or a client application review
 the bytes it is about to sign without the agent. It asks no RPC and reads
 nothing but the XDR, the network, the package's own pins, the two bounds from
 the environment and the clock. The one exception is `readContracts: true` (or

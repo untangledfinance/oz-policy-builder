@@ -1,7 +1,8 @@
 //! `read`, `now` and `scaled` end to end, through the real `install`
 //! and `enforce` entry points, against mock oracle / token / pool contracts.
 //!
-//! The four PayFi checks each get a permitting and a refusing case, then the
+//! The four checks (price floor, exact LTV, first-loss floor, freshness) each
+//! get a permitting and a refusing case, then the
 //! safety properties that make a cross-contract read tolerable: the caps, the
 //! literal-only arguments, the fail-closed paths, and re-entry.
 
@@ -408,7 +409,7 @@ fn denied() -> Verdict {
     refused(PolicyError::ArgMismatch)
 }
 
-// ---- PayFi 1: price floor --------------------------------------------------
+// ---- Check 1: price floor --------------------------------------------------
 
 fn price_floor(w: &World, oracle: &Address, p_min: i128) -> ScVal {
     cmp(
@@ -434,7 +435,7 @@ fn price_floor_refuses_below_the_floor() {
     assert_eq!(w.enforce(&[]), denied());
 }
 
-// ---- PayFi 2: exact live-price LTV after the advance -----------------------
+// ---- Check 2: exact live-price LTV after the advance -----------------------
 
 /// `debt + B <= 92% * price * (coll + P)`, with debt, coll and price read and
 /// B, P taken from the call: `advance(B, P, T)`.
@@ -495,7 +496,7 @@ fn ltv_follows_the_live_price() {
     assert_eq!(w.enforce(&[100, 0, 0]), denied());
 }
 
-// ---- PayFi 3: first-loss floor ---------------------------------------------
+// ---- Check 3: first-loss floor ---------------------------------------------
 
 fn first_loss(w: &World, tusd: &Address, custody: &Address, float: i128) -> ScVal {
     cmp(
@@ -541,7 +542,7 @@ fn first_loss_reads_the_balance_of_the_address_named_in_the_predicate() {
     assert_eq!(w.enforce(&[0, 0, 1]), denied());
 }
 
-// ---- PayFi 4: freshness ----------------------------------------------------
+// ---- Check 4: freshness ----------------------------------------------------
 
 fn fresh(w: &World, oracle: &Address) -> ScVal {
     cmp(
@@ -1728,11 +1729,11 @@ fn a_variant_literal_pins_an_enum_argument_of_the_call() {
 
 // ---- identical reads are one call; the cap counts distinct calls -----------
 
-/// All four PayFi checks as ONE predicate on the payout rule: price floor,
+/// All four checks as ONE predicate on the payout rule: price floor,
 /// exact LTV, first-loss float and freshness. The feed is read three times
 /// (price twice, timestamp once) and is one call; with debt, collateral and
 /// the custody balance that is four distinct calls.
-fn payfi_rule(w: &World, feed: &Address, pot: &Address) -> ScVal {
+fn four_check_rule(w: &World, feed: &Address, pot: &Address) -> ScVal {
     let pool = w.env.register(Pool, (900i128, 600i128));
     let custody = Address::generate(&w.env);
     let tusd = w.env.register(Token, (custody.clone(), 1_050i128));
@@ -1752,10 +1753,10 @@ fn payfi_rule(w: &World, feed: &Address, pot: &Address) -> ScVal {
 }
 
 #[test]
-fn the_four_payfi_checks_are_one_rule_and_the_feed_is_called_once() {
+fn the_four_checks_are_one_rule_and_the_feed_is_called_once() {
     // price 2, 300 s old: B <= 204 passes LTV (capacity 1,104 - 900), T <= 50.
     let (w, feed, pot) = reflector_world(2, 9_700);
-    let rule = payfi_rule(&w, &feed, &pot);
+    let rule = four_check_rule(&w, &feed, &pot);
     w.install(&rule)
         .expect("one predicate carries all four checks");
     assert_eq!(w.enforce(&[204, 0, 50]), Ok(()));
@@ -1767,10 +1768,10 @@ fn the_four_payfi_checks_are_one_rule_and_the_feed_is_called_once() {
 }
 
 #[test]
-fn each_payfi_check_refuses_inside_the_one_rule() {
+fn each_check_refuses_inside_the_one_rule() {
     let permit = |price, stamp, args: [i128; 3]| {
         let (w, feed, pot) = reflector_world(price, stamp);
-        let rule = payfi_rule(&w, &feed, &pot);
+        let rule = four_check_rule(&w, &feed, &pot);
         w.install(&rule).unwrap();
         w.enforce(&args)
     };
@@ -1784,7 +1785,7 @@ fn each_payfi_check_refuses_inside_the_one_rule() {
 #[test]
 fn a_fifth_distinct_read_is_refused_and_repeats_are_free() {
     let (w, feed, pot) = reflector_world(2, 9_700);
-    let rule = payfi_rule(&w, &feed, &pot);
+    let rule = four_check_rule(&w, &feed, &pot);
     // A fifth DISTINCT call (the feed asked about another asset) is refused.
     let other = Address::generate(&w.env);
     let fifth = reflector_read(&w, &feed, &other, "price");

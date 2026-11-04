@@ -415,7 +415,12 @@ fn uninstall_answers_to_admins_not_operators() {
     s.env.mock_all_auths();
     client.install(&make_params(&s.env, 1, admins), &rule, &s.smart_account);
 
-    let uninstall_args = (rule.clone(), s.smart_account.clone());
+    // F-2026-20275: uninstall keeps the 2-argument OZ signature and instead has
+    // the master set authorise the version it moves to. Install at nonce 1 set
+    // the shared counter to 1, so uninstall moves it to 2 and the signer
+    // authorises `((smart_account, rule_id), 2)`.
+    let key = (s.smart_account.clone(), rule.id);
+    let uninstall_args = (key.clone(), 2u32);
     s.env.mock_auths(&[MockAuth {
         address: &s.operator,
         invoke: &MockAuthInvoke {
@@ -487,18 +492,71 @@ fn executor_binding_requires_account_and_admin() {
             invoke: &MockAuthInvoke {
                 contract: &s.contract_id,
                 fn_name: "bind_executor",
-                args: (key.clone(), executor.clone()).into_val(&s.env),
+                args: (key.clone(), executor.clone(), 2u32).into_val(&s.env),
                 sub_invokes: &[],
             },
         }]);
-        assert!(client.try_bind_executor(&key, &executor).is_err());
+        assert!(client.try_bind_executor(&key, &executor, &2u32).is_err());
     }
     s.env.mock_all_auths();
-    client.bind_executor(&key, &executor);
+    client.bind_executor(&key, &executor, &2u32);
     let doc: policy_interpreter::StoredDoc = s.env.as_contract(&s.contract_id, || {
         s.env.storage().persistent().get(&(key.0, key.1)).unwrap()
     });
     assert_eq!(doc.executor, Some(executor));
+}
+
+/// F-2026-20242: a rule may be bound only to an execution adapter. Binding to
+/// the smart account itself or to this interpreter is refused with
+/// InvalidExecutor (222). The account case is an escalation: a
+/// venue-scoped keyless rule bound to the account never reaches `pins_own`, and
+/// `enforce` would then satisfy the executor's approval with the account's own
+/// authorisation, permitting with no grant and no signer.
+#[test]
+fn binding_to_the_account_or_the_interpreter_is_refused_222() {
+    let s = setup();
+    let client = PolicyInterpreterClient::new(&s.env, &s.contract_id);
+    let admins = soroban_sdk::vec![&s.env, delegated(&s.admin)];
+    let operators = soroban_sdk::vec![&s.env, delegated(&s.operator)];
+    s.env.mock_all_auths();
+
+    let invalid = Some(Ok(soroban_sdk::Error::from_contract_error(222)));
+    // Bind to the smart account itself.
+    let r1 = make_rule(&s.env, 1, &s.venue, operators.clone());
+    client.install(
+        &make_params(&s.env, 1, admins.clone()),
+        &r1,
+        &s.smart_account,
+    );
+    let k1 = (s.smart_account.clone(), r1.id);
+    assert_eq!(
+        client.try_bind_executor(&k1, &s.smart_account, &2u32).err(),
+        invalid,
+        "the account is refused as executor"
+    );
+    // Bind to this interpreter.
+    let r2 = make_rule(&s.env, 2, &s.venue, operators.clone());
+    client.install(
+        &make_params(&s.env, 1, admins.clone()),
+        &r2,
+        &s.smart_account,
+    );
+    let k2 = (s.smart_account.clone(), r2.id);
+    assert_eq!(
+        client.try_bind_executor(&k2, &s.contract_id, &2u32).err(),
+        invalid,
+        "the interpreter is refused as executor"
+    );
+    // A real adapter still binds.
+    let r3 = make_rule(&s.env, 3, &s.venue, operators);
+    client.install(&make_params(&s.env, 1, admins), &r3, &s.smart_account);
+    let k3 = (s.smart_account.clone(), r3.id);
+    let adapter = Address::generate(&s.env);
+    client.bind_executor(&k3, &adapter, &2u32);
+    let doc: policy_interpreter::StoredDoc = s.env.as_contract(&s.contract_id, || {
+        s.env.storage().persistent().get(&k3).unwrap()
+    });
+    assert_eq!(doc.executor, Some(adapter));
 }
 
 #[test]
@@ -519,8 +577,10 @@ fn executor_binding_survives_reinstall_and_is_removed_with_document() {
         &rule,
         &s.smart_account,
     );
-    client.bind_executor(&(s.smart_account.clone(), rule.id), &executor);
-    client.install(&make_params(&s.env, 2, admins), &rule, &s.smart_account);
+    client.bind_executor(&(s.smart_account.clone(), rule.id), &executor, &2u32);
+    // F-2026-20275: install set the version to 1 and bind to 2, so the
+    // re-install takes nonce 3.
+    client.install(&make_params(&s.env, 3, admins), &rule, &s.smart_account);
     let key = (s.smart_account.clone(), rule.id);
     let doc: policy_interpreter::StoredDoc = s.env.as_contract(&s.contract_id, || {
         s.env.storage().persistent().get(&key).unwrap()
@@ -530,4 +590,201 @@ fn executor_binding_survives_reinstall_and_is_removed_with_document() {
     assert!(!s
         .env
         .as_contract(&s.contract_id, || s.env.storage().persistent().has(&key)));
+}
+
+// ---- F-2026-20275 replay protection (shared per-rule version key) ----
+
+/// A stale `bind_executor` is refused once the shared counter advances. The
+/// counter is one per rule, raised by `install`, `bind_executor` and
+/// `uninstall`, and `bind_executor` names the version it moves to.
+#[test]
+fn a_stale_bind_is_refused_after_the_counter_advances() {
+    let s = setup();
+    let client = PolicyInterpreterClient::new(&s.env, &s.contract_id);
+    let admins = soroban_sdk::vec![&s.env, delegated(&s.admin)];
+    let rule = make_rule(
+        &s.env,
+        1,
+        &s.venue,
+        soroban_sdk::vec![&s.env, delegated(&s.operator)],
+    );
+    let key = (s.smart_account.clone(), rule.id);
+    let executor = Address::generate(&s.env);
+
+    s.env.mock_all_auths();
+    client.install(
+        &make_params(&s.env, 1, admins.clone()),
+        &rule,
+        &s.smart_account,
+    ); // ver 1
+       // The rule is scoped to a venue, not the executor, so the batch-shape pin is
+       // skipped and the bind turns on the version check alone.
+    client.bind_executor(&key, &executor, &2u32); // ver 2
+    assert_eq!(
+        client.try_bind_executor(&key, &executor, &2u32).err(),
+        Some(Ok(soroban_sdk::Error::from_contract_error(202))),
+        "replaying the same bind (version 2) is refused: the counter is at 2"
+    );
+
+    // A re-install advances the counter again; a stale bind for an earlier
+    // version stays refused, only the next one is accepted.
+    client.install(&make_params(&s.env, 3, admins), &rule, &s.smart_account); // ver 3
+    assert!(
+        client.try_bind_executor(&key, &executor, &2u32).is_err(),
+        "version 2 stale"
+    );
+    assert!(
+        client.try_bind_executor(&key, &executor, &3u32).is_err(),
+        "version 3 stale"
+    );
+    client.bind_executor(&key, &executor, &4u32); // the live version binds
+}
+
+/// A stale `uninstall` cannot delete a rule the owners installed again. The
+/// version key survives `uninstall`, so after an uninstall and a re-install the
+/// counter does not restart at 1, and a replayed uninstall signed for the old
+/// version no longer matches the version the master set must authorise now.
+#[test]
+fn a_stale_uninstall_cannot_delete_a_reinstalled_rule() {
+    let s = setup();
+    let client = PolicyInterpreterClient::new(&s.env, &s.contract_id);
+    let admins = soroban_sdk::vec![&s.env, delegated(&s.admin)];
+    let rule = make_rule(
+        &s.env,
+        1,
+        &s.venue,
+        soroban_sdk::vec![&s.env, delegated(&s.operator)],
+    );
+    let key = (s.smart_account.clone(), rule.id);
+
+    s.env.mock_all_auths();
+    client.install(
+        &make_params(&s.env, 1, admins.clone()),
+        &rule,
+        &s.smart_account,
+    ); // ver 1
+    client.uninstall(&rule, &s.smart_account); // master authorises version 2, ver 2, removed
+    client.install(&make_params(&s.env, 3, admins), &rule, &s.smart_account); // reinstall, ver 3
+
+    // The stale uninstall carries the admin's old signature over version 2.
+    // uninstall now needs the master to authorise version 4, so it does not
+    // match and the rule survives.
+    s.env.mock_auths(&[MockAuth {
+        address: &s.admin,
+        invoke: &MockAuthInvoke {
+            contract: &s.contract_id,
+            fn_name: "uninstall",
+            args: (key.clone(), 2u32).into_val(&s.env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(
+        client.try_uninstall(&rule, &s.smart_account).is_err(),
+        "a replay signed for version 2 is refused after the re-install"
+    );
+    assert!(
+        s.env
+            .as_contract(&s.contract_id, || s.env.storage().persistent().has(&key)),
+        "the reinstalled rule survives the replay"
+    );
+
+    // The live uninstall, signed for version 4, removes it.
+    s.env.mock_auths(&[MockAuth {
+        address: &s.admin,
+        invoke: &MockAuthInvoke {
+            contract: &s.contract_id,
+            fn_name: "uninstall",
+            args: (key.clone(), 4u32).into_val(&s.env),
+            sub_invokes: &[],
+        },
+    }]);
+    client.uninstall(&rule, &s.smart_account);
+    assert!(!s
+        .env
+        .as_contract(&s.contract_id, || s.env.storage().persistent().has(&key)));
+}
+
+// F-2026-20273: install, bind_executor, rotate_master_signer_set and uninstall
+// each publish an event carrying the account and the rule id as topics. Each
+// publish is the last statement of its function, so it reports what happened
+// without changing any authorisation decision; this test reads the events back.
+#[test]
+fn the_admin_calls_publish_events() {
+    use policy_interpreter::{ExecutorBound, Installed, MasterSetRotated, Uninstalled};
+    use soroban_sdk::testutils::Events as _;
+    use soroban_sdk::Event as _;
+
+    let s = setup();
+    s.env.mock_all_auths();
+    let client = PolicyInterpreterClient::new(&s.env, &s.contract_id);
+    let operators = soroban_sdk::vec![&s.env, delegated(&s.operator)];
+    let admins = soroban_sdk::vec![&s.env, delegated(&s.admin)];
+    let rule = make_rule(&s.env, 1, &s.venue, operators);
+    let key = (s.smart_account.clone(), rule.id);
+
+    // install: the shared version counter is now 1, and the rule is unbound.
+    client.install(&make_params(&s.env, 1, admins), &rule, &s.smart_account);
+    let events = s.env.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &Installed {
+            account: s.smart_account.clone(),
+            rule_id: 1,
+            version: 1,
+            bound: false,
+        }
+        .to_xdr(&s.env, &s.contract_id)
+    );
+
+    // bind_executor: the counter advances to 2 and the rule carries an executor.
+    let adapter = Address::generate(&s.env);
+    client.bind_executor(&key, &adapter, &2u32);
+    let events = s.env.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &ExecutorBound {
+            account: s.smart_account.clone(),
+            rule_id: 1,
+            executor: adapter,
+            version: 2,
+        }
+        .to_xdr(&s.env, &s.contract_id)
+    );
+
+    // rotate_master_signer_set: the new admin set has two members; rotation does
+    // not touch the version counter, so no version is reported.
+    let new_admins = soroban_sdk::vec![
+        &s.env,
+        delegated(&Address::generate(&s.env)),
+        delegated(&Address::generate(&s.env))
+    ];
+    client.rotate_master_signer_set(&s.smart_account, &1, &new_admins);
+    let events = s.env.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &MasterSetRotated {
+            account: s.smart_account.clone(),
+            rule_id: 1,
+            size: 2,
+        }
+        .to_xdr(&s.env, &s.contract_id)
+    );
+
+    // uninstall: the counter keeps climbing (install 1, bind 2, uninstall 3), so
+    // the event reports version 3 even though the document is removed.
+    client.uninstall(&rule, &s.smart_account);
+    let events = s.env.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &Uninstalled {
+            account: s.smart_account.clone(),
+            rule_id: 1,
+            version: 3,
+        }
+        .to_xdr(&s.env, &s.contract_id)
+    );
 }

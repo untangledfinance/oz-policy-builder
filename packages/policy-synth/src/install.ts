@@ -448,15 +448,37 @@ export const buildInstall = (a: BuildArgs, d: RuleDraft, interpreter: string) =>
 export const buildRevoke = (a: BuildArgs, ruleId: number) =>
   buildSelfCall(a, 'remove_context_rule', [ruleId], 'REVOKE_BUILD_FAILED')
 
-/** `interpreter.bind_executor((smartAccount, ruleId), executor)`, unsigned. */
-export const buildBind = (a: BuildArgs, interpreter: string, ruleId: number, executor: string) =>
+/** `interpreter.bind_executor((smartAccount, ruleId), executor, version)`, unsigned. `version` is the
+ *  rule's per-rule counter plus one (`nextVersion`): the interpreter consumes it, so a signed bind
+ *  that was held back is refused once the rule has been re-installed or re-bound. */
+export const buildBind = (
+  a: BuildArgs,
+  interpreter: string,
+  ruleId: number,
+  executor: string,
+  version: number
+) =>
   buildSelfCall(
     a,
     'bind_executor',
-    [[a.smartAccount, ruleId], executor],
+    [[a.smartAccount, ruleId], executor, version],
     'BIND_BUILD_FAILED',
     interpreter
   )
+
+/** The largest value of a `u32`, the type of a rule's version. */
+export const MAX_VERSION = 0xffffffff
+
+/** The version a signature on the next change to a rule must name: the rule's counter, plus one. A
+ *  counter at the ceiling cannot move on, so no further bind or uninstall is possible: refused. */
+export function nextVersion(current: number, code: ErrorCode = 'BIND_BUILD_FAILED'): number {
+  if (!Number.isInteger(current) || current < 0 || current >= MAX_VERSION)
+    throw new Refusal(
+      code,
+      `the rule's version counter reads ${current}: it cannot be raised, so no signature can name the next one`
+    )
+  return current + 1
+}
 
 /** Why a rule an execution adapter with no gate signs is refused (the review of #26, P4). */
 export const NULL_ADAPTER_SIGNER = (signer: string) =>
@@ -515,9 +537,16 @@ const smallInt = (v: Val): bigint | undefined =>
  *  interpreter's `pins_own` decides it (221 otherwise, at `bind_executor`, at a re-install under the
  *  binding and at `enforce`): the executor's `run` (`eq(call_fn, run)` on every path), or an
  *  IMMEDIATE `execute` of a fixed batch shape: on every path `eq(call_fn, execute)`, the wait
- *  (argument 2) `eq` 0, the number of calls `eq` a constant n <= m, where m counts the leading
- *  calls whose `target` and `function_name` are both an `eq` or an all-constant `in`. A quantifier
- *  pins nothing. A predicate the package cannot read pins nothing. */
+ *  (argument 2) `eq` 0, the number of grants (argument 1, `call_arg_len(1)`) `eq` a non-negative
+ *  constant (an `in` or a bound does not pin it: the batch's grants must be as many as the author
+ *  counted), the number of calls `eq` a constant n <= m, where m counts the leading calls whose
+ *  `target` and `function_name` are both an `eq` or an all-constant `in`. A quantifier pins
+ *  nothing. A predicate the package cannot read pins nothing.
+ *
+ *  What the grants pin does and does not do: it fixes how many grants the batch carries, not what
+ *  they name. A rule that pins the count to a number larger than the grants the flow needs still
+ *  admits that many contexts, and an `or` pins it only when every branch does. The author pins the
+ *  exact count the flow uses. */
 export function pinsOwn(e: Expr | null | undefined): boolean {
   if (e === null || e === undefined) return false
   const fn = (name: string) =>
@@ -533,6 +562,13 @@ export function pinsOwn(e: Expr | null | undefined): boolean {
     return (l: Val) => pathOf(l) === want
   }
   if (!fn('execute') || !pins(e, at([2]), (v) => smallInt(v) === 0n, false)) return false
+  // The grants count: without it the batch carries any number of grants, and each is a context the
+  // adapter vouches for to this account's policy.
+  const count = (v: Val) => {
+    const n = smallInt(v)
+    return n !== undefined && n >= 0n
+  }
+  if (!pins(e, at([1, true]), count, false)) return false
   let m = 0
   const field = (i: number, key: string) => pins(e, at([0, i, key]), () => true, true)
   while (field(m, 'target') && field(m, 'function_name')) m++
@@ -613,8 +649,10 @@ export const wordLeaks = (rules: ObservedRule[], adapter: string): ObservedRule[
  *  predicate is its only fence, and that predicate is the followed rule's, which that rule's admins
  *  (its master set) can re-install with its account at will, without this account. Through an
  *  adapter with no gate the shape pin (221) holds only target and function, so anyone could then
- *  move funds; through a gated adapter the gate still limits destinations. A keyed follower keeps
- *  its own signers as a fence. Never refused: an issuer governing a borrower's keyless rule this way
+ *  move funds; through a gated adapter the gate still limits destinations. A keyed follower's
+ *  signers still authenticate each call, but the followed predicate bounds what they may do, so a
+ *  re-install of it widens them too: no warning is raised for that, and a second policy holding the
+ *  follower's own cap keeps them capped. Never refused: an issuer governing a borrower's keyless rule this way
  *  is the intended pattern. The finding id stays in the text, so it ties to the threat model.
  *  Without `executor` (the install bytes do not carry it) the adapter is named as the bound one. */
 export function KEYLESS_FOLLOWER(
@@ -643,7 +681,26 @@ export const ruleWarnings = (
 
 /** Why a rule scoped to its own executor is refused: it pins neither `run` nor a whole immediate batch. */
 export const EXECUTOR_SELF_RULE = (executor: string) =>
-  `the rule is scoped to its executor ${executor} without pinning, on every branch, call_fn = run or an immediate execute of a fixed batch (call_fn = execute, the wait = 0, the number of calls = n, and the target and function_name of each of those calls): it answers that executor's own requests, so anything wider would approve a batch nobody shaped (the interpreter refuses it, 221)`
+  `the rule is scoped to its executor ${executor} without pinning, on every branch, call_fn = run or an immediate execute of a fixed batch (call_fn = execute, the wait = 0, the number of grants (call_arg_len(1)) = g, the number of calls = n, and the target and function_name of each of those calls): it answers that executor's own requests, so anything wider would approve a batch nobody shaped (the interpreter refuses it, 221)`
+
+/** Why the account itself or the interpreter may not be an executor (the interpreter refuses it,
+ *  222, `InvalidExecutor`). An executor is the contract whose grants a bound rule accepts: the
+ *  account (which calls the interpreter on every rule check) or the interpreter itself would make
+ *  its own calls count as that grant. */
+export const INVALID_EXECUTOR = (executor: string, what: 'account' | 'interpreter') =>
+  `executor ${executor} is the ${what} itself: its own calls would stand in for the grant of an execution adapter, and the interpreter refuses it (222). Bind a rule to an execution adapter`
+
+/** The refusal for an executor that is the account or the interpreter, or undefined. */
+export const invalidExecutor = (
+  executor: string,
+  account: string,
+  interpreter: string
+): string | undefined =>
+  executor === account
+    ? INVALID_EXECUTOR(executor, 'account')
+    : executor === interpreter
+      ? INVALID_EXECUTOR(executor, 'interpreter')
+      : undefined
 
 /** Why a rule may not be bound to `executor`, from what it is on the ledger: only an execution
  *  adapter hands out the grant a bound rule needs, and a gated adapter never vouches for its own
@@ -757,8 +814,23 @@ export interface BindChain {
   readRules: () => Promise<RulesRead>
   kind: (executor: string) => Promise<ContractKind>
   fingerprint: (interpreter: string) => Promise<Fingerprint>
-  build: () => Promise<Built>
+  /** The rule's version counter now (0 when the interpreter holds none): a bind names the next. */
+  version: () => Promise<number>
+  /** Builds the bind carrying `version`. */
+  build: (version: number) => Promise<Built>
+  /** The addresses the gate of a gated adapter pays (its `payees`), or undefined when they cannot
+   *  be read. Optional: without it the check below is skipped. */
+  gatePayees?: (adapter: string) => Promise<string[] | undefined>
 }
+
+/** Why a gated executor is warned of: the gate pays the interpreter, or its payees were not read.
+ *  The interpreter must never hold value (a `read` runs its target as the interpreter and keeps the
+ *  effects, so anyone can sweep it), and the gate cannot know the interpreter's address, so keeping
+ *  it off `payees` is not enforced by the contract. */
+export const GATE_PAYS_INTERPRETER = (gate: string, interpreter: string) =>
+  `the gate of ${gate} lists the interpreter ${interpreter} among its payees: a pull could pay it, and anyone can sweep value held at the interpreter through a rule that reads it. Deploy a gate whose payees leave the interpreter out`
+export const GATE_PAYEES_UNREAD = (gate: string) =>
+  `the payees of the gate of ${gate} could not be read, so whether it can pay the interpreter is not known: payees must leave the interpreter out`
 
 /** The unsigned `bind_executor` of rule `ruleId` to `executor`, with the rule it binds. Refused when
  *  the rule is not there or not policed by the interpreter, when its record or predicate cannot be
@@ -771,11 +843,17 @@ export async function planBind(
   chain: BindChain
 ) {
   const no = (m: string) => new Refusal('BIND_BUILD_FAILED', m)
+  // the interpreter refuses the account or itself as an executor (222).
+  const invalid = invalidExecutor(i.executor, i.smartAccount, interpreter)
+  if (invalid) throw no(invalid)
   const [rule, kind, live, built, all] = await Promise.allSettled([
     chain.readRule(i.ruleId),
     chain.kind(i.executor),
     chain.fingerprint(interpreter),
-    chain.build(),
+    chain.version().then((current) => {
+      const version = nextVersion(current)
+      return chain.build(version).then((b) => ({ ...b, version }))
+    }),
     chain.readRules(),
   ])
   const got = <T>(r: PromiseSettledResult<T>): T => {
@@ -818,8 +896,24 @@ export async function planBind(
     ...(r.executor && r.executor !== i.executor ? { rebinds: r.executor } : {}),
     executorKind: got(kind),
     interpreter: fingerprint,
-    warnings: ruleWarnings(r.signers, r.follows, { address: i.executor, kind: got(kind) }),
+    warnings: [
+      ...ruleWarnings(r.signers, r.follows, { address: i.executor, kind: got(kind) }),
+      ...(await payeesWarning(chain, i.executor, got(kind), interpreter)),
+    ],
   }
+}
+
+/** The warning for a gated executor whose gate pays the interpreter, or whose payees were not read. */
+async function payeesWarning(
+  chain: BindChain,
+  executor: string,
+  kind: ContractKind,
+  interpreter: string
+): Promise<string[]> {
+  if (kind !== 'gated adapter' || !chain.gatePayees) return []
+  const payees = await chain.gatePayees(executor).catch(() => undefined)
+  if (payees === undefined) return [GATE_PAYEES_UNREAD(executor)]
+  return payees.includes(interpreter) ? [GATE_PAYS_INTERPRETER(executor, interpreter)] : []
 }
 
 // ---- the install, with every refusal in one place ----
@@ -932,6 +1026,10 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     throw no(
       'the rule names no signer, so it would govern no key; a keyless rule names the `executor` it will be bound to'
     )
+  if (i.executor) {
+    const invalid = invalidExecutor(i.executor, i.smartAccount, interpreter)
+    if (invalid) throw no(invalid)
+  }
   // Scoped to its own executor, a rule answers the executor's own requests: the interpreter binds
   // it only if it pins `run` or a whole immediate batch (221), and it is refused here first.
   if (i.executor === rule.contract && !pinsOwn(rule.expr)) throw no(EXECUTOR_SELF_RULE(i.executor))

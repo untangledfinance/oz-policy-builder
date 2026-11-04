@@ -22,15 +22,20 @@ The contracts' own READMEs hold the interfaces and test detail:
 
 ## Packages
 
-The three TypeScript packages are published to npm at version 5.2.0 as
+The three TypeScript packages are published to npm at version 6.0.0 as
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp`, the same code as this repository at tag
-`v5.2.0`. The code submitted for the external audit is tag `v5.2.0`
+`v6.0.0`. The code submitted for the external audit is tag `v6.0.0`
 ([audit-overview.md](audit-overview.md) has the scope). The [repository README](../README.md) has the install lines.
 
 ## What runs where
 
-Every contract runs on Stellar testnet.
+Every contract runs on Stellar testnet. The builds of this tree (adapter
+`eafcd011…`, gate `89e48fcb…`, seat `f39587ad…`) and the interpreter build before
+the follower commitment of F-2026-20245 (`c6273cb1…`; this tree's is `3c150d73…`,
+not uploaded yet) are uploaded and verified on fresh instances
+([evidence](../evidence/README.md#the-600-fixes-preliminary-review-2-november-2026));
+the rows below record the code the pinned instances run.
 
 | Contract | Testnet |
 |---|---|

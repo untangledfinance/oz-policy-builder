@@ -92,7 +92,7 @@ export const INTERPRETER_WASM: ReadonlySet<string> = new Set(
  *  `deployments/execution-testnet.json`). An adapter's two instance symbols (`prime` and `gate`) are
  *  forgeable: any contract can write them in its constructor. A reproducible wasm hash is not, so a
  *  contract is treated as a trusted execution adapter only when its live code hash is in this set and
- *  its `prime` is the account the rule is bound to. The Prime app pins this same build (it names it as
+ *  its `prime` is the account the rule is bound to. The client application pins this same build (it names it as
  *  a new gate's caller code). A contract that wears the symbols but runs another build is reported as
  *  an unverified adapter and refused, never vouched for. */
 export const ADAPTER_WASM: ReadonlySet<string> = new Set([
@@ -168,7 +168,7 @@ export const spendingLimits = (net: Network): readonly string[] => [
   ...SUPERSEDED_OZ_POLICIES[net].map((p) => p.spending_limit),
 ]
 
-/** Every interpreter this project deployed, whatever its grammar. A rule policed by
+/** Every other interpreter instance this project deployed. A rule policed by
  *  one of these can only be judged if it is the pinned build this package reads; the
  *  rest are listed so that such a rule is recognised and refused. */
 export const INTERPRETERS: ReadonlySet<string> = new Set([
@@ -182,8 +182,8 @@ export const INTERPRETERS: ReadonlySet<string> = new Set([
   'CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H', // deployed by this project; this build does not trust it
   'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT', // deployed by this project; this build does not trust it
   'CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2', // deployed by this project; this build does not trust it
-  'CDSHDZ2PJN34WIFVJG2B3AEXZBXSQAPHOT7RIKVVN6AT76IKM4Y2WFGV', // deployed by this project (grammar 7, wasm 810f53f1, same as CD46LN75); this build does not trust it
-  'CBIQGAHIGCIAC6JJBYQQBTDFNNWQCGPECWRI7NO2PHIYDQV6QDLG6I2W', // deployed by this project (grammar 5, wasm cc05ac55); this build does not trust it
+  'CDSHDZ2PJN34WIFVJG2B3AEXZBXSQAPHOT7RIKVVN6AT76IKM4Y2WFGV', // deployed by this project; this build does not trust it
+  'CBIQGAHIGCIAC6JJBYQQBTDFNNWQCGPECWRI7NO2PHIYDQV6QDLG6I2W', // deployed by this project; this build does not trust it
   'CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM', // testnet, the pinned instance (INTERPRETER.testnet)
 ])
 

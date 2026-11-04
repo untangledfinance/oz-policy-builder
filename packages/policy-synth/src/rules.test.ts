@@ -89,7 +89,7 @@ describe('selectors: which calls an expression can serve', () => {
   ])('%s', (_n, e, want) => expect(selectors(e)).toEqual(want as never))
 
   // an `and` of k two-way `or`s, each branch of which pins nothing on the contract or
-  // function, used to double the (unreduced, all-wildcard) selector list at every step — 2^k objects
+  // function, used to double the (unreduced, all-wildcard) selector list at every step: 2^k objects
   // by k=26, which crashed review_unsigned (through keyedSafeOnNoGate) with readContracts. The meet
   // is now bounded by a budget and deduplicated, so it collapses to a single wildcard at once.
   it('bounds the exponential selector expansion of an `and` of two-way `or`s', () => {
@@ -539,7 +539,7 @@ describe('readRules, against a stub account', () => {
 
   const rulesAt = (ids: number[]) => Object.fromEntries(ids.map((id) => [id, ruleVal(id)]))
 
-  it('an account with 21 removed ids reads every live rule (PayFi settlement: 15 live of 38 ever made)', async () => {
+  it('an account with 21 removed ids reads every live rule (15 live of 38 ever made)', async () => {
     const live = [0, ...Array.from({ length: 12 }, (_, i) => 22 + i), 36, 37]
     const { server, asked, batches, calls } = stub(
       rulesAt(live),

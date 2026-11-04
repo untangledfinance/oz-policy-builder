@@ -87,12 +87,12 @@ on testnet are 0.14M for a SAC `balance`, 0.76M for a Reflector `lastprice` and
 **Read targets must be kept alive:** A transaction that reads an archived contract (its
 instance, its code, or an entry the view touches) restores it, and the restore counts
 toward the transaction's read and write limits: on testnet, three views of two archived
-OctoLend contracts needed 151 KB of write against the 132 KB limit, so the enforce could
+lending-market contracts needed 151 KB of write against the 132 KB limit, so the enforce could
 not be submitted at all. Put every read target (and what its view reads) under the same
 keep-alive as the rule. `worst_case.rs` assumes live targets and says so.
 
 **Rent:** A stored rule pays rent for its bytes, and the permit that finds a rule's
-entry under 100 ledgers from expiry bumps it to 518,400 ledgers inside the AGENT's own
+entry at 100 ledgers or fewer from expiry bumps it to 518,400 ledgers inside the AGENT's own
 `enforce` transaction. Measured on testnet at the rates then (read a network's
 rent rate before choosing its byte limit): installing costs about 0.07 XLM per KB
 of rule, a full bump about 0.35 XLM per KB (17.6 XLM for a 49 KB rule). A keep-alive
@@ -163,7 +163,7 @@ is `CONTRACT_SCOPE` (101), whichever side they are on.
 The grammar version is `SELF_VERSION` (`src/version.rs`); `install` accepts a
 document of that grammar version only (200). Most leaves are answered from the authorized call itself, and
 `enforce` writes no value. A permit bumps the rule's stored entry's TTL when
-fewer than 100 ledgers remain on it; it creates nothing and alters no value, and
+100 ledgers or fewer remain on it; it creates nothing and alters no value, and
 a deny is rolled back with the frame. The exception is `read`, below: **`enforce`
 calls the contracts a predicate reads**, so a rule with a `read` sees more than
 the authorized call.
@@ -344,7 +344,7 @@ one, without a rule per length.
 
 - **Cost:** Measured in the Soroban host with the real wasm (CPU instructions of
   one `enforce`; the limits are 400M instructions and 41,943,040 bytes of
-  memory per transaction). The four-check PayFi rule: 4.49M, 6.18 MB (4 reads).
+  memory per transaction). The four-check reference rule: 4.49M, 6.18 MB (4 reads).
   A 32-element payout (the rule below, 195 leaves, at the `DECODE_LIMITS` values): 4.6M. A six-leaf body over
   32 elements whose fields sit eight steps deep: 8.3M. A body that also makes
   one `read` (made once for all 32): 5.1M and one external call. Install
@@ -538,7 +538,7 @@ Read this before writing a rule with a `read`.
   differ only in `path` are one call, and `enforce` makes it once and reuses the
   result for every leaf (a failed call is remembered too, so each leaf that
   uses it denies). So one price feed read for a floor, an LTV and a freshness
-  bound is one call, and the full PayFi set (feed, debt, collateral, custody
+  bound is one call, and the full reference set (feed, debt, collateral, custody
   balance) is four. A read with ANY call-derived argument (a call path,
   `call_contract`, `call_fn`, `now`) counts as its own call at decode, even if
   two such leaves would resolve to the same arguments: decode cannot know
@@ -583,14 +583,14 @@ Read this before writing a rule with a `read`.
   memory whatever the target's size, and the memo is per `enforce`, so the same read in
   two contexts runs twice. The Limits section has the measured per-transaction budget
   for `max_reads` reads: at the ceiling (8) a `__check_auth` holds **2 contexts inside the
-  80% margin, 3 at all, and breaks at 4**. The four-read PayFi rule is smaller: about
+  80% margin, 3 at all, and breaks at 4**. The four-read reference rule is smaller: about
   6.2 MB per context in an earlier measurement through the OpenZeppelin account (7.5 MB
   for one context, 6.2 MB for each further one). Plan the contexts of one transaction
   from the rule's reads: roughly `33 MB / (1.4 MB x reads + 1.3 MB)` contexts, fewer when the
   authorised calls themselves run in the same budget (an adapter `execute` batch whose
   inner calls each hit a read rule). The transaction aborts with
   `Budget ExceededLimit`, so it fails closed; a batch that passes with two calls can fail
-  with six. CPU is not the limit: the PayFi rule is about 5.5M of the 400M instruction
+  with six. CPU is not the limit: the reference rule is about 5.5M of the 400M instruction
   budget (1.4%).
 - **Read targets must stay live:** See the Limits section: an archived target is restored
   inside the transaction and can push it past the write limit.
@@ -666,6 +666,29 @@ denies is `ARG_MISMATCH` (100) whatever its body reported (an `in` miss, a
 a failure resolving the quantifier's own vector keeps its code (102 for a `sum`
 that overflows); a `sum` overflow is `ARITHMETIC_OVERFLOW` (102); every decode
 refusal is 201.
+
+## Events
+
+The admin entry points publish an event as their last step, after every check
+and storage write, so a monitor follows a rule's whole administration without
+reading storage or replaying transactions. Each event carries the account and
+the rule id as topics (after the event name), so a watcher can filter to one
+`(account, rule)` pair. The topics are stable.
+
+| Event | Topics | Data |
+|---|---|---|
+| `Installed` | `("Installed", account, rule_id)` | `version: u32`, `bound: bool` |
+| `ExecutorBound` | `("ExecutorBound", account, rule_id)` | `executor: Address`, `version: u32` |
+| `Uninstalled` | `("Uninstalled", account, rule_id)` | `version: u32` |
+| `MasterSetRotated` | `("MasterSetRotated", account, rule_id)` | `size: u32` |
+
+`version` is the shared per-rule counter after the call (the nonce the call
+consumed). `Installed.bound` is whether the stored rule already carries an
+executor, which is true on a re-install under a live binding. `Uninstalled`
+reports the counter it consumed; it is NOT reset, so a later re-install keeps
+climbing from there. Rotation does not touch the counter, so `MasterSetRotated`
+reports only the new set size, not a version, and does not leak the addresses.
+`enforce` is a read path and publishes nothing.
 
 ## Deployments
 

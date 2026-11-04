@@ -757,7 +757,7 @@ fn check_all(code: &[u8], l: &Limits, label: &str) -> (Used, Used) {
     // does NOT cover what the rule's `read` targets cost if THEY are archived: each
     // archived instance, code or entry a read touches is restored by the transaction
     // and counts toward both the read and the write limit (on testnet, three views of
-    // two archived OctoLend contracts needed 151 KB of the 132 KB write limit). The
+    // two archived lending-market contracts needed 151 KB of the 132 KB write limit). The
     // assumption here is that read targets are live; the README says they must be kept so.
     let disk = |entry: u64| entry + code.len() as u64 + 2_048;
     let (mut worst_enforce, mut worst_install) = (Used::default(), Used::default());

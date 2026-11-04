@@ -84,8 +84,8 @@ describe('verify_policy on the live interpreter: an untested quantifier leaf is 
     expect(v.complete).toBe(false)
   })
 
-  it('an honest `all` body with real bounds on every leaf still reads ok and complete', async () => {
-    const honest = scope([
+  it('a well-formed `all` body with real bounds on every leaf still reads ok and complete', async () => {
+    const wellFormed = scope([
       'all',
       ['call_arg', 3],
       [
@@ -97,7 +97,7 @@ describe('verify_policy on the live interpreter: an untested quantifier leaf is 
         ],
       ],
     ])
-    const v = await check(honest, permit)
+    const v = await check(wellFormed, permit)
     expect(v.permit.permitted).toBe(true)
     // Two top-level pins (contract, fn) plus one case per `all` body leaf.
     expect(v.cases.length).toBe(5)

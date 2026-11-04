@@ -270,7 +270,7 @@ fn op_and_fail_fast_returns_first_violation() {
     let env = Env::default();
     let n = Node::And(StdVec::from([
         cmp_i128(&env, CompareOp::Lte, 10, 5), // fails -> ArgMismatch
-        cmp_i128(&env, CompareOp::Eq, 5, 5),   // would also permit — but first deny short-circuits
+        cmp_i128(&env, CompareOp::Eq, 5, 5),   // would also permit, but first deny short-circuits
     ]));
     assert_eq!(
         reason(evaluate(&env, &n, &empty_ctx(&env))),

@@ -432,16 +432,16 @@ describe('buildInstall and buildRevoke, on a live account', () => {
     })
 
     it('the operator sets the ceiling with POLICY_BUILDER_MAX_RESOURCE_FEE, in stroops', async () => {
-      const honest = shape(await buildInstall(args, draft(), INTERP)).resource
+      const valid = shape(await buildInstall(args, draft(), INTERP)).resource
       await expect(
-        withEnv({ POLICY_BUILDER_MAX_RESOURCE_FEE: String(honest - 1) }, () =>
+        withEnv({ POLICY_BUILDER_MAX_RESOURCE_FEE: String(valid - 1) }, () =>
           buildInstall(args, draft(), INTERP)
         )
       ).rejects.toThrow(/above this builder's ceiling/)
-      const at = await withEnv({ POLICY_BUILDER_MAX_RESOURCE_FEE: String(honest + 1000) }, () =>
+      const at = await withEnv({ POLICY_BUILDER_MAX_RESOURCE_FEE: String(valid + 1000) }, () =>
         buildInstall(args, draft(), INTERP)
       )
-      expect(at.fee.resource).toBeLessThanOrEqual(honest + 1000)
+      expect(at.fee.resource).toBeLessThanOrEqual(valid + 1000)
       for (const bad of ['0', 'ten', '1.5', '-1'])
         await expect(
           withEnv({ POLICY_BUILDER_MAX_RESOURCE_FEE: bad }, () =>
@@ -535,10 +535,10 @@ describe('planInstall: the guards', () => {
       planInstall(
         input,
         rule,
-        chain({ fingerprint: async () => ({ ...ours, matches: false, grammarVersion: 6 }) })
+        chain({ fingerprint: async () => ({ ...ours, matches: false, grammarVersion: 99 }) })
       ),
       'INTERPRETER_MISMATCH',
-      /grammar_version\(\) = 6/
+      /grammar_version\(\) = 99/
     )
   })
 

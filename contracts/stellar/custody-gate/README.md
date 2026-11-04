@@ -23,6 +23,19 @@ The design is in [docs/stellar.md](../../../docs/stellar.md#custody-gate).
 | 1 | `DestinationNotAllowed` | `to` is outside the list |
 | 2 | `WrongCallerCode` | The caller runs a different build from the approved hash |
 
+## Events
+
+`pull` publishes a `Pulled` event as its last step, after the caller check, the
+code check, the payee check and the transfer, so a custody monitor follows every
+draw out of the allowance without decoding the transfer. The topics are stable.
+
+| Event | Topics | Data |
+|---|---|---|
+| `Pulled` | `("Pulled", token, to)` | `amount: i128` |
+
+`token` is the drawn token and `to` the destination, both on `payees`. Only a
+successful `pull` publishes; a refused draw reverts and emits nothing.
+
 ## Build and test
 
 ```sh

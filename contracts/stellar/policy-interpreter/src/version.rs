@@ -30,7 +30,8 @@
 /// addresses a batch through `call_path` (a rule names the call,
 /// the argument and the field it means, so it can tie two arguments of a batch
 /// to each other), reads other contracts and the clock (`read` calls a fixed
-/// function of a fixed contract with literal arguments; `now` is the ledger
+/// function of a fixed contract whose arguments are each either a constant or a
+/// leaf resolved from the call or the clock, nothing nested; `now` is the ledger
 /// timestamp), and computes values with `scaled(src, num, den, add)` over any
 /// value leaf. Because of `read`, `enforce` performs cross-contract calls.
 ///

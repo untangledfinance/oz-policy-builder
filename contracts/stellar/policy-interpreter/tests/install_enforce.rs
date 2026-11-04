@@ -251,7 +251,11 @@ fn install_rejects_non_installer_reinstall_with_fresh_nonce_plus_one() {
 }
 
 #[test]
-fn uninstall_removes_all_state_and_later_install_accepts_nonce_1() {
+fn uninstall_keeps_the_version_so_a_later_install_needs_the_next_nonce() {
+    // F-2026-20275: the per-rule version counter lives in its own entry that
+    // `uninstall` does NOT remove, so after an uninstall the counter does not
+    // restart at 1. A later install must take the next nonce, and a replayed
+    // install naming the old nonce is refused with 202.
     let env = Env::default();
     env.mock_all_auths();
     let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
@@ -261,12 +265,22 @@ fn uninstall_removes_all_state_and_later_install_accepts_nonce_1() {
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let ctx_rule = make_ctx_rule(&env, &signers, 1);
 
+    // install sets the version to 1; uninstall moves it to 2.
     let params1 = make_params(&env, 7, 1, &dummy_address(), &signers);
     client.install(&params1, &ctx_rule, &smart_account);
-
     client.uninstall(&ctx_rule, &smart_account);
 
-    let params2 = make_params(&env, 7, 1, &dummy_address(), &signers);
+    // A re-install at nonce 1 is now refused (the counter did not restart).
+    let replay = make_params(&env, 7, 1, &dummy_address(), &signers);
+    assert!(
+        client
+            .try_install(&replay, &ctx_rule, &smart_account)
+            .is_err(),
+        "nonce 1 must be refused after uninstall: the version survives"
+    );
+
+    // The next nonce (3) installs.
+    let params2 = make_params(&env, 7, 3, &dummy_address(), &signers);
     client.install(&params2, &ctx_rule, &smart_account);
 }
 
