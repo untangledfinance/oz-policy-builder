@@ -180,8 +180,8 @@ impl PolicyInterpreter {
         // (d4) Minimum constraint. A predicate carrying no selector leaf -
         //      literals on both sides of every compare - is trivially true
         //      or trivially false at install time, so it would permit
-        //      everything or nothing forever. Refuse it so a no-constraint
-        //      policy cannot install under any name.
+        //      everything or nothing forever. Refuse it. A selector compared
+        //      with itself still installs (see `dsl::has_selector_leaf`).
         deny_unless(e, dsl::has_selector_leaf(&root), E::SelectorLeafRequired);
 
         let key = (smart_account.clone(), context_rule.id);

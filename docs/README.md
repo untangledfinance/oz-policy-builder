@@ -32,7 +32,7 @@ The three TypeScript packages are published to npm at version 6.0.0 as
 
 Every contract runs on Stellar testnet. The builds of this tree (adapter
 `eafcd011…`, gate `89e48fcb…`, seat `f39587ad…`) and the interpreter build before
-the follower commitment of F-2026-20245 (`c6273cb1…`; this tree's is `89a1bf40…`,
+the follower commitment of F-2026-20245 (`c6273cb1…`; this tree's is `3c150d73…`,
 not uploaded yet) are uploaded and verified on fresh instances
 ([evidence](../evidence/README.md#the-600-fixes-preliminary-review-2-november-2026));
 the rows below record the code the pinned instances run.

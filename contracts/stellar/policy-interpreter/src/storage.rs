@@ -32,8 +32,8 @@ use crate::types::{Limits, Signer};
 // number, so a failed comparison against it is an ordinary ARG_MISMATCH, and a
 // non-positive denominator is refused as MALFORMED_PREDICATE at decode.
 //
-// 102 has one meaning only, arithmetic overflow: a `scaled` step that
-// overflows `i128` denies with it (see `ArithmeticOverflow` below). Keeping
+// 102 has one meaning only, arithmetic overflow: a `scaled` step or a `sum`
+// that overflows `i128` denies with it (see `ArithmeticOverflow` below). Keeping
 // each number to one meaning is what the rule against recycling protects:
 // a consumer that remembers `102 = ARITHMETIC_OVERFLOW` is never wrong, and
 // a consumer that meets a reserved number knows it means nothing here.
@@ -51,8 +51,8 @@ pub enum PolicyError {
     ArgMismatch = 100,
     ContractScope = 101,
     /// A `scaled` step overflowed `i128` (`checked_mul`/`checked_div`/
-    /// `checked_add`). Denies rather than panicking the frame on the arithmetic
-    /// itself. A constant product or fold that overflows is refused at install
+    /// `checked_add`), or a `sum` did (the running `checked_add`). Denies rather
+    /// than panicking the frame on the arithmetic itself. A constant product or fold that overflows is refused at install
     /// instead, whether or not `add` is constant.
     ArithmeticOverflow = 102,
     UnsupportedNode = 103,
@@ -152,8 +152,11 @@ pub fn load(e: &Env, key: &(Address, u32)) -> StoredDoc {
 
 // ---- TTL self-extend -----
 //
-// `enforce` bumps an entry whose remaining TTL has fallen below
-// `TTL_BUMP_THRESHOLD` back up to `TTL_BUMP_TO`. The bump happens before the
+// `enforce` extends the rule's entry, its version entry and, for a follower,
+// the followed rule's entry back up to `TTL_BUMP_TO` when the remaining TTL is
+// at or below `TTL_BUMP_THRESHOLD`. `bind_executor` extends the rule's entry the
+// same way, and `bump` (`install`, `bind_executor`, `uninstall`) extends the
+// version entry; no other call renews an entry. The bump happens before the
 // predicate check: a denied enforcement panics, and the Soroban host rolls
 // the storage frame back with it, so a deny cannot buy an extension. That is
 // what makes this allow-path-only without an explicit branch.

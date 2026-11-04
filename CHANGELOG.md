@@ -18,7 +18,7 @@ Contract builds (Linux, `build-wasm.sh`; all under the network's 131,072-byte
 
 | Contract | sha256 | Size |
 |---|---|---|
-| Policy interpreter | `89a1bf4023ab77c6fc6b6f0cc7622acaabc30a67966d09142ee75ff977a2728b` | 85,288 |
+| Policy interpreter | `3c150d73d2fb513a6a0e6f9ed25fe84a1fc0fa2101aaf5985fb7fcd298975945` | 85,332 |
 | Execution adapter | `eafcd011a3c2e0aae08402e9fbd5f39e65d1feb370e45035ee20a25d4c95b725` | 31,667 |
 | Custody gate | `89e48fcb5c9f037f1d702d2cb6ed3be99f24a7794c0f5df712b7ba887db50dbb` | 13,205 |
 | Prime seat | `f39587ad8a190e31955a6fab1c274372fa724180c4ab1bad72846e08f1f2bd51` | 19,758 |

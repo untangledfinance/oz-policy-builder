@@ -827,7 +827,7 @@ hash; `stellar contract build` and macOS give other bytes.
 
 | Crate | `build-wasm.sh` sha256 | Recorded in | Tests |
 |---|---|---|---|
-| `policy-interpreter` | `89a1bf4023ab77c6fc6b6f0cc7622acaabc30a67966d09142ee75ff977a2728b`, 85,288 bytes | `contracts/build-hashes.json` | 451 (the 18 conformance cases among them also run in release), 29 in `oz08/` |
+| `policy-interpreter` | `3c150d73d2fb513a6a0e6f9ed25fe84a1fc0fa2101aaf5985fb7fcd298975945`, 85,332 bytes | `contracts/build-hashes.json` | 451 (the 18 conformance cases among them also run in release), 29 in `oz08/` |
 | `execution-adapter` | `eafcd011a3c2e0aae08402e9fbd5f39e65d1feb370e45035ee20a25d4c95b725`, 31,667 bytes | `contracts/build-hashes.json` | 76 |
 | `custody-gate` | `89e48fcb5c9f037f1d702d2cb6ed3be99f24a7794c0f5df712b7ba887db50dbb`, 13,205 bytes | `deployments/` | 8 |
 | Prime seat | `f39587ad8a190e31955a6fab1c274372fa724180c4ab1bad72846e08f1f2bd51`, 19,758 bytes | `contracts/build-hashes.json` | 29 |
@@ -843,7 +843,7 @@ The 6.0.0 builds are uploaded to testnet and verified on fresh instances
 recorded under `testnetVerification` in
 [`deployments/interpreter-testnet.json`](../deployments/interpreter-testnet.json)
 and [`deployments/execution-testnet.json`](../deployments/execution-testnet.json)):
-interpreter `c6273cb1…` (84,280 bytes, instance `CADKAYWU…`; this tree's build is `89a1bf40…`, 85,288 bytes, not uploaded yet), adapter `eafcd011…`
+interpreter `c6273cb1…` (84,280 bytes, instance `CADKAYWU…`; this tree's build is `3c150d73…`, 85,332 bytes, not uploaded yet), adapter `eafcd011…`
 (31,667), gate `89e48fcb…` (13,205), seat `f39587ad…` (19,758). The rows below are
 the code the pinned instances run, which does not carry the fixes of this
 release.

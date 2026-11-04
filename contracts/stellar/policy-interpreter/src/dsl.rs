@@ -176,8 +176,9 @@ pub enum DenyReason {
     ContractScope,
     /// A `scaled` step did not fit `i128`. A zero or non-positive denominator
     /// cannot reach here: it is refused as MALFORMED_PREDICATE (201) at decode,
-    /// so the only evaluate-time cause is an overflow of `checked_mul`/
-    /// `checked_div`/`checked_add`.
+    /// so the only evaluate-time causes are an overflow of `checked_mul`/
+    /// `checked_div`/`checked_add` in a `scaled` step and an overflow of the
+    /// running `checked_add` of a `sum`.
     ArithmeticOverflow,
     UnsupportedNode,
     /// `in` membership failed. Distinct from ArgMismatch so a review card can
@@ -403,7 +404,7 @@ fn demux(env: &Env, v: Val) -> Val {
 /// An `Err` is always a deny. `ArgMismatch` means the leaf named something
 /// this call does not carry - an argument past the end, a shape other than the
 /// leaf assumed, a read that failed or returned void;
-/// `ArithmeticOverflow` is a `scaled` step that did not fit.
+/// `ArithmeticOverflow` is a `scaled` step or a `sum` that did not fit `i128`.
 fn resolve(env: &Env, leaf: &Leaf, ctx: &Ctx, memo: &mut Memo) -> Result<Val, DenyReason> {
     let miss = DenyReason::ArgMismatch;
     Ok(match leaf {
@@ -493,8 +494,10 @@ fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
 ///
 /// A predicate with no selector leaf - literals on both sides of every
 /// compare - is trivially true or trivially false at install time, so it
-/// permits everything or nothing forever. `install` refuses such a predicate
-/// so a no-constraint policy cannot install under any name.
+/// permits everything or nothing forever. `install` refuses such a predicate.
+/// This is not a full no-constraint check: a selector compared with itself, or
+/// with another selector, counts as a selector and still installs (see the
+/// `compare` arm of `eval`).
 ///
 /// Only a leaf that reads the authorised call counts. `now` does not, nor does a
 /// `read` of constants: a rule made of those alone says nothing about the call it
@@ -771,9 +774,14 @@ fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
 // ============================================================================
 
 /// Errors that can be raised while decoding a predicate root from the
-/// canonical ScVal wire format. On chain every one of them is reported as
-/// `MALFORMED_PREDICATE` (201) by `install` and `enforce`; the variants exist
-/// so tests can tell the causes apart.
+/// canonical ScVal wire format. `install`, `enforce` and `check` report every
+/// one of these as `MALFORMED_PREDICATE` (201); the variants exist so tests can
+/// tell the causes apart. The count caps (`TooManyLeaves`, and the weighted
+/// placement rules) are `decode`'s, so only `install` and `check` meet them;
+/// `enforce` decodes with `decode_stored`. A payload over `max_predicate_bytes`
+/// is refused earlier, as `PREDICATE_TOO_LARGE` (207). Bytes that are not XDR at
+/// all are not a `DecodeError`: the host traps on them before this code runs,
+/// so they never reach 201.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DecodeError {
     /// Empty / wrong-Variant / wrong-arity / unknown op or selector
