@@ -1,0 +1,639 @@
+{
+  "info": {
+    "name": "OZ Policy Builder - MCP server (HTTP transport)",
+    "description": "The nine tools of @crediolabs/policy-builder-mcp over its Streamable HTTP transport, for version 5.2.0 of the package.\n\nSTART THE SERVER FIRST:\n  npx -y @crediolabs/policy-builder-mcp@5.2.0 --http --http-port 3011\nFrom a checkout: build packages/policy-synth, then run `bun packages/policy-builder-mcp/bin/server.ts --http --http-port 3011`.\n\nThe server binds loopback only and has no authentication. It holds no key: install_policy, revoke_policy and bind_policy return unsigned transactions.\n\nThree things to know:\n\n1. The transport replies with Server-Sent Events, not plain JSON. The reply is one `data:` line holding the JSON-RPC message. The Accept header must list both application/json and text/event-stream.\n\n2. There is no session. Every POST /mcp stands alone, so requests can be sent in any order. `initialize` is included because MCP clients send it.\n\n3. The server refuses a Host or Origin that is not loopback with its port, so keep baseUrl on 127.0.0.1 or localhost with the port the server listens on.\n\nA tool refusal is a normal reply with isError true and an error envelope (code, message, retryable). A request whose name ends in \"(refusal)\" expects one.\n\nCollection variables hold testnet values: the reference account in deployments/oz-accounts.json, its rule-0 signer, the pinned interpreter and a token contract. Replace txHash with a recent testnet transaction that invokes a contract function; the RPC keeps about a week. The collection tests assert the reply shape of every request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Protocol",
+      "item": [
+        {
+          "name": "initialize",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 0,\n  \"method\": \"initialize\",\n  \"params\": {\n    \"protocolVersion\": \"2025-06-18\",\n    \"capabilities\": {},\n    \"clientInfo\": {\n      \"name\": \"postman\",\n      \"version\": \"1.0.0\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "Sent because MCP clients send it. The server keeps no session, so no later request depends on it."
+          }
+        },
+        {
+          "name": "tools/list",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/list\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "The nine tools with their descriptions and input schemas."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read-only",
+      "description": "Answers without a key and without building a transaction. Only record_transaction, the simulate and verify checks and get_interpreter_info with verifyLive read the network.",
+      "item": [
+        {
+          "name": "get_interpreter_info",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"get_interpreter_info\",\n    \"arguments\": {\n      \"network\": \"{{network}}\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "The pinned interpreter, its limits and the ceilings. No network call."
+          }
+        },
+        {
+          "name": "get_interpreter_info, verifyLive",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 3,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"get_interpreter_info\",\n    \"arguments\": {\n      \"network\": \"{{network}}\",\n      \"verifyLive\": true\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "Reads what is deployed at the interpreter address now and says whether it matches the pin."
+          }
+        },
+        {
+          "name": "record_transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 4,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"record_transaction\",\n    \"arguments\": {\n      \"network\": \"{{network}}\",\n      \"hash\": \"{{txHash}}\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "Needs a transaction hash that the RPC still holds and that invokes a contract function: replace txHash (see the README)."
+          }
+        },
+        {
+          "name": "synthesize_policy, from an intent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 5,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"synthesize_policy\",\n    \"arguments\": {\n      \"network\": \"{{network}}\",\n      \"intent\": {\n        \"calls\": [\n          {\n            \"contract\": \"{{token}}\",\n            \"fn\": \"transfer\",\n            \"where\": [\n              {\n                \"constraint\": \"allow\",\n                \"at\": [\n                  1\n                ],\n                \"in\": [\n                  \"{{recipient}}\"\n                ]\n              },\n              {\n                \"constraint\": \"cap\",\n                \"at\": [\n                  2\n                ],\n                \"max\": \"{{capAmount}}\"\n              }\n            ]\n          }\n        ]\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "Rules from an intent: one per contract, each with its predicate, encoding, hash and review. No network call."
+          }
+        },
+        {
+          "name": "synthesize_policy, from a transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 6,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"synthesize_policy\",\n    \"arguments\": {\n      \"network\": \"{{network}}\",\n      \"hash\": \"{{txHash}}\",\n      \"limit\": \"{{capAmount}}\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "The same from a recorded transaction. `limit` answers the cap question on an amount."
+          }
+        },
+        {
+          "name": "simulate_policy, a permitted call",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 7,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"simulate_policy\",\n    \"arguments\": {\n      \"network\": \"{{network}}\",\n      \"intent\": {\n        \"calls\": [\n          {\n            \"contract\": \"{{token}}\",\n            \"fn\": \"transfer\",\n            \"where\": [\n              {\n                \"constraint\": \"allow\",\n                \"at\": [\n                  1\n                ],\n                \"in\": [\n                  \"{{recipient}}\"\n                ]\n              },\n              {\n                \"constraint\": \"cap\",\n                \"at\": [\n                  2\n                ],\n                \"max\": \"{{capAmount}}\"\n              }\n            ]\n          }\n        ]\n      },\n      \"calls\": [\n        {\n          \"contract\": \"{{token}}\",\n          \"fn\": \"transfer\",\n          \"args\": [\n            \"{{smartAccount}}\",\n            \"{{recipient}}\",\n            {\n              \"i128\": \"5000000\"\n            }\n          ]\n        }\n      ]\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "Asks the interpreter whether the rule permits each call. Expect permitted true."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const out = JSON.parse(pm.response.text().split('\\n').find((l) => l.startsWith('data: ')).slice(6)).result.structuredContent;",
+                  "pm.test(\"the call is permitted\", () => pm.expect(out.results[0].permitted).to.equal(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "simulate_policy, a refused call",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 8,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"simulate_policy\",\n    \"arguments\": {\n      \"network\": \"{{network}}\",\n      \"intent\": {\n        \"calls\": [\n          {\n            \"contract\": \"{{token}}\",\n            \"fn\": \"transfer\",\n            \"where\": [\n              {\n                \"constraint\": \"allow\",\n                \"at\": [\n                  1\n                ],\n                \"in\": [\n                  \"{{recipient}}\"\n                ]\n              },\n              {\n                \"constraint\": \"cap\",\n                \"at\": [\n                  2\n                ],\n                \"max\": \"{{capAmount}}\"\n              }\n            ]\n          }\n        ]\n      },\n      \"calls\": [\n        {\n          \"contract\": \"{{token}}\",\n          \"fn\": \"transfer\",\n          \"args\": [\n            \"{{smartAccount}}\",\n            \"{{recipient}}\",\n            {\n              \"i128\": \"20000000\"\n            }\n          ]\n        }\n      ]\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "A transfer above the cap: the reply is a normal result with permitted false and a deny code."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const out = JSON.parse(pm.response.text().split('\\n').find((l) => l.startsWith('data: ')).slice(6)).result.structuredContent;",
+                  "pm.test(\"the call is refused with a deny code\", () => pm.expect(out.results[0].permitted === false && out.results[0].code > 0).to.equal(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "verify_policy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 9,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"verify_policy\",\n    \"arguments\": {\n      \"network\": \"{{network}}\",\n      \"intent\": {\n        \"calls\": [\n          {\n            \"contract\": \"{{token}}\",\n            \"fn\": \"transfer\",\n            \"where\": [\n              {\n                \"constraint\": \"allow\",\n                \"at\": [\n                  1\n                ],\n                \"in\": [\n                  \"{{recipient}}\"\n                ]\n              },\n              {\n                \"constraint\": \"cap\",\n                \"at\": [\n                  2\n                ],\n                \"max\": \"{{capAmount}}\"\n              }\n            ]\n          }\n        ]\n      },\n      \"call\": {\n        \"contract\": \"{{token}}\",\n        \"fn\": \"transfer\",\n        \"args\": [\n          \"{{smartAccount}}\",\n          \"{{recipient}}\",\n          {\n            \"i128\": \"5000000\"\n          }\n        ]\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "The call must pass, each constraint turned against it must refuse it, and each conjunct dropped in turn must let a call through. Read `complete` as well as `ok`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const out = JSON.parse(pm.response.text().split('\\n').find((l) => l.startsWith('data: ')).slice(6)).result.structuredContent;",
+                  "pm.test(\"ok and complete\", () => pm.expect(out.ok && out.complete).to.equal(true));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Build an unsigned transaction",
+      "description": "Each tool returns an unsigned transaction for a wallet to sign. Nothing is signed or sent. Run install_policy before review_unsigned: it stores the transaction in the unsignedXdr variable.",
+      "item": [
+        {
+          "name": "install_policy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 10,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"install_policy\",\n    \"arguments\": {\n      \"network\": \"{{network}}\",\n      \"intent\": {\n        \"calls\": [\n          {\n            \"contract\": \"{{token}}\",\n            \"fn\": \"transfer\",\n            \"where\": [\n              {\n                \"constraint\": \"allow\",\n                \"at\": [\n                  1\n                ],\n                \"in\": [\n                  \"{{recipient}}\"\n                ]\n              },\n              {\n                \"constraint\": \"cap\",\n                \"at\": [\n                  2\n                ],\n                \"max\": \"{{capAmount}}\"\n              }\n            ]\n          }\n        ]\n      },\n      \"smartAccount\": \"{{smartAccount}}\",\n      \"sourceAccount\": \"{{sourceAccount}}\",\n      \"signers\": [\n        \"{{agentSigner}}\"\n      ],\n      \"name\": \"transfer-cap\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "Builds add_context_rule for the account. sourceAccount must be a signer of the account's rule 0."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('the unsigned transaction is kept for review_unsigned', () => {",
+                  "  const r = JSON.parse(pm.response.text().split('\\n').find((l) => l.startsWith('data: ')).slice(6));",
+                  "  pm.expect(r.result.structuredContent.unsignedXdr).to.be.a('string');",
+                  "  pm.collectionVariables.set('unsignedXdr', r.result.structuredContent.unsignedXdr);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "review_unsigned",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 11,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"review_unsigned\",\n    \"arguments\": {\n      \"network\": \"{{network}}\",\n      \"xdr\": \"{{unsignedXdr}}\",\n      \"smartAccount\": \"{{smartAccount}}\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "Reads the transaction from install_policy, revoke_policy or bind_policy from its bytes alone."
+          }
+        },
+        {
+          "name": "revoke_policy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 12,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"revoke_policy\",\n    \"arguments\": {\n      \"network\": \"{{network}}\",\n      \"smartAccount\": \"{{smartAccount}}\",\n      \"sourceAccount\": \"{{sourceAccount}}\",\n      \"ruleId\": {{revokeRuleId}}\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "Builds remove_context_rule. Rule 0 and default-scoped rules are refused."
+          }
+        },
+        {
+          "name": "bind_policy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 13,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"bind_policy\",\n    \"arguments\": {\n      \"network\": \"{{network}}\",\n      \"smartAccount\": \"{{smartAccount}}\",\n      \"sourceAccount\": \"{{sourceAccount}}\",\n      \"ruleId\": {{bindRuleId}},\n      \"executor\": \"{{executor}}\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "Builds bind_executor for a rule and an execution adapter."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Refusals",
+      "item": [
+        {
+          "name": "synthesize_policy, no source (refusal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 14,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"synthesize_policy\",\n    \"arguments\": {\n      \"network\": \"{{network}}\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp"]
+            },
+            "description": "A refusal is a result with isError true and an error envelope: code, message, retryable."
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Every response is a Server-Sent Events stream with one `data:` line holding the JSON-RPC reply.",
+          "const line = pm.response.text().split('\\n').find((l) => l.startsWith('data: '));",
+          "const msg = line ? JSON.parse(line.slice(6)) : undefined;",
+          "pm.test('HTTP 200 with a JSON-RPC reply', () => {",
+          "  pm.response.to.have.status(200);",
+          "  pm.expect(msg, 'a data: line').to.be.an('object');",
+          "  pm.expect(msg.error, 'no JSON-RPC error').to.equal(undefined);",
+          "});",
+          "// A tool refusal is a normal reply with isError true; a request is named \"(refusal)\" when it expects one.",
+          "if (msg && msg.result && typeof msg.result.isError === 'boolean') {",
+          "  const refusal = pm.info.requestName.includes('(refusal)');",
+          "  pm.test(refusal ? 'the tool refuses' : 'the tool answers', () => {",
+          "    pm.expect(msg.result.isError).to.equal(refusal);",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3011",
+      "type": "string"
+    },
+    {
+      "key": "network",
+      "value": "testnet",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+      "type": "string"
+    },
+    {
+      "key": "capAmount",
+      "value": "10000000",
+      "type": "string"
+    },
+    {
+      "key": "recipient",
+      "value": "GCYY5FLA7M7GIO52QGF6HFGOJM5RONV3DLZOVLDM6OOMJSVQ6CG6UQD5",
+      "type": "string"
+    },
+    {
+      "key": "smartAccount",
+      "value": "CDS2W673EV22FDZX7FB6PDSTPJ7MMPONVXAGITNC2ABBVJ65TGA2ACUL",
+      "type": "string"
+    },
+    {
+      "key": "sourceAccount",
+      "value": "GCYY5FLA7M7GIO52QGF6HFGOJM5RONV3DLZOVLDM6OOMJSVQ6CG6UQD5",
+      "type": "string"
+    },
+    {
+      "key": "agentSigner",
+      "value": "GAS5R75PQUU266IURRQ76SMJ6S5JB2F3NNPOGC5KY2NDUQMHTZDECIVY",
+      "type": "string"
+    },
+    {
+      "key": "executor",
+      "value": "CCPD7TFSYGMTJFCGDBVHKFZJKHF2CHB3J5W3IBQ2CAUEQQZ5SUKFTNI3",
+      "type": "string"
+    },
+    {
+      "key": "revokeRuleId",
+      "value": "4",
+      "type": "string"
+    },
+    {
+      "key": "bindRuleId",
+      "value": "3",
+      "type": "string"
+    },
+    {
+      "key": "txHash",
+      "value": "cbb416d358b758e69aac393e9ff9993b756d764f3b63f6bbaecb1914f3eb8d81",
+      "type": "string"
+    },
+    {
+      "key": "unsignedXdr",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

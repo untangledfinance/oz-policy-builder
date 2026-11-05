@@ -1,0 +1,1 @@
+../packages/policy-synth/scripts/upstream-drift-check.ts
