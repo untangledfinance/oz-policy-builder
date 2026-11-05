@@ -12,6 +12,8 @@ the rules.
 | [audit-overview.md](audit-overview.md) | the three components with their size, what is in and out of audit scope, and what each contract enforces |
 | [architecture.md](architecture.md) | the use case, the components, trust boundaries, owners and Prime seats, the main flows and why each part is built the way it is |
 | [stellar.md](stellar.md) | the custody gate, execution adapter, policy interpreter and Prime seat on an OpenZeppelin smart account; the policy builder's checks |
+| [moved-paths.md](moved-paths.md) | where earlier paths (documents, evidence, scripts, packages) are now |
+| [devlog/2026-08.md](devlog/2026-08.md) | the August 2026 devlog, kept as a dated record |
 
 The contracts' own READMEs hold the interfaces and test detail:
 [contracts/README.md](../contracts/README.md) (sizes, hashes, CI),
