@@ -535,6 +535,90 @@ pub fn pins(
     }
 }
 
+/// For leaves of the form `call_path[Index(0), Index(i), Key(field)]`, the set
+/// of indices `i` that `pins` reports as pinned with `set = true` on every path
+/// to a permit, computed in a SINGLE traversal of the tree.
+///
+/// This is the linear equivalent of calling
+/// `pins(root, |l| is_call_path(l, &[Index(0), Index(i), Key(field)]), any, true)`
+/// once per `i`: walking the whole predicate per index is quadratic in the
+/// rule's size, so `pins_own` would pay `m` walks to count a pinned prefix of
+/// length `m`. Here every index falls out of one walk instead.
+///
+/// The combinators mirror `pins` exactly, per index: `and` pins index `i` when
+/// ANY child does (union of the children's sets), `or` only when EVERY child
+/// does (intersection), an empty `or` and every other node pin nothing. A leaf
+/// contributes at most the single index its own path names: an `eq` with a
+/// constant on the other side, or an `in` whose every entry is a constant
+/// (the `set = true` case; `nin` and a non-constant entry pin nothing). So for
+/// each `i` the returned set contains `i` exactly when that per-index `pins`
+/// call is true. The result is sorted and deduplicated.
+pub fn pinned_call_indices(env: &Env, root: &Node, field: &Val) -> Vec<u32> {
+    // The index a leaf names when it is `call_path[Index(0), Index(i), Key(field)]`.
+    fn index_of(env: &Env, leaf: &Leaf, field: &Val) -> Option<u32> {
+        let Leaf::CallPath(steps) = leaf else {
+            return None;
+        };
+        match steps.as_slice() {
+            [PathStep::Index(0), PathStep::Index(i), PathStep::Key(k)] if val_eq(env, k, field) => {
+                Some(*i)
+            }
+            _ => None,
+        }
+    }
+    // Both kept sorted and deduplicated; the leaf cases below yield at most one.
+    fn union(acc: &mut Vec<u32>, other: &[u32]) {
+        for &x in other {
+            if let Err(pos) = acc.binary_search(&x) {
+                acc.insert(pos, x);
+            }
+        }
+    }
+    fn intersect(acc: &mut Vec<u32>, other: &[u32]) {
+        acc.retain(|x| other.binary_search(x).is_ok());
+    }
+    let constant = |l: &Leaf| matches!(l, Leaf::Lit(_));
+    match root {
+        Node::And(kids) => {
+            let mut out: Vec<u32> = Vec::new();
+            for k in kids {
+                union(&mut out, &pinned_call_indices(env, k, field));
+            }
+            out
+        }
+        Node::Or(kids) => {
+            let mut it = kids.iter();
+            // The decoder refuses an empty `or`; one would pin nothing.
+            let Some(first) = it.next() else {
+                return Vec::new();
+            };
+            let mut acc = pinned_call_indices(env, first, field);
+            for k in it {
+                if acc.is_empty() {
+                    break;
+                }
+                intersect(&mut acc, &pinned_call_indices(env, k, field));
+            }
+            acc
+        }
+        // `eq` pins the index its call-path side names when the other side is a
+        // constant - either order, matching `pins`'s `(sel(a) && fixed(b)) ||
+        // (sel(b) && fixed(a))`.
+        Node::Compare(CompareOp::Eq, a, b) => index_of(env, a, field)
+            .filter(|_| constant(b))
+            .or_else(|| index_of(env, b, field).filter(|_| constant(a)))
+            .into_iter()
+            .collect(),
+        // `in` (the `set = true` case) pins when the needle is the call path and
+        // every entry is a constant.
+        Node::In(needle, entries, false) => match index_of(env, needle, field) {
+            Some(i) if entries.iter().all(constant) => vec![i],
+            _ => Vec::new(),
+        },
+        _ => Vec::new(),
+    }
+}
+
 /// Whether `leaf` is a `call_path` of exactly the steps `want` (a key compared
 /// by value).
 pub fn is_call_path(env: &Env, leaf: &Leaf, want: &[PathStep]) -> bool {

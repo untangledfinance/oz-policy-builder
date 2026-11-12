@@ -1904,3 +1904,174 @@ fn op_or_with_no_children_denies_when_evaluated_directly() {
         Some(DenyReason::UnsupportedNode)
     );
 }
+
+// ---- pins_own linearity: single-pass index collector == per-index pins ----
+//
+// INTERP-01 made `pins_own` linear by collecting the pinned call indices in one
+// traversal (`dsl::pinned_call_indices`) instead of walking the whole predicate
+// once per index. These tests PROVE the rewrite preserves the exact semantics:
+// for every index, the single-pass set agrees with the reference per-index
+// `pins` call the old loop made, over thousands of generated predicates plus
+// hand-written shapes.
+
+struct PinsRng(u64);
+impl PinsRng {
+    fn next(&mut self, bound: u32) -> u32 {
+        self.0 = self
+            .0
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        ((self.0 >> 33) as u32) % bound
+    }
+}
+
+fn pins_field(env: &Env, name: &str) -> Val {
+    Symbol::new(env, name).into_val(env)
+}
+
+fn pins_path_leaf(env: &Env, prefix: u32, i: u32, field: &str) -> Leaf {
+    Leaf::CallPath(alloc::vec![
+        PathStep::Index(prefix),
+        PathStep::Index(i),
+        PathStep::Key(pins_field(env, field)),
+    ])
+}
+
+fn pins_gen_leaf(env: &Env, rng: &mut PinsRng) -> Leaf {
+    let i = rng.next(4);
+    match rng.next(7) {
+        0 => pins_path_leaf(env, 0, i, "target"),
+        1 => pins_path_leaf(env, 0, i, "function_name"),
+        2 => Leaf::Lit(i.into_val(env)),
+        3 => Leaf::CallFn,
+        4 => pins_path_leaf(env, 0, i, "other"), // same shape, different key: pins neither
+        5 => pins_path_leaf(env, 1, i, "target"), // wrong prefix: pins nothing
+        _ => Leaf::CallContract,
+    }
+}
+
+fn pins_gen_node(env: &Env, rng: &mut PinsRng, depth: u32) -> Node {
+    if depth == 0 || rng.next(3) == 0 {
+        match rng.next(4) {
+            0 => Node::Compare(
+                CompareOp::Eq,
+                pins_gen_leaf(env, rng),
+                pins_gen_leaf(env, rng),
+            ),
+            1 => Node::Compare(
+                CompareOp::Ne,
+                pins_gen_leaf(env, rng),
+                pins_gen_leaf(env, rng),
+            ),
+            2 => {
+                let needle = pins_gen_leaf(env, rng);
+                let n = 1 + rng.next(3);
+                let entries: StdVec<Leaf> = (0..n).map(|_| pins_gen_leaf(env, rng)).collect();
+                let nin = rng.next(2) == 1;
+                Node::In(needle, entries, nin)
+            }
+            _ => Node::Compare(
+                CompareOp::Lte,
+                pins_gen_leaf(env, rng),
+                pins_gen_leaf(env, rng),
+            ),
+        }
+    } else {
+        let n = 1 + rng.next(3);
+        let kids: StdVec<Node> = (0..n).map(|_| pins_gen_node(env, rng, depth - 1)).collect();
+        if rng.next(2) == 0 {
+            Node::And(kids)
+        } else {
+            Node::Or(kids)
+        }
+    }
+}
+
+// Reference: exactly the per-index query the old `pins_own` loop ran.
+fn pins_reference(env: &Env, root: &Node, i: u32, field: &str) -> bool {
+    let steps = [
+        PathStep::Index(0),
+        PathStep::Index(i),
+        PathStep::Key(pins_field(env, field)),
+    ];
+    crate::dsl::pins(
+        root,
+        &|l| crate::dsl::is_call_path(env, l, &steps),
+        &|_| true,
+        true,
+    )
+}
+
+fn pins_assert_equiv(env: &Env, root: &Node) {
+    for field in ["target", "function_name"] {
+        let set = crate::dsl::pinned_call_indices(env, root, &pins_field(env, field));
+        for i in 0..6u32 {
+            let single = set.binary_search(&i).is_ok();
+            let reference = pins_reference(env, root, i, field);
+            assert_eq!(
+                single, reference,
+                "field {field} index {i}: single-pass {single} != per-index pins {reference}"
+            );
+        }
+        // Sorted and deduplicated, as `pins_own`'s binary search assumes.
+        assert!(
+            set.windows(2).all(|w| w[0] < w[1]),
+            "set must be sorted+unique"
+        );
+    }
+}
+
+#[test]
+fn pinned_call_indices_matches_per_index_pins_random() {
+    let env = Env::default();
+    let mut rng = PinsRng(0x1234_5678_9abc_def1);
+    for _ in 0..4000 {
+        let depth = rng.next(4); // 0..=3
+        let root = pins_gen_node(&env, &mut rng, depth);
+        pins_assert_equiv(&env, &root);
+    }
+}
+
+#[test]
+fn pinned_call_indices_matches_per_index_pins_handwritten() {
+    let env = Env::default();
+    let t = |i| pins_path_leaf(&env, 0, i, "target");
+    let f = |i| pins_path_leaf(&env, 0, i, "function_name");
+    let lit = |n: u32| Leaf::Lit(n.into_val(&env));
+    let eq = |a, b| Node::Compare(CompareOp::Eq, a, b);
+
+    // Flat and: target+function pinned for 0 and 1.
+    let flat = Node::And(StdVec::from([
+        eq(t(0), lit(1)),
+        eq(f(0), lit(2)),
+        eq(t(1), lit(3)),
+        eq(f(1), lit(4)),
+    ]));
+    pins_assert_equiv(&env, &flat);
+    assert_eq!(
+        crate::dsl::pinned_call_indices(&env, &flat, &pins_field(&env, "target")),
+        alloc::vec![0u32, 1u32]
+    );
+
+    // or of two branches: index 0 pinned on BOTH branches, index 1 only on one.
+    let branch_a = Node::And(StdVec::from([eq(t(0), lit(1)), eq(t(1), lit(2))]));
+    let branch_b = Node::And(StdVec::from([eq(t(0), lit(9))]));
+    let both = Node::Or(StdVec::from([branch_a, branch_b]));
+    pins_assert_equiv(&env, &both);
+    // Intersection keeps only index 0.
+    assert_eq!(
+        crate::dsl::pinned_call_indices(&env, &both, &pins_field(&env, "target")),
+        alloc::vec![0u32]
+    );
+
+    // in with constant entries pins; nin pins nothing; constant on the wrong side.
+    let via_in = Node::In(t(2), StdVec::from([lit(1), lit(2)]), false);
+    pins_assert_equiv(&env, &via_in);
+    let via_nin = Node::In(t(2), StdVec::from([lit(1)]), true);
+    pins_assert_equiv(&env, &via_nin);
+    let eq_rev = eq(lit(5), t(3));
+    pins_assert_equiv(&env, &eq_rev);
+    // Both sides selectors, neither a constant: pins nothing.
+    let both_paths = eq(t(0), f(0));
+    pins_assert_equiv(&env, &both_paths);
+}

@@ -498,32 +498,32 @@ fn is_plain_object(e: &Env, v: &Val) -> bool {
 
 /// Bytes and strings a callee could read back as an address.
 ///
-/// This COMPARES rather than decodes. Neither conversion has a fallible form
-/// inside a contract, so parsing a value that turned out not to be an address
-/// would trap the whole batch instead of refusing one destination - and a
-/// 32-byte hash is a perfectly ordinary venue argument. Checking how each
-/// allowed address encodes costs the same and cannot trap.
+/// This COMPARES rather than decodes, and so refuses by LENGTH: a value whose
+/// length matches an address encoding (32, 40, 44, 48, 56 or 69 bytes) is
+/// refused with `AddressNotAllowed` unless it equals exactly how some LISTED
+/// address spells. Decoding has no fallible form inside a contract, so a value
+/// that turned out not to be an address would trap the whole batch; comparing
+/// each allowed spelling costs the same and cannot trap.
 ///
-/// Two more spellings can reach an address through a venue that decodes
-/// bytes: the XDR of an address value, which `Address::from_xdr` takes (40
-/// bytes for a contract, 44 for an account), and a muxed address, which
-/// `MuxedAddress::from_string` builds from its 69-character `M` strkey and
-/// `from_xdr` from its 48-byte XDR. A token's `transfer` credits the account
-/// behind a muxed address. Data of those three XDR lengths must equal the XDR
-/// of an allowed address, which a muxed one never does, and data of 69 bytes
-/// is refused outright because an allowed address is never spelled that way.
+/// So a 32-byte hash, a 32-byte salt or pool id, a 32-character identifier, or
+/// a 40-, 44-, 48- or 56-character memo is refused by a gated adapter even to a
+/// listed venue (it fails CLOSED), and a 69-byte value is refused outright.
+/// This is DELIBERATE: it stops a venue decoding a stranger's raw key, strkey
+/// or XDR back into an address and paying it. It is also a known LIMITATION,
+/// recorded in `docs/stellar.md` "Limits" and the adapter README: a venue that
+/// legitimately takes an argument of one of these lengths (say a `BytesN<32>`
+/// pool index) cannot be reached through a gated adapter. The safe way to admit
+/// one is a per-venue argument allowlist in the gate, never a looser walk here.
 ///
-/// Data of any other length cannot denote an address under these conversions
-/// and passes untouched, so venues that take signatures, memos or identifiers
-/// still work. The length decides WHICH encoding to compare before the loop
-/// starts: checking every encoding for every address cost a third more on a
-/// batch that carries strkeys, for no extra safety, since the others can never
-/// match.
+/// The lengths: 32 is the raw key or contract id; 56 its `G`/`C` strkey; 40 and
+/// 44 the XDR of a contract and an account, which `Address::from_xdr` takes; 48
+/// the XDR of a muxed address and 69 its `M` strkey, which `MuxedAddress` takes
+/// and whose account a `transfer` would credit. A muxed address never equals a
+/// plain one's XDR, and no allowed address is 69 bytes, so both are refused.
+/// Data of ANY OTHER length cannot denote an address here and passes untouched.
 ///
 /// THE LIMIT OF AN ABI-BLIND WALK: a number can carry 32 key bytes. A U256
-/// holding a stranger's key passes, and a venue that turned it back into bytes
-/// and then into an address would pay the stranger. The rule assumes a listed
-/// venue reads an address from an argument shaped like one.
+/// holding a stranger's key passes, and a venue reading it back would pay them.
 fn scan_data(e: &Env, ok: &Vec<Address>, b: &Bytes) {
     // 32 bytes is the raw account key or contract id `Address::from_payload`
     // takes; 56 is the same thing spelled as the strkey `from_string` takes;

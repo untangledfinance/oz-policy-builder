@@ -850,6 +850,335 @@ fn the_largest_rules_stay_inside_the_transaction_limits_at_the_ceilings() {
     );
 }
 
+/// One execution-adapter `Call` as its `execute` receives it: the wire map a
+/// `#[contracttype]` struct becomes (symbol keys, sorted), with `target` the
+/// listed venue and `function_name` the pinned function. The batch a self-scoped
+/// rule authorises is a vector of these.
+fn call_map(target: &ScVal, function: &str) -> ScVal {
+    let empty = tup(&[]);
+    map(&[
+        (sym("args"), empty.clone()),
+        (sym("executor_authorizations"), empty),
+        (sym("function_name"), sym(function)),
+        (sym("target"), target.clone()),
+    ])
+}
+
+/// A keyless rule scoped to `executor`, carrying the interpreter as its policy:
+/// the shape `bind_executor` and the keyless-gate path accept.
+fn self_scoped_rule(env: &Env, interpreter: &Address, executor: &Address) -> ContextRule {
+    ContextRule {
+        id: 1,
+        context_type: ContextRuleType::CallContract(executor.clone()),
+        name: soroban_sdk::String::from_str(env, "rule"),
+        signers: SorobanVec::new(env),
+        signer_ids: SorobanVec::new(env),
+        policies: soroban_sdk::vec![env, interpreter.clone()],
+        policy_ids: soroban_sdk::vec![env, 0u32],
+        valid_until: None,
+    }
+}
+
+/// The pinned immediate-`execute` batch predicate for `m` calls: on every path
+/// to a permit `call_fn == execute`, `args[2] == 0`, `len(args[0]) == m`, and
+/// the target and function name of each of calls `0..m` an `eq` of a constant -
+/// exactly the self-scoped shape `pins_own` accepts (221).
+fn batch_predicate(targets: &[ScVal]) -> ScVal {
+    batch_predicate_padded(targets, 0, 0)
+}
+
+/// `wrap(x)` nested `depth` deep: a chain of single-child `and`s. Legal (the
+/// decoder accepts a one-child `and`) and leaf-free, so it fills bytes and depth
+/// without a leaf - the padding the verifier used to drive the OLD quadratic
+/// `pins_own` to its ceiling.
+fn nest_and(depth: u32, inner: ScVal) -> ScVal {
+    (0..depth).fold(inner, |v, _| and(&[v]))
+}
+
+/// The pinned batch predicate (see `batch_predicate`), with the first
+/// `wrap_count` of the per-call `eq` conjuncts each wrapped `wrap_depth` deep in
+/// single-child `and`s. `wrap_* == 0` is the flat shape; padding reproduces the
+/// byte-and-depth-filling worst case the verifier built.
+fn batch_predicate_padded(targets: &[ScVal], wrap_depth: u32, wrap_count: usize) -> ScVal {
+    let m = targets.len() as u32;
+    let mut kids = alloc::vec![
+        cmp("eq", tup(&[sym("call_fn")]), sym("execute")),
+        cmp("eq", path(&[ScVal::U32(2)]), ScVal::U32(0)),
+        cmp(
+            "eq",
+            path(&[ScVal::U32(0), ScVal::Bool(true)]),
+            ScVal::U32(m)
+        ),
+    ];
+    for (i, t) in targets.iter().enumerate() {
+        let i = i as u32;
+        let t_eq = cmp(
+            "eq",
+            path(&[ScVal::U32(0), ScVal::U32(i), sym("target")]),
+            t.clone(),
+        );
+        let f_eq = cmp(
+            "eq",
+            path(&[ScVal::U32(0), ScVal::U32(i), sym("function_name")]),
+            sym("ping"),
+        );
+        // Wrap the leading conjuncts (both the target and the function `eq`).
+        let wrap = |k, eq| {
+            if k < wrap_count {
+                nest_and(wrap_depth, eq)
+            } else {
+                eq
+            }
+        };
+        kids.push(wrap(2 * i as usize, t_eq));
+        kids.push(wrap(2 * i as usize + 1, f_eq));
+    }
+    and(&kids)
+}
+
+/// The largest batch (most calls) a self-scoped rule can hold under `l`: bounded
+/// by the leaf cap (each call adds two `eq`s) and the byte cap together.
+fn largest_batch_m(env: &Env, code: &[u8], l: &Limits, targets: &[ScVal]) -> u32 {
+    let installs = |m: usize| -> bool {
+        let e = Env::new_with_config(EnvTestConfig {
+            capture_snapshot_at_drop: false,
+        });
+        e.mock_all_auths_allowing_non_root_auth();
+        e.cost_estimate().disable_resource_limits();
+        e.cost_estimate().budget().reset_unlimited();
+        let policy = e.register(code, (*l,));
+        let client = PolicyInterpreterClient::new(&e, &policy);
+        let account = Address::generate(&e);
+        let executor = Address::generate(&e);
+        let rule = self_scoped_rule(&e, &policy, &executor);
+        let predicate: Bytes = {
+            let v: Val = batch_predicate(&targets[..m]).into_val(&e);
+            v.to_xdr(&e)
+        };
+        if predicate.len() > l.max_predicate_bytes {
+            return false;
+        }
+        let hash: BytesN<32> = e.crypto().sha256(&predicate).into();
+        let params = PolicyInstallParams {
+            grammar_version: 7,
+            install_nonce: 1,
+            predicate,
+            predicate_hash: hash,
+            policy_admins: soroban_sdk::vec![&e, Signer::Delegated(Address::generate(&e))],
+        };
+        client.try_install(&params, &rule, &account).is_ok()
+            && client
+                .try_bind_executor(&(account, rule.id), &executor)
+                .is_ok()
+    };
+    let _ = env;
+    let (mut lo, mut hi) = (1usize, targets.len());
+    while lo < hi {
+        let mid = (lo + hi).div_ceil(2);
+        if installs(mid) {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    lo as u32
+}
+
+/// The largest number of leading conjuncts a padded predicate can wrap
+/// `wrap_depth` deep and still install and bind under `l` (bounded by the byte
+/// cap; the leaf and depth caps are fixed as `wrap_count` grows).
+fn largest_wrap_count(code: &[u8], l: &Limits, targets: &[ScVal], wrap_depth: u32) -> usize {
+    let installs = |wrap_count: usize| -> bool {
+        let e = Env::new_with_config(EnvTestConfig {
+            capture_snapshot_at_drop: false,
+        });
+        e.mock_all_auths_allowing_non_root_auth();
+        e.cost_estimate().disable_resource_limits();
+        e.cost_estimate().budget().reset_unlimited();
+        let policy = e.register(code, (*l,));
+        let client = PolicyInterpreterClient::new(&e, &policy);
+        let account = Address::generate(&e);
+        let executor = Address::generate(&e);
+        let rule = self_scoped_rule(&e, &policy, &executor);
+        let predicate: Bytes = {
+            let v: Val = batch_predicate_padded(targets, wrap_depth, wrap_count).into_val(&e);
+            v.to_xdr(&e)
+        };
+        if predicate.len() > l.max_predicate_bytes {
+            return false;
+        }
+        let hash: BytesN<32> = e.crypto().sha256(&predicate).into();
+        let params = PolicyInstallParams {
+            grammar_version: 7,
+            install_nonce: 1,
+            predicate,
+            predicate_hash: hash,
+            policy_admins: soroban_sdk::vec![&e, Signer::Delegated(Address::generate(&e))],
+        };
+        client.try_install(&params, &rule, &account).is_ok()
+            && client
+                .try_bind_executor(&(account, rule.id), &executor)
+                .is_ok()
+    };
+    let (mut lo, mut hi) = (0usize, 2 * targets.len());
+    while lo < hi {
+        let mid = (lo + hi).div_ceil(2);
+        if installs(mid) {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    lo
+}
+
+struct BatchRun {
+    install: Used,
+    bind: Used,
+    enforce: Used,
+    bytes: usize,
+}
+
+/// Install the self-scoped rule for `predicate`, bind the executor, then enforce
+/// the matching batch with the executor's word, measuring each call.
+fn measure_batch(code: &[u8], l: &Limits, targets: &[ScVal], predicate: &ScVal) -> BatchRun {
+    let env = Env::new_with_config(EnvTestConfig {
+        capture_snapshot_at_drop: false,
+    });
+    env.mock_all_auths_allowing_non_root_auth();
+    env.cost_estimate().disable_resource_limits();
+    env.cost_estimate().budget().reset_unlimited();
+    let policy = env.register(code, (*l,));
+    let client = PolicyInterpreterClient::new(&env, &policy);
+    let account = Address::generate(&env);
+    let executor = Address::generate(&env);
+    let rule = self_scoped_rule(&env, &policy, &executor);
+    let predicate_bytes: Bytes = {
+        let v: Val = predicate.clone().into_val(&env);
+        v.to_xdr(&env)
+    };
+    let bytes = predicate_bytes.len() as usize;
+    assert!(
+        bytes as u32 <= l.max_predicate_bytes,
+        "predicate {bytes} B over the cap"
+    );
+    let hash: BytesN<32> = env.crypto().sha256(&predicate_bytes).into();
+    let params = PolicyInstallParams {
+        grammar_version: 7,
+        install_nonce: 1,
+        predicate: predicate_bytes,
+        predicate_hash: hash,
+        policy_admins: soroban_sdk::vec![&env, Signer::Delegated(Address::generate(&env))],
+    };
+    env.cost_estimate().budget().reset_unlimited();
+    client
+        .try_install(&params, &rule, &account)
+        .expect("install")
+        .expect("install ok");
+    let install = used(&env);
+
+    env.cost_estimate().budget().reset_unlimited();
+    client
+        .try_bind_executor(&(account.clone(), rule.id), &executor)
+        .expect("bind")
+        .expect("bind ok");
+    let bind = used(&env);
+
+    // The batch the rule authorises: `execute([ping -> each venue], [], 0)`.
+    let calls = tup(&targets
+        .iter()
+        .map(|t| call_map(t, "ping"))
+        .collect::<StdVec<_>>());
+    let calls_val: Val = calls.into_val(&env);
+    let empty_val: Val = tup(&[]).into_val(&env);
+    let wait_val: Val = ScVal::U32(0).into_val(&env);
+    let mut args: SorobanVec<Val> = SorobanVec::new(&env);
+    args.push_back(calls_val);
+    args.push_back(empty_val);
+    args.push_back(wait_val);
+    let context = Context::Contract(ContractContext {
+        contract: executor.clone(),
+        fn_name: Symbol::new(&env, "execute"),
+        args,
+    });
+    let none: SorobanVec<Signer> = SorobanVec::new(&env);
+    env.cost_estimate().budget().reset_unlimited();
+    let verdict = client.try_enforce(&context, &none, &rule, &account);
+    let enforce = used(&env);
+    assert!(
+        verdict.is_ok(),
+        "bound enforce should permit, got {verdict:?}"
+    );
+    BatchRun {
+        install,
+        bind,
+        enforce,
+        bytes,
+    }
+}
+
+/// INTERP-01: the bound, self-scoped batch rule that runs `pins_own` on every
+/// `enforce` - install a keyless rule scoped to its executor, bind the executor,
+/// then enforce with the executor's word. This path was never in the ceilings
+/// table (`cases` installs keyed, unbound rules and never binds), and it is the
+/// one the quadratic `pins_own` blew up: on the OLD code a bound `enforce` cost
+/// 125.9M CPU on the flat shape and up to 366.1M (91.5% of the limit) on a
+/// padded one, where the table claimed 62.3M. Measured here on the flat shape
+/// AND on the byte-and-depth-filling padded shape the verifier used; with the
+/// single-pass `pins_own` both stay well inside the margin even at the ceilings.
+#[test]
+fn a_bound_self_scoped_batch_rule_stays_inside_the_limits_at_the_ceilings() {
+    let Some(code) = the_wasm() else { return };
+    let code = code.as_slice();
+    let l = common::CEILING;
+    let env = Env::default();
+
+    // Real targets for the pinned calls; the batch uses the very same addresses,
+    // so it matches the rule and `enforce` runs to a permit (the costly path).
+    let as_scval = |a: &Address| {
+        let v: Val = a.into_val(&env);
+        ScVal::from_xdr(&env, &v.to_xdr(&env)).unwrap()
+    };
+    let venues: StdVec<Address> = (0..130).map(|_| Address::generate(&env)).collect();
+    let all_targets: StdVec<ScVal> = venues.iter().map(as_scval).collect();
+    let m = largest_batch_m(&env, code, &l, &all_targets) as usize;
+    let targets = &all_targets[..m];
+
+    // Flat shape: the m=98 path the auditors measured at 125.9M on the old code.
+    let flat = measure_batch(code, &l, targets, &batch_predicate(targets));
+    // Padded shape: leading conjuncts wrapped as deep as the depth cap allows,
+    // filling the byte cap - the verifier's 366.1M worst on the old code.
+    let wrap_depth = l.max_depth - 2;
+    let wrap_count = largest_wrap_count(code, &l, targets, wrap_depth);
+    let padded = measure_batch(
+        code,
+        &l,
+        targets,
+        &batch_predicate_padded(targets, wrap_depth, wrap_count),
+    );
+
+    for (label, r) in [("flat", &flat), ("padded", &padded)] {
+        eprintln!(
+            "bound self-scoped batch at the ceilings ({label}, m={m}, {} B): \
+             install {} CPU ({}%), bind {} CPU ({}%), enforce {} CPU ({}%) / {} mem",
+            r.bytes,
+            r.install.cpu,
+            pct(r.install.cpu, NET.cpu),
+            r.bind.cpu,
+            pct(r.bind.cpu, NET.cpu),
+            r.enforce.cpu,
+            pct(r.enforce.cpu, NET.cpu),
+            r.enforce.mem,
+        );
+    }
+    eprintln!("padded wrap: {wrap_count} conjuncts wrapped {wrap_depth} deep");
+    for (label, r) in [("flat", flat), ("padded", padded)] {
+        within(label, "install", r.install);
+        within(label, "bind", r.bind);
+        within(label, "enforce", r.enforce);
+    }
+}
+
 /// OZ's reference multisig smart account, as deployed (committed bytes).
 const OZ_ACCOUNT_WASM: &[u8] = include_bytes!("fixtures/multisig_account_example.wasm");
 

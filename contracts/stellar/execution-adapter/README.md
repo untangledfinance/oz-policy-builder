@@ -50,6 +50,29 @@ The design is in [docs/stellar.md](../../../docs/stellar.md#execution-adapter),
 with the wait under [The wait](../../../docs/stellar.md#the-wait) and the null
 mode under [No gate](../../../docs/stellar.md#no-gate).
 
+## The address walk refuses by length
+
+A gated adapter guards addresses by COMPARING each listed address's spelling.
+For every `Bytes` or `String` in a call argument (at any depth) or a grant, it
+picks the address encoding its length would be and refuses the value with
+`AddressNotAllowed` unless it equals exactly how a listed address spells.
+Comparing avoids a decode, which has no fallible form inside a contract and
+would trap the whole batch on a value that turned out not to be an address. The lengths it checks are
+32 (a raw account key or contract id), 56 (a `G`/`C` strkey), 40, 44 and 48 (the
+XDR of a contract, an account and a muxed address) and 69 (a muxed `M` strkey).
+
+The trade-off is that the refusal is by length, not only for values that really
+are addresses. A non-address value of one of these lengths is refused even to a
+listed venue: a 32-byte hash, salt, pool index or commitment, a 32-character
+identifier, or a 40-, 44-, 48- or 56-character memo or string cannot pass
+through a gated adapter. It fails closed, with no fund risk. This refusal is
+deliberate and stays: it is what stops a venue decoding a stranger's raw key,
+strkey or XDR back into an address and paying it. Vet a venue that legitimately
+takes an argument of one of these lengths (for example a `BytesN<32>` pool
+index) before configuring a gate; the safe way to admit one is a per-venue
+argument allowlist in the gate, never a looser walk. Data of any other length
+passes untouched, and an adapter with no gate does not scan at all.
+
 ## Entry points
 
 | Function | Purpose |
