@@ -35,7 +35,7 @@ name = "conformance"
 path = "tests/conformance/mod.rs"
 
 # opt-level 3, not "z": `enforce` decodes the stored predicate on every call, and
-# that decode is 80-92% of its variable CPU. Measured on the PayFi four-check rule:
+# that decode is 80-92% of its variable CPU. Measured on a four-check reference rule:
 # -25% CPU and a smaller wasm than "z" (inlining removes more than it adds). The
 # other contracts (custody-gate, execution-adapter, ...) are separate crates with
 # their own profile, so their wasm is unchanged.

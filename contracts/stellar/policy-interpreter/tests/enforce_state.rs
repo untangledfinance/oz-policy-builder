@@ -472,7 +472,7 @@ fn a_bound_rule_enforces_only_with_the_executors_authorisation() {
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let rule = make_rule(&env, 1, signers.clone());
     install_policy(&env, &client, &smart_account, &rule);
-    client.bind_executor(&(smart_account.clone(), 1u32), &executor);
+    client.bind_executor(&(smart_account.clone(), 1u32), &executor, &2u32);
     let ctx = call_context(&env, &Address::generate(&env));
 
     let enforce_args: SorobanVec<soroban_sdk::Val> = (
@@ -556,7 +556,7 @@ fn bind_executor_extends_the_rules_ttl() {
     install_policy(&env, &client, &smart_account, &rule);
     wind_down_to(&env, &contract_id, &smart_account, 50);
 
-    client.bind_executor(&doc_key(&smart_account), &Address::generate(&env));
+    client.bind_executor(&doc_key(&smart_account), &Address::generate(&env), &2u32);
 
     let after = env.as_contract(&contract_id, || {
         env.storage().persistent().get_ttl(&doc_key(&smart_account))
@@ -589,6 +589,7 @@ fn require_master_asks_an_external_admin_to_authorise() {
                 master_set: soroban_sdk::vec![&env, external],
                 scope: None,
                 source: policy_interpreter::Source::Inline,
+                follow_pins: None,
             },
         );
     });
@@ -662,6 +663,7 @@ fn enforce_trusts_the_caps_install_already_applied() {
                 master_set: signers.clone(),
                 scope: None,
                 source: policy_interpreter::Source::Inline,
+                follow_pins: None,
             },
         );
     });

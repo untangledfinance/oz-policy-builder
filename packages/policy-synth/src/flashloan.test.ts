@@ -70,7 +70,7 @@ describe('flash_loan is identified and its nested amount is modelled (SYNTH-CORE
     expect(q(capped).some((x) => x.includes('flash_loan.amount'))).toBe(false)
   })
 
-  it('a recorded flash_loan caps the amount, pins the lender and asset, and installs honestly', () => {
+  it('a recorded flash_loan caps the amount, pins the lender and asset, and installs correctly', () => {
     const call: Call = {
       contract: POOL,
       fn: 'flash_loan',

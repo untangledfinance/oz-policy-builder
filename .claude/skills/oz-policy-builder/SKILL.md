@@ -296,12 +296,12 @@ A no-gate adapter as a rule's signer is refused; a keyless rule bound to one
 is how a no-gate adapter is meant to be used (see "Keyless rules and the
 binding").
 
-The Prime app holds the same line on its own signing paths, before any wallet
+The client application holds the same line on its own signing paths, before any wallet
 is asked: it refuses a rule signed by a null or unverified adapter, a rule an
 adapter signs that covers its own calls, the Prime itself, every call or
-contract creation (except the app's own run rule), and an adapter added as a
+contract creation (except the client application's own run rule), and an adapter added as a
 signer with `add_signer` or `batch_add_signer`. Expect those refusals if the
-owner signs through the app, and do not build around them.
+owner signs through the client application, and do not build around them.
 
 ## Keyless rules and the binding
 

@@ -120,7 +120,7 @@ describe('contractKinds: an adapter is trusted only on a pinned build and this a
 })
 
 describe('SYNTH-IO-01: an unverified adapter is refused as a signer and an executor', () => {
-  // The trusted labels still pass the refusal gates (the honest path); the unverified one does not.
+  // The trusted labels still pass the refusal gates (the valid path); the unverified one does not.
   it('signerProblem refuses an unverified adapter, accepts a verified gated one', () => {
     expect(signerProblem(GATED_SHAPED, 'unverified adapter', XLM, null)).toMatch(
       /does not run a pinned execution-adapter build/

@@ -42,6 +42,7 @@ const path = (...steps: Val[]): Expr => ['call_path', ...steps]
 const eq = (a: Val, b: Val): Expr => ['eq', a, b]
 const waitZero = () => eq(path(2), 0)
 const lenIs = (n: number) => eq(path(0, true), n)
+const grantsIs = (n: number | Val): Expr => eq(path(1, true), n)
 const target = (i: number) => path(0, i, 'target')
 const fn = (i: number) => path(0, i, 'function_name')
 const shape = (): Expr[] => [
@@ -52,6 +53,7 @@ const shape = (): Expr[] => [
   eq(fn(0), 'submit'),
   ['in', target(1), [TOKEN, OTHER]],
   eq(fn(1), 'transfer'),
+  grantsIs(5),
 ]
 const but = (i: number, w?: Expr): Expr => {
   const k = shape()
@@ -72,6 +74,14 @@ describe('pinsOwn mirrors the interpreter: every way of writing the full shape b
     but(0, eq('execute', ['call_fn'])),
     or([and(shape()), but(2, lenIs(1))]),
     and([and(shape().slice(0, 3)), and(shape().slice(3)), ['gt', path(0, 1, 'args', 2), 0]]),
+    // The grants count written as `call_arg_len(1)`, as a typed integer, as zero (no grants), or
+    // with the constant on the left; and in every branch of an `or`.
+    but(7, eq(['call_arg_len', 1], 5)),
+    but(7, eq(5, ['call_arg_len', 1])),
+    but(7, grantsIs({ i128: '5' })),
+    but(7, grantsIs(0)),
+    but(7, eq(path(1, true), 3)),
+    or([and(shape()), but(7, grantsIs(3))]),
     // `run` alone, unchanged.
     fnIs('run'),
   ]
@@ -84,7 +94,27 @@ describe('pinsOwn mirrors the interpreter: every way of writing the full shape b
 
 describe('pinsOwn mirrors the interpreter: anything less than the full shape is refused (221)', () => {
   const open: Expr[] = [
-    ...[0, 1, 2, 3, 4, 5, 6].map((i) => but(i)),
+    ...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => but(i)),
+    // The grants not pinned to one constant: a bound, a set, an inequality, a
+    // negative or a 256-bit count, a count of another argument, or a pin in one `or` branch only.
+    but(7, ['lte', path(1, true), 5]),
+    but(7, ['lt', path(1, true), 6]),
+    but(7, ['gte', path(1, true), 5]),
+    but(7, ['gt', path(1, true), 0]),
+    but(7, ['ne', path(1, true), 4]),
+    but(7, ['in', path(1, true), [3, 5]]),
+    but(7, ['in', path(1, true), [5]]),
+    but(7, grantsIs(-1)),
+    but(7, grantsIs({ u256: '5' })),
+    but(7, grantsIs({ i256: '5' })),
+    but(7, eq(path(1, true), path(0, true))),
+    but(7, eq(path(0, true), 5)),
+    but(7, eq(path(1), 5)),
+    but(7, eq(path(1, 0, true), 5)),
+    or([and(shape()), but(7)]),
+    or([and(shape()), but(7, ['lte', path(1, true), 5])]),
+    // `run` is not a way round it: a branch that pins `execute` still needs the count.
+    or([fnIs('run'), but(7)]),
     but(1, eq(path(2), 1)),
     but(1, ['lte', path(2), 0]),
     but(2, lenIs(3)),
@@ -320,6 +350,7 @@ describe('planBind: the binding of a rule to an executor', () => {
     readRules: async () => ({ rules: others, complete, unreadable: [] }),
     kind: async () => kind,
     fingerprint: async () => ours,
+    version: async () => 0,
     build: async () => ({ unsignedXdr: 'BBBB' }) as never,
   })
   const i = { smartAccount: ACCOUNT, sourceAccount: SOURCE, ruleId: 4, executor: ADAPTER }
@@ -364,6 +395,59 @@ describe('planBind: the binding of a rule to an executor', () => {
       }),
       'INTERPRETER_MISMATCH',
       /trusts/
+    )
+  })
+
+  it("names the rule's next version in the bind: the counter plus one, read live", async () => {
+    const seen: number[] = []
+    const chainAt = (current: number): BindChain => ({
+      ...bindChain(observed()),
+      version: async () => current,
+      build: async (v) => {
+        seen.push(v)
+        return { unsignedXdr: 'BBBB' } as never
+      },
+    })
+    expect((await planBind(i, INTERP, chainAt(0))).version).toBe(1)
+    expect((await planBind(i, INTERP, chainAt(6))).version).toBe(7)
+    expect(seen).toEqual([1, 7])
+    // A counter that cannot be raised, or reads as nonsense, refuses: no signature could name the next.
+    for (const bad of [0xffffffff, -1, 1.5, Number.NaN])
+      await refused(planBind(i, INTERP, chainAt(bad)), 'BIND_BUILD_FAILED', /version counter/)
+    // A version that cannot be read refuses; nothing is built.
+    const before = seen.length
+    await expect(
+      planBind(i, INTERP, {
+        ...bindChain(observed()),
+        version: async () => {
+          throw new Error('read failed')
+        },
+      })
+    ).rejects.toThrow(/read failed/)
+    expect(seen.length).toBe(before)
+  })
+
+  it('refuses the account or the interpreter as the executor, as the interpreter does (222)', async () => {
+    const code = 'BIND_BUILD_FAILED'
+    await refused(
+      planBind({ ...i, executor: ACCOUNT }, INTERP, bindChain(observed())),
+      code,
+      /account itself.*222/
+    )
+    await refused(
+      planBind({ ...i, executor: INTERP }, INTERP, bindChain(observed())),
+      code,
+      /interpreter itself.*222/
+    )
+    await refused(
+      planInstall({ ...input, executor: ACCOUNT }, rule, chain({ [ACCOUNT]: 'null-gate adapter' })),
+      'INSTALL_BUILD_FAILED',
+      /account itself.*222/
+    )
+    await refused(
+      planInstall({ ...input, executor: INTERP }, rule, chain({ [INTERP]: 'null-gate adapter' })),
+      'INSTALL_BUILD_FAILED',
+      /interpreter itself.*222/
     )
   })
 
@@ -478,10 +562,10 @@ describe('STRIDE E-36: a keyed rule scoped to a no-gate adapter must hold its gr
     expect(k.authority.signers).toEqual([])
   })
 
-  it('a keyless root rule with its grants left open still installs and binds on a dedicated adapter (L-7)', async () => {
-    // The keyless rule hands out words itself (the liquidation's own), so its grants are open.
-    const where = (liquidation.calls[0]?.where ?? []).filter(
-      (w) => !(w.constraint === 'count' && w.at[0] === 1)
+  it('a keyless root rule that hands out grants (an exact non-zero count) installs and binds on a dedicated adapter (L-7)', async () => {
+    // The keyless rule hands out words itself (the liquidation's own: its grants are counted, not none).
+    const where = (liquidation.calls[0]?.where ?? []).map((w) =>
+      w.constraint === 'count' && w.at[0] === 1 ? { ...w, is: 5 } : w
     )
     const root = intentExprs({ calls: [{ contract: ADAPTER, fn: 'execute', where }] }).get(
       ADAPTER
@@ -509,10 +593,51 @@ describe('STRIDE E-36: a keyed rule scoped to a no-gate adapter must hold its gr
         readRules: async () => ({ rules: [keyless], complete: true, unreadable: [] }),
         kind: async () => 'null-gate adapter',
         fingerprint: async () => ours,
+        version: async () => 0,
         build: async () => ({ unsignedXdr: 'BBBB' }) as never,
       }
     )
     expect(bound.unsignedXdr).toBe('BBBB')
+  })
+
+  it('a keyless rule that leaves the grants unpinned is refused at install and at bind', async () => {
+    const where = (liquidation.calls[0]?.where ?? []).filter(
+      (w) => !(w.constraint === 'count' && w.at[0] === 1)
+    )
+    const root = intentExprs({ calls: [{ contract: ADAPTER, fn: 'execute', where }] }).get(
+      ADAPTER
+    ) as Expr
+    expect(pinsOwn(root)).toBe(false)
+    const c = { contract: ADAPTER, expr: root, encoded: encode(root), hash: hashOf(encode(root)) }
+    await refused(
+      planInstall({ ...input, executor: ADAPTER }, c, chain()),
+      'INSTALL_BUILD_FAILED',
+      /number of grants.*221/
+    )
+    const open: ObservedRule = {
+      id: 4,
+      scope: { kind: 'call_contract', contract: ADAPTER },
+      signers: [],
+      policies: [INTERP],
+      expr: root,
+      admins: [SOURCE],
+    }
+    await refused(
+      planBind(
+        { smartAccount: ACCOUNT, sourceAccount: SOURCE, ruleId: 4, executor: ADAPTER },
+        INTERP,
+        {
+          readRule: async () => open,
+          readRules: async () => ({ rules: [open], complete: true, unreadable: [] }),
+          kind: async () => 'null-gate adapter',
+          fingerprint: async () => ours,
+          version: async () => 0,
+          build: async () => ({ unsignedXdr: 'BBBB' }) as never,
+        }
+      ),
+      'BIND_BUILD_FAILED',
+      /number of grants.*221/
+    )
   })
 
   it('a keyless rule for a no-gate adapter is refused while a keyed rule on it could vouch, or the rules are not all read', async () => {

@@ -263,7 +263,7 @@ fn a_rule_scoped_to_any_other_contract_is_installed() {
 //
 // Either would have been a green test proving nothing, which is the exact
 // failure mode that let the ContextRule bug reach this point. Driving it
-// honestly needs real `SorobanAuthorizationEntry` construction, which is done
+// properly needs real `SorobanAuthorizationEntry` construction, which is done
 // against a live network instead.
 //
 // What IS covered here is the install half, which is what the ABI bug broke:

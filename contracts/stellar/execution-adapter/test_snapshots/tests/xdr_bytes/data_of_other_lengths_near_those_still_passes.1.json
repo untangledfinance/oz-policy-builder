@@ -879,5 +879,29 @@
       }
     ]
   },
-  "events": []
+  "events": [
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "CASGWTYUO7DHGFA4FKSSQ6NU3SOQMC2VOJUNXV53256TPC7S2WIQ6ABJ",
+        "type_": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "ran"
+              },
+              {
+                "u32": 0
+              }
+            ],
+            "data": {
+              "map": []
+            }
+          }
+        }
+      },
+      "failed_call": false
+    }
+  ]
 }

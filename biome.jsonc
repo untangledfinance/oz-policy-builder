@@ -19,6 +19,9 @@
       "!**/evidence",
       // Written by the interpreter's tests/parity.rs: compact on purpose, one case a line.
       "!packages/policy-synth/fixtures/parity",
+      // Reference rule vectors read by a compact hand-rolled parser in
+      // policy-interpreter's keyless_accept test: kept on one line on purpose.
+      "!contracts/stellar/policy-interpreter/tests/fixtures/reference_keyless_predicates.json",
       // Recorded JSON-RPC responses (OPB_LIVE=1 rewrites them).
       "!packages/policy-synth/fixtures/rpc"
     ]

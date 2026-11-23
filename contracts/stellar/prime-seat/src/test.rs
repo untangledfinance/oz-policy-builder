@@ -5,9 +5,9 @@ use ed25519_dalek::{Signer as _, SigningKey};
 use sha2::{Digest, Sha256};
 use soroban_sdk::testutils::{
     storage::{Instance as _, Temporary as _},
-    Address as _, Ledger as _,
+    Address as _, Events as _, Ledger as _,
 };
-use soroban_sdk::{IntoVal, InvokeError, Symbol, Val};
+use soroban_sdk::{Event as _, IntoVal, InvokeError, Symbol, Val};
 
 const NOW: u64 = 1_800_000_000;
 const NET: [u8; 32] = [7; 32];
@@ -48,15 +48,34 @@ fn ghash(
     s: u64,
     n: u64,
 ) -> [u8; 32] {
-    sha(&[
-        b"prime-seat-grant",
+    ghash_gen(net, account, seat, key, s, n, 0)
+}
+
+fn ghash_gen(
+    net: &[u8; 32],
+    account: &[u8; 32],
+    seat: &[u8; 32],
+    key: &[u8; 32],
+    s: u64,
+    n: u64,
+    gen: u32,
+) -> [u8; 32] {
+    let mut h = Sha256::new();
+    for p in [
+        &b"prime-seat-grant"[..],
         net,
         account,
         seat,
         key,
         &s.to_be_bytes(),
         &n.to_be_bytes(),
-    ])
+    ] {
+        h.update(p);
+    }
+    if gen > 0 {
+        h.update(gen.to_be_bytes());
+    }
+    h.finalize().into()
 }
 
 struct T {
@@ -126,6 +145,36 @@ impl T {
 
     fn grant(&self, key: &SigningKey, start: u64, end: u64) -> R {
         self.grant_by(key, start, end, &self.owner, &self.owner)
+    }
+
+    /// The grant hash including a non-zero per-key generation.
+    fn hash_gen(&self, key: &SigningKey, start: u64, end: u64, gen: u32) -> [u8; 32] {
+        ghash_gen(
+            &NET,
+            &raw(&self.e, &self.account),
+            &raw(&self.e, &self.seat),
+            &pk(key),
+            start,
+            end,
+            gen,
+        )
+    }
+
+    /// grant(...) with the owner signing over `gen` (the generation the next message must commit to).
+    fn grant_gen(&self, key: &SigningKey, start: u64, end: u64, gen: u32) -> R {
+        let sig = self
+            .owner
+            .sign(&self.hash_gen(key, start, end, gen))
+            .to_bytes();
+        self.client
+            .try_grant(
+                &bn(&self.e, &pk(key)),
+                &start,
+                &end,
+                &bn(&self.e, &pk(&self.owner)),
+                &bn(&self.e, &sig),
+            )
+            .map(|x| x.unwrap())
     }
 
     /// A session for `key` from two minutes ago until `NOW + 3600`.
@@ -253,6 +302,11 @@ impl T {
 
 fn is_crypto(r: &R) -> bool {
     matches!(r, Err(Ok(e)) if e.is_type(soroban_sdk::xdr::ScErrorType::Crypto))
+}
+
+/// A grant that failed its ed25519 signature check: an error other than the contract refusal #1.
+fn bad_sig(r: &R) -> bool {
+    matches!(r, Err(Ok(e)) if *e != REFUSED)
 }
 
 #[test]
@@ -390,6 +444,14 @@ fn the_grant_hash_equals_the_recorded_vectors() {
         );
         assert!(matches!(r, Ok(Ok(()))), "{seat}");
     }
+}
+
+#[test]
+fn the_grant_window_constant_is_the_documented_seven_days() {
+    // Fails to compile on main 43b13ed (the symbol does not exist there); after the fix the named
+    // constant must equal the 604,800 second bound the README, overview, Stellar guide and T-14 state.
+    assert_eq!(MAX_GRANT_WINDOW, 604_800);
+    assert_eq!(MAX_GRANT_WINDOW, 7 * 24 * 60 * 60);
 }
 
 fn hex(s: &str) -> [u8; 32] {
@@ -715,4 +777,162 @@ fn a_delegated_use_of_a_dead_key_is_refused() {
     let t = setup();
     let k = sk(9);
     assert_eq!(t.check(&t.seat, &k, &k, &[1]), Err(Ok(REFUSED)));
+}
+
+// F-2026-20273: grant publishes an event for a grant and for an end, with the bumped generation.
+#[test]
+fn grant_and_end_publish_events() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    let events = t.e.events().all();
+    let evs = events.events();
+    assert_eq!(evs.len(), 1);
+    let want_grant = Granted {
+        key: bn(&t.e, &pk(&k)),
+        start: NOW - 120,
+        end: NOW + 3600,
+        generation: 0,
+    }
+    .to_xdr(&t.e, &t.seat);
+    assert_eq!(evs.last().unwrap(), &want_grant);
+    // An end publishes its own event carrying the bumped generation.
+    assert_eq!(t.grant(&k, 0, 0), Ok(()));
+    let events = t.e.events().all();
+    let evs = events.events();
+    assert_eq!(evs.len(), 1);
+    let want_end = Granted {
+        key: bn(&t.e, &pk(&k)),
+        start: 0,
+        end: 0,
+        generation: 1,
+    }
+    .to_xdr(&t.e, &t.seat);
+    assert_eq!(evs.last().unwrap(), &want_end);
+}
+
+// F-2026-20252: after the end entry expires and the owner re-grants the same key under the new
+// generation, an old end signed under the earlier generation can no longer revoke the live key.
+#[test]
+fn an_old_end_cannot_revoke_a_regranted_key_after_expiry() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    // Capture the owner-signed end at generation 0 (anyone can resubmit it later).
+    let old_end = t.owner.sign(&t.hash(&k, 0, 0)).to_bytes();
+    // End K, bumping the generation to 1. While the 0 entry lives, the same key cannot be re-granted.
+    assert_eq!(t.grant(&k, 0, 0), Ok(()));
+    assert_eq!(t.grant(&k, NOW - 120, NOW + 3600), Err(Ok(REFUSED)));
+    // ~180 days: advance past the temporary entry's max TTL so it is evicted.
+    let max = t.e.as_contract(&t.seat, || t.e.storage().max_ttl());
+    let seq = t.e.ledger().sequence();
+    t.e.ledger().set_sequence_number(seq + max + 1);
+    // A grant signed under generation 0 is now refused; the owner must sign under generation 1.
+    assert!(bad_sig(&t.grant(&k, NOW - 120, NOW + 3600)));
+    assert_eq!(t.grant_gen(&k, NOW - 120, NOW + 3600, 1), Ok(()));
+    let h = [5u8; 32];
+    assert_eq!(t.verify(&t.kd(), &t.proof(&k, &k, &h), &h), Ok(true));
+    // The attacker replays the OLD end (generation 0). On main it killed the re-granted key; now
+    // the generation mismatch makes the signature fail and the key stays live.
+    let replay = t
+        .client
+        .try_grant(
+            &bn(&t.e, &pk(&k)),
+            &0u64,
+            &0u64,
+            &bn(&t.e, &pk(&t.owner)),
+            &bn(&t.e, &old_end),
+        )
+        .map(|x| x.unwrap());
+    assert!(bad_sig(&replay), "{replay:?}");
+    assert_eq!(t.verify(&t.kd(), &t.proof(&k, &k, &h), &h), Ok(true));
+    assert_eq!(t.check(&t.seat, &k, &k, &[1]), Ok(()));
+}
+
+// F-2026-20252: a resubmitted end no longer verifies once the first end bumped the generation.
+#[test]
+fn a_resubmitted_end_no_longer_verifies() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    // First end, generation 0 -> 1. On main the identical end succeeds again and again; now it fails.
+    assert_eq!(t.grant(&k, 0, 0), Ok(()));
+    assert!(bad_sig(&t.grant_by(&k, 0, 0, &t.owner, &t.owner)));
+    assert!(bad_sig(&t.grant_by(&k, 0, 0, &k, &k)));
+    // A correctly re-signed end under generation 1 still works and bumps the generation again.
+    assert_eq!(t.grant_gen(&k, 0, 0, 1), Ok(()));
+    assert!(bad_sig(&t.grant_gen(&k, 0, 0, 1)));
+    assert_eq!(t.grant_gen(&k, 0, 0, 2), Ok(()));
+}
+
+// F-2026-20262: an empty rule-id list satisfied the vacuous `all` in both entry points on main.
+#[test]
+fn an_empty_rule_id_list_is_refused_by_both_entry_points() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    let h = [5u8; 32];
+    // On main both predicates accept the empty list; after the fix both refuse it.
+    let p = t.proof_ids(&k, &k, &h, &[]);
+    assert_eq!(t.verify_ids(&t.kd(), &p, &h, &[]), Ok(false));
+    assert_eq!(t.check(&t.seat, &k, &k, &[]), Err(Ok(REFUSED)));
+    // The split still works for non-empty sets: verify serves all-zero, check serves non-zero.
+    assert_eq!(
+        t.verify_ids(&t.kd(), &t.proof_ids(&k, &k, &h, &[0]), &h, &[0]),
+        Ok(true)
+    );
+    assert_eq!(t.check(&t.seat, &k, &k, &[1]), Ok(()));
+}
+
+// F-2026-20262: a proof shorter than 96 bytes must return false, not trap in the slices.
+#[test]
+fn a_short_proof_returns_false_rather_than_trapping() {
+    let t = setup();
+    let h = Bytes::from_array(&t.e, &[0u8; 32]);
+    // On main a 10-byte and a 95-byte proof trap in proof.slice(..32) / slice(32..96).
+    let short = Bytes::from_slice(&t.e, &[0u8; 10]);
+    assert_eq!(
+        t.client.try_verify(&h, &t.kd(), &short).map(|x| x.unwrap()),
+        Ok(false)
+    );
+    let almost = Bytes::from_slice(&t.e, &[1u8; 95]);
+    assert_eq!(
+        t.client
+            .try_verify(&h, &t.kd(), &almost)
+            .map(|x| x.unwrap()),
+        Ok(false)
+    );
+}
+
+// F-2026-20262: a 96-byte proof carries an empty preimage; `rules` must return None, not slice it.
+#[test]
+fn a_ninety_six_byte_proof_with_no_preimage_is_a_clean_false() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    let h = Bytes::from_array(&t.e, &[0u8; 32]);
+    let mut v = std::vec::Vec::from(pk(&k));
+    v.extend_from_slice(&[0u8; 64]);
+    let p = Bytes::from_slice(&t.e, &v);
+    // On main rules slices an empty preimage at [32..] and traps; after the fix it is a clean false.
+    assert_eq!(
+        t.client.try_verify(&h, &t.kd(), &p).map(|x| x.unwrap()),
+        Ok(false)
+    );
+}
+
+// F-2026-20262: a preimage shorter than 32 bytes reaches __check_auth through the signature argument.
+#[test]
+fn a_short_preimage_in_check_auth_is_refused_not_trapped() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    let payload = [9u8; 32];
+    let pre = std::vec![1u8; 10];
+    let ctx = t.frame(&t.account, &sha(&[&pre]));
+    // On main rules slices the 10-byte preimage at [32..] and traps; after the fix it refuses cleanly.
+    assert_eq!(
+        t.check_raw(&t.seat, &t.seat, &k, &k, payload, pre, &ctx),
+        Err(Ok(REFUSED))
+    );
 }

@@ -166,11 +166,20 @@ impl World {
         self.install(&self.b, nonce, &self.reference(&self.a, RA), &self.rule_b())
     }
 
+    /// The rule's current shared version counter (F-2026-20275), 0 if unset.
+    fn ver(&self, account: &Address, id: u32) -> u32 {
+        self.env.as_contract(&self.interpreter, || {
+            let k = (soroban_sdk::symbol_short!("ver"), account.clone(), id);
+            self.env.storage().persistent().get(&k).unwrap_or(0)
+        })
+    }
+
     fn bind(&self, account: &Address, id: u32) -> Option<u32> {
         self.env.mock_all_auths();
+        let version = self.ver(account, id) + 1;
         code(
             self.client()
-                .try_bind_executor(&(account.clone(), id), &self.executor),
+                .try_bind_executor(&(account.clone(), id), &self.executor, &version),
         )
     }
 
@@ -517,7 +526,9 @@ fn an_uninstalled_source_refuses_206() {
     w.env.mock_all_auths();
     w.client().uninstall(&w.rule_a(), &w.a);
     assert_eq!(w.b_does("submit"), Outcome::Code(206));
-    w.set_a(1, &fn_is("submit"));
+    // F-2026-20275: A's version was 1 at install and 2 after uninstall, so the
+    // re-install takes nonce 3 (the counter survives uninstall).
+    w.set_a(3, &fn_is("submit"));
     assert_eq!(w.b_does("submit"), Outcome::Permit);
 }
 
@@ -656,10 +667,10 @@ fn a_cannot_bind_bs_rule() {
     w.set_a(1, &fn_is("submit"));
     w.follow_a(1);
     let key = (w.b.clone(), RB);
-    let args: Vec<Val> = (key.clone(), w.a.clone()).into_val(&w.env);
+    let args: Vec<Val> = (key.clone(), w.a.clone(), 1u32).into_val(&w.env);
     let inv = w.invoke("bind_executor", args);
     w.env.mock_auths(&[w.only(&w.a, &inv)]);
-    let r = w.client().try_bind_executor(&key, &w.a);
+    let r = w.client().try_bind_executor(&key, &w.a, &1u32);
     assert_eq!(outcome(r), Outcome::Unauthorised);
     assert_eq!(w.doc(&w.b, RB).executor, None);
 }
@@ -691,8 +702,9 @@ fn the_run_pin_backstop_holds_the_referenced_predicate() {
         w.enforce(&run, &w.none(), &run_rule, false),
         Outcome::Code(221)
     );
-    // B's re-install under the binding refuses the unpinned source.
-    assert_eq!(w.install(&w.b, 2, &reference, &run_rule), Some(221));
+    // B's re-install under the binding refuses the unpinned source. B's version
+    // was 1 at install and 2 after bind, so this re-install takes nonce 3.
+    assert_eq!(w.install(&w.b, 3, &reference, &run_rule), Some(221));
     // A fresh self-scoped rule onto it cannot be bound.
     let fresh = w.rule(RB + 1, &w.executor, w.none());
     assert_eq!(w.install(&w.b, 1, &reference, &fresh), None);

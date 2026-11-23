@@ -47,13 +47,14 @@ use crate::types::Limits;
 ///       .context.args[i]                              8
 ///
 /// Eight covers all of them with nothing to spare, and the cap matters because
-/// a path is walked per leaf: with `max_leaves` at 200 (the default) the worst case is 1600
-/// walk steps in one evaluation.
+/// a path is walked per leaf: at the `max_leaves` ceiling of 400 the worst case
+/// is 3200 walk steps in one evaluation. (200 is only the test `DEFAULT`, not an
+/// on-chain limit.)
 ///
 /// What eight does NOT reach is the inside of a NESTED sub-invocation, which
 /// starts at eleven. That is deliberate rather than an oversight: the root
 /// signature commits to the whole authorization tree, so nothing can be
-/// appended to it after signing, and the adapter's own `check_auths` walk
+/// appended to it after signing, and the adapter's own `scan_entry` walk
 /// refuses a forbidden target at ANY depth. The predicate does not need to
 /// restate either.
 pub const MAX_PATH_STEPS: u32 = 8;
@@ -173,7 +174,11 @@ pub enum EvalDecision {
 pub enum DenyReason {
     ArgMismatch,
     ContractScope,
-    /// A `scaled` step did not fit `i128`, or its denominator was zero.
+    /// A `scaled` step did not fit `i128`. A zero or non-positive denominator
+    /// cannot reach here: it is refused as MALFORMED_PREDICATE (201) at decode,
+    /// so the only evaluate-time causes are an overflow of `checked_mul`/
+    /// `checked_div`/`checked_add` in a `scaled` step and an overflow of the
+    /// running `checked_add` of a `sum`.
     ArithmeticOverflow,
     UnsupportedNode,
     /// `in` membership failed. Distinct from ArgMismatch so a review card can
@@ -218,8 +223,8 @@ type Memo = Vec<((Address, Symbol, Vals), Option<Val>)>;
 // them again; `decode` (install) and `decode_stored` (enforce) establish them,
 // and `install` is the only writer of a stored predicate.
 //
-//  - `and` and `or` have at least one child; an `in` or `nin` has 1..=32
-//    entries, each a constant; a compare has
+//  - `and` and `or` have at least one child; an `in` or `nin` has between 1 and
+//    `max_in_operands` (ceiling 64) entries, each a constant; a compare has
 //    exactly two leaves; a quantifier has a vec leaf and a body node.
 //  - An ordering compare (`lt`, `lte`, `gt`, `gte`) has no constant that is not a
 //    number on either side, and `scaled` has none as an operand.
@@ -399,7 +404,7 @@ fn demux(env: &Env, v: Val) -> Val {
 /// An `Err` is always a deny. `ArgMismatch` means the leaf named something
 /// this call does not carry - an argument past the end, a shape other than the
 /// leaf assumed, a read that failed or returned void;
-/// `ArithmeticOverflow` is a `scaled` step that did not fit.
+/// `ArithmeticOverflow` is a `scaled` step or a `sum` that did not fit `i128`.
 fn resolve(env: &Env, leaf: &Leaf, ctx: &Ctx, memo: &mut Memo) -> Result<Val, DenyReason> {
     let miss = DenyReason::ArgMismatch;
     Ok(match leaf {
@@ -489,8 +494,10 @@ fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
 ///
 /// A predicate with no selector leaf - literals on both sides of every
 /// compare - is trivially true or trivially false at install time, so it
-/// permits everything or nothing forever. `install` refuses such a predicate
-/// so a no-constraint policy cannot install under any name.
+/// permits everything or nothing forever. `install` refuses such a predicate.
+/// This is not a full no-constraint check: a selector compared with itself, or
+/// with another selector, counts as a selector and still installs (see the
+/// `compare` arm of `eval`).
 ///
 /// Only a leaf that reads the authorised call counts. `now` does not, nor does a
 /// `read` of constants: a rule made of those alone says nothing about the call it
@@ -532,6 +539,158 @@ pub fn pins(
         Node::Compare(CompareOp::Eq, a, b) => (sel(a) && fixed(b)) || (sel(b) && fixed(a)),
         Node::In(needle, entries, false) => set && sel(needle) && entries.iter().all(fixed),
         _ => false,
+    }
+}
+
+/// A deterministic digest of the constants a predicate pins each call's
+/// `target` and `function_name` to, and of how those pins are combined. It is a
+/// prefix-free encoding of the pin records in AST order, each led by a kind byte:
+/// - `1` `and` / `2` `or`: the kind byte, the number of children that carry a
+///   record (a big-endian `u32`), then those children. A child that pins no call
+///   target or function adds nothing, so a followed owner can still add or drop
+///   an amount conjunct (E-38), but cannot regroup the pins: `and(or(t=A, t=B),
+///   or(f=X, f=Y))` and `or(and(t=A, f=X), and(t=B, f=Y))` pair targets and
+///   functions differently and hash differently (F-2026-20245).
+/// - `3` `eq(call_path[0, i, target|function_name], lit(v))`: the call index `i`,
+///   a field byte (0 target, 1 function), the length of the XDR of `v` and the XDR.
+/// - `4` `in(call_path[0, i, target|function_name], [lit, ...])`: the call index
+///   `i`, the field byte, the entry count, then the length and XDR of every
+///   entry. The entries are sorted by their bytes first, so a reordered but
+///   otherwise equal set hashes the same (`in` membership does not depend on
+///   order); adding, removing or replacing any entry is a change and is caught.
+///
+/// Both pin forms are needed because `pins_own` admits an `in` set as a target or
+/// function pin (`dsl::pins` with `set = true`), and the canonical keyless batch
+/// shape pins a call's target with an `in` set, so an `eq`-only digest would let
+/// a followed owner retarget a keyless follower by editing the set's contents.
+/// Amounts and other `call_path` pins are not included, so a followed owner keeps
+/// control of amounts (E-38). The digest is empty for a predicate that pins no
+/// call target or function (for example a `run` rule), which is a stable value
+/// too.
+pub fn call_pin_digest(env: &Env, root: &Node) -> Bytes {
+    let target = Symbol::new(env, "target").to_val();
+    let function = Symbol::new(env, "function_name").to_val();
+    let mut out = Bytes::new(env);
+    digest_node(env, root, &target, &function, &mut out);
+    out
+}
+
+const DIGEST_AND: u8 = 1;
+const DIGEST_OR: u8 = 2;
+const DIGEST_EQ: u8 = 3;
+const DIGEST_IN: u8 = 4;
+
+fn digest_node(env: &Env, node: &Node, target: &Val, function: &Val, out: &mut Bytes) {
+    match node {
+        Node::And(kids) | Node::Or(kids) => {
+            // Only a child that records something is counted and kept; the count
+            // and the kind byte are what make the grouping part of the digest.
+            let parts: Vec<Bytes> = kids
+                .iter()
+                .map(|k| {
+                    let mut part = Bytes::new(env);
+                    digest_node(env, k, target, function, &mut part);
+                    part
+                })
+                .filter(|part| !part.is_empty())
+                .collect();
+            if parts.is_empty() {
+                return;
+            }
+            let kind = if matches!(node, Node::And(_)) {
+                DIGEST_AND
+            } else {
+                DIGEST_OR
+            };
+            out.push_back(kind);
+            out.append(&Bytes::from_array(env, &(parts.len() as u32).to_be_bytes()));
+            parts.iter().for_each(|part| out.append(part));
+        }
+        Node::Compare(CompareOp::Eq, a, b) => {
+            digest_eq(env, a, b, target, function, out);
+            digest_eq(env, b, a, target, function, out);
+        }
+        // `pins_own` accepts an `in` set as a target/function pin, so a follower
+        // must be committed to its entries too. `nin` (the flag set) pins
+        // nothing, matching `pins`.
+        Node::In(needle, entries, false) => digest_in(env, needle, entries, target, function, out),
+        _ => {}
+    }
+}
+
+/// If `sel` is `call_path[0, i, target|function_name]`, the call index `i` and
+/// the field byte (0 target, 1 function); otherwise none.
+fn call_field(env: &Env, sel: &Leaf, target: &Val, function: &Val) -> Option<(u32, u8)> {
+    let Leaf::CallPath(steps) = sel else {
+        return None;
+    };
+    if steps.len() != 3 {
+        return None;
+    }
+    let PathStep::Index(ci) = &steps[0] else {
+        return None;
+    };
+    let PathStep::Index(i) = &steps[1] else {
+        return None;
+    };
+    let PathStep::Key(k) = &steps[2] else {
+        return None;
+    };
+    if *ci != 0 {
+        return None;
+    }
+    if val_eq(env, k, target) {
+        Some((*i, 0u8))
+    } else if val_eq(env, k, function) {
+        Some((*i, 1u8))
+    } else {
+        None
+    }
+}
+
+fn digest_eq(env: &Env, sel: &Leaf, lit: &Leaf, target: &Val, function: &Val, out: &mut Bytes) {
+    let Leaf::Lit(v) = lit else { return };
+    let Some((i, field)) = call_field(env, sel, target, function) else {
+        return;
+    };
+    let xdr = v.to_xdr(env);
+    out.push_back(DIGEST_EQ);
+    out.append(&Bytes::from_array(env, &i.to_be_bytes()));
+    out.push_back(field);
+    out.append(&Bytes::from_array(env, &xdr.len().to_be_bytes()));
+    out.append(&xdr);
+}
+
+/// Digest an `in(call_path[0, i, target|function_name], [lit, ...])` target or
+/// function pin (kind byte 4). The entries are sorted by their XDR bytes so a
+/// reordered but equal set hashes the same.
+fn digest_in(
+    env: &Env,
+    needle: &Leaf,
+    entries: &[Leaf],
+    target: &Val,
+    function: &Val,
+    out: &mut Bytes,
+) {
+    let Some((i, field)) = call_field(env, needle, target, function) else {
+        return;
+    };
+    // Every entry must be a literal, exactly what `pins` accepts
+    // (`entries.iter().all(fixed)`); bail on anything else so the digest never
+    // claims a pin `pins_own` would have rejected.
+    let mut xdrs: Vec<Vec<u8>> = Vec::new();
+    for e in entries.iter() {
+        let Leaf::Lit(v) = e else { return };
+        xdrs.push(v.to_xdr(env).iter().collect());
+    }
+    xdrs.sort();
+    out.push_back(DIGEST_IN);
+    out.append(&Bytes::from_array(env, &i.to_be_bytes()));
+    out.push_back(field);
+    out.append(&Bytes::from_array(env, &(xdrs.len() as u32).to_be_bytes()));
+    for x in xdrs.iter() {
+        out.append(&Bytes::from_array(env, &(x.len() as u32).to_be_bytes()));
+        out.append(&Bytes::from_slice(env, x.as_slice()));
     }
 }
 
@@ -615,9 +774,14 @@ fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
 // ============================================================================
 
 /// Errors that can be raised while decoding a predicate root from the
-/// canonical ScVal wire format. On chain every one of them is reported as
-/// `MALFORMED_PREDICATE` (201) by `install` and `enforce`; the variants exist
-/// so tests can tell the causes apart.
+/// canonical ScVal wire format. `install`, `enforce` and `check` report every
+/// one of these as `MALFORMED_PREDICATE` (201); the variants exist so tests can
+/// tell the causes apart. The count caps (`TooManyLeaves`, and the weighted
+/// placement rules) are `decode`'s, so only `install` and `check` meet them;
+/// `enforce` decodes with `decode_stored`. A payload over `max_predicate_bytes`
+/// is refused earlier, as `PREDICATE_TOO_LARGE` (207). Bytes that are not XDR at
+/// all are not a `DecodeError`: the host traps on them before this code runs,
+/// so they never reach 201.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DecodeError {
     /// Empty / wrong-Variant / wrong-arity / unknown op or selector
@@ -649,6 +813,11 @@ pub fn decode(env: &Env, bytes: &Bytes, lim: &Limits) -> Result<Node, DecodeErro
     let mut calls = Vec::new();
     for (l, _) in &all {
         let Leaf::Read(c, f, a, _) = l else { continue };
+        // F-2026-20271: a read target must be a contract address (ScAddress
+        // discriminant byte 7 == 1), not an account. Checked here, at install,
+        // once per read leaf, instead of re-serialising every target on every
+        // `enforce`/`bind_executor` decode.
+        ensure(c.clone().to_xdr(env).get(7) == Some(1))?;
         let fixed: Option<Vec<Val>> = a.iter().map(|l| literal_to_val(l).ok()).collect();
         let key = (c, f, fixed.map(|v| Vals::from_slice(env, &v)));
         if key.2.is_none() || !calls.contains(&key) {
@@ -828,8 +997,13 @@ fn decode_selector_leaf(
                 let ok = matches!(leaf, Leaf::Lit(_) | Leaf::CallPath(_) | Leaf::Now);
                 ensure(ok || matches!(leaf, Leaf::CallContract | Leaf::CallFn)).map(|_| leaf)
             };
+            // F-2026-20271: that the target is a CONTRACT address (not an
+            // account) is an install-only check, done once in `decode` over the
+            // read leaves rather than re-serialising every target on every
+            // `enforce` and `bind_executor` decode. `install` is the only writer
+            // of a stored predicate, so a stored read target is already a
+            // contract.
             let target: Address = expect(env, items, 1)?;
-            ensure(target.clone().to_xdr(env).get(7) == Some(1))?;
             let (f, args) = (expect(env, items, 2)?, each(&expect(env, items, 3)?, arg)?);
             Leaf::Read(target, f, args, steps(4, 0)?)
         }

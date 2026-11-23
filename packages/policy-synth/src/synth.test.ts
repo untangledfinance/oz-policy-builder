@@ -165,7 +165,7 @@ describe('an intent is asked the question a recording is: how much?', () => {
     // Below one in a million (1/10^18, 1/10^7): a degenerate floor, so the question stands.
     expect(codes(swap('1', '1000000000000000000'))).toContain('SLIPPAGE_FLOOR_MISSING')
     expect(codes(swap('1', '10000000'))).toContain('SLIPPAGE_FLOOR_MISSING')
-    // A ratio at or above one in a million is an honest floor, even a small one.
+    // A ratio at or above one in a million is a legitimate floor, even a small one.
     expect(codes(swap('1', '1000'))).not.toContain('SLIPPAGE_FLOOR_MISSING')
     expect(codes(swap('1', '3'))).not.toContain('SLIPPAGE_FLOOR_MISSING')
     expect(codes(swap('1', '2'))).not.toContain('SLIPPAGE_FLOOR_MISSING')
@@ -409,7 +409,7 @@ describe('an encoded predicate is asked about the least output too', () => {
 })
 
 // the safety gate walks the FINISHED rule, so none of the shapes that pinned the
-// INPUT while leaving the produced rule uncapped slips through. Honest forms still pass.
+// INPUT while leaving the produced rule uncapped slips through. Legitimate forms still pass.
 describe('the gate is judged on the produced rule, not the input shape', () => {
   const amt = { i128: '9' }
   const pin = (fn: string, ...rest: Expr[]): Expr => [
@@ -422,7 +422,7 @@ describe('the gate is judged on the produced rule, not the input shape', () => {
     expect(
       codes(pin('submit', ['any', ['call_arg', 3], ['lte', ['elem', 'amount'], amt]]))
     ).toEqual(['AMOUNT_BOUND_MISSING'])
-    // The honest `each` form caps every element, and asks nothing.
+    // The legitimate `each` form caps every element, and asks nothing.
     expect(
       codes(pin('submit', ['all', ['call_arg', 3], ['lte', ['elem', 'amount'], amt]]))
     ).toEqual([])
@@ -456,7 +456,7 @@ describe('the gate is judged on the produced rule, not the input shape', () => {
     ]
     // amount_out_min >= amount_out_min * 99/100 permits a trade at any price.
     expect(codes(swap(['gte', ['call_arg', 1], scaled(1)]))).toEqual(['SLIPPAGE_FLOOR_MISSING'])
-    // amount_out_min >= amount_in * 99/100 is an honest slippage floor.
+    // amount_out_min >= amount_in * 99/100 is a legitimate slippage floor.
     expect(codes(swap(['gte', ['call_arg', 1], scaled(0)]))).toEqual([])
   })
 
@@ -486,7 +486,7 @@ describe('the gate is judged on the produced rule, not the input shape', () => {
     expect(codes(swap(['gte', ['call_arg', 1], sc(4, '99', '100', '0')]))).toEqual([
       'SLIPPAGE_FLOOR_MISSING',
     ])
-    // The honest floor (a ratio of amount_in, non-negative add) passes.
+    // The legitimate floor (a ratio of amount_in, non-negative add) passes.
     expect(codes(swap(['gte', ['call_arg', 1], sc(0, '99', '100', '0')]))).toEqual([])
   })
 
@@ -507,7 +507,7 @@ describe('the gate is judged on the produced rule, not the input shape', () => {
     expect(codes(swap(['gte', ['call_arg', 1], sc('1', '10000000')]))).toEqual([
       'SLIPPAGE_FLOOR_MISSING',
     ])
-    // One in a million (the minimum) and tighter pass, including an honest small floor.
+    // One in a million (the minimum) and tighter pass, including a legitimate small floor.
     expect(codes(swap(['gte', ['call_arg', 1], sc('1', '1000')]))).toEqual([])
     expect(codes(swap(['gte', ['call_arg', 1], sc('1', '3')]))).toEqual([])
     expect(codes(swap(['gte', ['call_arg', 1], sc('1', '2')]))).toEqual([])
@@ -529,7 +529,7 @@ describe('the gate is judged on the produced rule, not the input shape', () => {
         },
       ])
     ).toThrow(/recorded with 4 argument\(s\), but swap_exact_tokens_for_tokens takes 5/)
-    // The honest, complete forms synthesise (no over-restriction).
+    // The legitimate, complete forms synthesise (no over-restriction).
     expect(() =>
       synthesize([{ contract: C, fn: 'transfer', args: [A, A, { i128: '5' }] }], { limit: '5' })
     ).not.toThrow()
@@ -670,7 +670,7 @@ describe('synthesis from what was recorded', () => {
       expect(performance.now() - t0).toBeLessThan(1000)
     })
 
-    it('still builds an honest small submit (no over-restriction)', () => {
+    it('still builds a legitimate small submit (no over-restriction)', () => {
       const s = synthesize([submit(req(0, '10'), req(1, '20'))], { limit: '50' })
       expect(() => propose(s.intent)).not.toThrow()
     })
@@ -696,7 +696,7 @@ describe('synthesis from what was recorded', () => {
       )
     })
 
-    it('still builds an honest batch of many requests over a few fields', () => {
+    it('still builds a legitimate batch of many requests over a few fields', () => {
       const vec = Array.from({ length: 20 }, (_, i) => req(i % 3, String(10 + i)))
       const s = synthesize([submit(...vec)], { limit: '50' })
       const [rule] = propose(s.intent)

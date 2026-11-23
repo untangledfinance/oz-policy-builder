@@ -22,21 +22,32 @@
 //!
 //! A STORED BATCH RUNS UNDER THE PRIME'S "RUN" RULE. `run` asks the Prime to
 //! approve `run(id)`, and the Prime answers through a rule scoped to this
-//! adapter, signed by it, whose predicate permits `run` alone - see `run`.
-//! Without that rule a stored batch cannot run; without its predicate the
-//! rule would let anyone have this adapter approve an immediate `execute`.
+//! adapter: a keyless rule that lists no signer, carries the policy interpreter
+//! as its only policy, is bound to this adapter with `bind_executor` and whose
+//! predicate permits `run` alone - see `run`. Without that rule a stored batch
+//! cannot run; without its predicate the rule would let anyone have this adapter
+//! approve an immediate `execute`.
 //!
 //! WHAT RUNS IS WHAT WAS APPROVED. The batch is stored whole, not hashed, so
 //! whoever runs it names only its number and cannot vary a single argument.
-//! It is checked again when it runs, against the gate this adapter is bound to
-//! THEN: custody may have rebound it to a narrower gate while it waited.
+//! A batch stored before a `rebind` cannot run at all: the binding moved to a
+//! gate a new custody answers to, and the old custody that approved the batch
+//! can no longer cancel it, so `rebind` raises a floor and `run` refuses every
+//! number at or below it. A batch that was never rebound is still checked again
+//! when it runs, against the gate this adapter is bound to.
 //!
 //! ONE RULE: a batch may not mention an address the gate does not name.
 //! Every call target, every argument, anything nested inside one, and every
-//! authorization handed to a callee is checked against that list. Where value
-//! can go therefore does not depend on this contract understanding any
+//! authorization handed to a callee is checked against the gate's lists. Where
+//! value can go therefore does not depend on this contract understanding any
 //! venue's ABI - which it cannot, and which is why guarding only its own
 //! token balance left a venue free to pay a stranger out of our position.
+//!
+//! TWO LISTS: the gate names `allowed`, every address a batch may mention, and
+//! `payees`, the subset value may reach. Call targets, arguments and a grant's
+//! inner arguments are held to `payees`; only a grant's context contract - the
+//! policy it asks to approve - may be an `allowed` address off `payees`, which
+//! is how the interpreter can be named as a policy yet never be paid.
 //!
 //! THE GATE IS NOT AN ARGUMENT. It is fixed at deployment, so there is nothing
 //! to pass, nothing to omit and nothing to substitute.
@@ -65,16 +76,16 @@
 //! that one approval, each matched once; nothing is stored, so none outlives
 //! the call. The adapter holds nothing, and anyone the Prime's rules let call
 //! `execute` can run any batch they permit through it: it must never be sent
-//! funds or given an allowance, and a rule on the Prime that this adapter
-//! signs is bounded by its predicate alone.
+//! funds or given an allowance. No key signs for it: a keyless rule bound to it
+//! answers for the Prime, and that rule's predicate decides what it permits.
 //!
-//! NOTHING WAITS. A stored batch runs under `run`, where the adapter is the
-//! one asking the Prime, so the Prime's token rules would have to be signed by
-//! this adapter. Those rules would answer an immediate `execute` too, where the
-//! adapter is also the one asking, and an agent allowed to call `execute`
-//! could move the Prime's funds through them instead of through its own capped
-//! rules; for a G account a stored batch would need its signature again
-//! anyway. So a null adapter takes no `min_wait` and runs every batch at once.
+//! NOTHING WAITS. A stored batch runs under `run`, where the adapter is the one
+//! asking the Prime. The Prime's token rules that answer such a request would
+//! answer an immediate `execute` the same way, where the adapter is also the one
+//! asking, so an agent allowed to call `execute` could move the Prime's funds
+//! through them instead of through its own capped rules; for a G account a stored
+//! batch would need its signature again anyway. So a null adapter takes no
+//! `min_wait` and runs every batch at once.
 //!
 //! Custody's funds stay out of reach: a custody gate pins the address and code
 //! of its one caller, which custody derives from that same gate.
@@ -119,7 +130,8 @@
 //! an accessor would only be a second way to say the same thing.
 use soroban_sdk::{
     auth::{Context, ContractContext, InvokerContractAuthEntry, SubContractInvocation},
-    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, vec,
+    contract, contracterror, contractevent, contractimpl, contracttype, panic_with_error,
+    symbol_short, vec,
     xdr::ToXdr,
     Address, Bytes, Duration, Env, IntoVal, Map, String, Symbol, Timepoint, TryFromVal, Val, Vec,
     I256, U256,
@@ -161,6 +173,10 @@ const GATE: Symbol = symbol_short!("gate");
 const MIN_WAIT: Symbol = symbol_short!("min_wait");
 const WINDOW: Symbol = symbol_short!("window");
 const NEXT: Symbol = symbol_short!("next");
+/// The highest batch number stored before the last `rebind`. A batch at or
+/// below it cannot `run`: it was approved against the gate the previous custody
+/// answered to, and that custody can no longer cancel it once the binding moved.
+const FLOOR: Symbol = symbol_short!("floor");
 
 /// KEPT ALIVE WHILE IT IS USED. An instance is created with the network's
 /// minimum lifetime - ~7 days on testnet, ~120 on mainnet - and a write does
@@ -169,6 +185,51 @@ const NEXT: Symbol = symbol_short!("next");
 /// ~30 days once fewer than ~7 remain.
 const KEEP_BELOW: u32 = 120_960;
 const KEEP_TO: u32 = 518_400;
+
+// Events. A custody monitor follows every move through this adapter from these
+// without decoding storage. Each is the last statement of its function, after
+// every check and authorisation, so none of them changes a decision. The id is
+// the topic, so a watcher can follow one batch from store to run or cancel; the
+// batch number starts at 1, so a `Ran` with id 0 is an immediate `execute`
+// (one that never waited and has no stored number). Topics are documented in
+// the crate README.
+
+/// A batch was stored to run after its wait. `run_at` is the ledger it becomes
+/// runnable on.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BatchStored {
+    #[topic]
+    pub id: u32,
+    pub run_at: u32,
+}
+
+/// A batch ran. `id` is the stored number, or 0 for an immediate `execute`.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Ran {
+    #[topic]
+    pub id: u32,
+}
+
+/// A stored batch was cancelled (dropped before it ran) by the Prime or by the
+/// gate's custody.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Cancelled {
+    #[topic]
+    pub id: u32,
+    pub by: Address,
+}
+
+/// The binding moved to another gate. `floor` is the batch number raised by the
+/// rebind: every stored batch at or below it can no longer run.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Rebound {
+    pub gate: Address,
+    pub floor: u32,
+}
 
 #[contract]
 pub struct ExecutionAdapter;
@@ -228,6 +289,15 @@ impl ExecutionAdapter {
         // The successor must answer too, or the binding could never move again.
         custody(&e, &gate);
         e.storage().instance().set(&GATE, &gate);
+        // Every batch stored so far was approved against the gate the PREVIOUS
+        // custody answered to, and that custody loses `cancel` the moment the
+        // binding moves. Rather than let those batches run on against a custody
+        // that can no longer stop them, raise a floor: `run` refuses any number
+        // at or below it. Legitimate pre-rebind batches are dropped too, so the
+        // Prime stores them again under the new gate and waits `min_wait`.
+        let last: u32 = e.storage().instance().get(&NEXT).unwrap_or(0);
+        e.storage().instance().set(&FLOOR, &last);
+        Rebound { gate, floor: last }.publish(&e);
     }
 
     /// Run the batch now (`wait` zero) or store it to run once `wait` more
@@ -244,7 +314,10 @@ impl ExecutionAdapter {
     ) -> Option<u32> {
         e.storage().instance().extend_ttl(KEEP_BELOW, KEEP_TO);
         let prime: Address = e.storage().instance().get(&PRIME).unwrap();
-        check(&e, &prime, &calls, &grants);
+        // Read the binding once and reuse it: `check` takes it, the no-gate word
+        // loop tests it, and the wait branch needs it.
+        let gate = bound(&e);
+        check(&e, &prime, gate.clone(), &calls, &grants);
         let min_wait: u32 = e.storage().instance().get(&MIN_WAIT).unwrap();
         if wait < min_wait {
             panic_with_error!(&e, E::WaitTooShort);
@@ -252,30 +325,41 @@ impl ExecutionAdapter {
         let args: Vec<Val> = (calls.clone(), grants.clone(), wait).into_val(&e);
         if wait == 0 {
             let mut handed = grants.clone();
-            if bound(&e).is_none() {
+            if gate.is_none() {
                 // Its word for this very call, to each policy the batch names.
                 let this = Context::Contract(ContractContext {
                     contract: e.current_contract_address(),
                     fn_name: symbol_short!("execute"),
                     args: args.clone(),
                 });
+                // Collect the distinct policies first, then build each word
+                // once. A word embeds the whole grants vector, so it can equal
+                // no grant and no de-duplication against `handed` is needed; one
+                // word per policy replaces the old quadratic `handed.contains`.
+                let mut policies: Vec<Address> = Vec::new(&e);
                 for g in grants.iter() {
+                    // `check` has already refused a non-contract grant through
+                    // `vouched`; this is a deliberate duplicate of that refusal,
+                    // kept as defence in depth should the two paths ever drift.
                     let InvokerContractAuthEntry::Contract(c) = g else {
                         panic_with_error!(&e, E::Uncheckable)
                     };
-                    let own = vouch(&e, &c.context.contract, &prime, &this);
-                    if !handed.contains(&own) {
-                        handed.push_back(own);
+                    if !policies.contains(&c.context.contract) {
+                        policies.push_back(c.context.contract);
                     }
+                }
+                for policy in policies.iter() {
+                    handed.push_back(vouch(&e, &policy, &prime, &this));
                 }
             }
             e.authorize_as_current_contract(handed);
             prime.require_auth_for_args(args);
             invoke(&e, calls);
+            Ran { id: 0 }.publish(&e);
             return None;
         }
         // WITHOUT A GATE, NOTHING WAITS: see the module comment.
-        bound(&e).unwrap_or_else(|| panic_with_error!(&e, E::NoWait));
+        gate.unwrap_or_else(|| panic_with_error!(&e, E::NoWait));
         prime.require_auth_for_args(args);
         // Overflow traps (`overflow-checks` is on in release): a wrapped
         // `run_at` would be in the past, and the batch runnable at once.
@@ -291,6 +375,7 @@ impl ExecutionAdapter {
         let live =
             (run_at.saturating_add(window) - e.ledger().sequence()).min(e.storage().max_ttl());
         e.storage().persistent().extend_ttl(&id, live, live);
+        BatchStored { id, run_at }.publish(&e);
         Some(id)
     }
 
@@ -298,21 +383,27 @@ impl ExecutionAdapter {
     /// when the Prime approved it, so the caller chooses only when, within the
     /// window.
     ///
-    /// THE PRIME APPROVES THE RUN, THROUGH A RULE THIS ADAPTER SIGNS. A venue
-    /// that asks the Prime for authorization mid-batch - Blend's `submit` -
-    /// is answered by a rule whose signer is this adapter, and the smart
-    /// account checks a contract signer with `require_auth_for_args`, which a
-    /// contract passes only when it is the one that asked the Prime. At once,
-    /// `execute` asks, and the venue's request sits inside that approval. Here
-    /// nobody would have asked first, the venue would be asking, and the
-    /// adapter's signature would fail (measured on testnet:
-    /// `Error(Auth, InvalidAction)`). So `run` asks, for `(id)`, and the Prime
-    /// answers it with a rule scoped to this adapter, signed by it, whose
-    /// predicate permits `run` and nothing else. No key signs; any submitter
-    /// can build the entry. The predicate is what keeps that rule from
-    /// approving an immediate `execute` or a `cancel` the same way.
+    /// THE PRIME APPROVES THE RUN, THROUGH A KEYLESS RULE BOUND TO THIS ADAPTER.
+    /// A venue that asks the Prime for authorization mid-batch - Blend's
+    /// `submit` - is answered by a rule scoped to this adapter. On the 0.8.0
+    /// account a rule cannot list this adapter as its own signer (the account
+    /// refuses it, error 3017); instead the rule lists no signer, carries the
+    /// policy interpreter as its only policy and is bound to this adapter with
+    /// `bind_executor`, and the interpreter asks this adapter for its word. At
+    /// once, `execute` asks, and the venue's request sits inside that approval.
+    /// Here nobody asks first, so `run` asks, for `(id)`, and the Prime answers
+    /// it with a rule scoped to this adapter, bound to it as its executor, whose
+    /// predicate permits `run` and nothing else. No key signs; any submitter can
+    /// build the entry. The predicate is what keeps that rule from approving an
+    /// immediate `execute` or a `cancel` the same way.
     pub fn run(e: Env, id: u32) {
         e.storage().instance().extend_ttl(KEEP_BELOW, KEEP_TO);
+        // A batch stored before the last rebind is gone: it belonged to the gate
+        // the previous custody answered to. Refuse it before loading anything.
+        let floor: u32 = e.storage().instance().get(&FLOOR).unwrap_or(0);
+        if id <= floor {
+            panic_with_error!(&e, E::NotScheduled);
+        }
         let stored: Option<Stored> = e.storage().persistent().get(&id);
         let (calls, grants, run_at) =
             stored.unwrap_or_else(|| panic_with_error!(&e, E::NotScheduled));
@@ -325,10 +416,11 @@ impl ExecutionAdapter {
         // this contract again anyway: the host refuses re-entry.
         e.storage().persistent().remove(&id);
         let prime: Address = e.storage().instance().get(&PRIME).unwrap();
-        check(&e, &prime, &calls, &grants);
+        check(&e, &prime, bound(&e), &calls, &grants);
         e.authorize_as_current_contract(grants);
         prime.require_auth_for_args(vec![&e, id.into_val(&e)]);
         invoke(&e, calls);
+        Ran { id }.publish(&e);
     }
 
     /// Drop a stored batch, waiting or ready, before it runs. `by` is the
@@ -344,6 +436,7 @@ impl ExecutionAdapter {
         }
         by.require_auth();
         e.storage().persistent().remove(&id);
+        Cancelled { id, by }.publish(&e);
     }
 }
 
@@ -352,11 +445,29 @@ impl ExecutionAdapter {
 /// one in the same batch was still unexamined. With no gate, only the Prime
 /// as a target, any authorization handed to a callee and any grant that is
 /// not a word to the Prime's policy (`vouched`) are refused.
-fn check(e: &Env, prime: &Address, calls: &Vec<Call>, grants: &Vec<InvokerContractAuthEntry>) {
-    let list = bound(e).map(|gate| {
-        let mut ok: Vec<Address> = e.invoke_contract(&gate, &Symbol::new(e, "allowed"), vec![e]);
-        ok.push_back(gate);
-        ok
+///
+/// TWO PERIMETERS, NOT ONE. The gate answers `allowed` - every address a batch
+/// may mention, the policy interpreter included so a grant can name it - and
+/// `payees`, the strict subset value may actually reach. Call targets, call
+/// arguments and the inner arguments of a grant are checked against `payees`,
+/// so the interpreter is accepted only as a grant's context contract and never
+/// as a call target, an argument or a place value lands. This closes the hop
+/// F-2026-20150 found: a batch that pays the interpreter, whose funds anyone
+/// then sweeps through a read leaf.
+fn check(
+    e: &Env,
+    prime: &Address,
+    gate: Option<Address>,
+    calls: &Vec<Call>,
+    grants: &Vec<InvokerContractAuthEntry>,
+) {
+    let lists = gate.map(|gate| {
+        let mut grant_ok: Vec<Address> =
+            e.invoke_contract(&gate, &symbol_short!("allowed"), vec![e]);
+        let mut pay_ok: Vec<Address> = e.invoke_contract(&gate, &symbol_short!("payees"), vec![e]);
+        grant_ok.push_back(gate.clone());
+        pay_ok.push_back(gate);
+        (grant_ok, pay_ok)
     });
     for call in calls.iter() {
         // The smart account's own `execute` would let a batch move the
@@ -367,16 +478,16 @@ fn check(e: &Env, prime: &Address, calls: &Vec<Call>, grants: &Vec<InvokerContra
         if call.target == *prime {
             panic_with_error!(e, E::PrimeTarget);
         }
-        if let Some(ok) = &list {
-            want(e, ok, &call.target);
-            call.args.iter().for_each(|v| scan(e, ok, &v));
+        if let Some((_, pay_ok)) = &lists {
+            want(e, pay_ok, &call.target);
+            call.args.iter().for_each(|v| scan(e, pay_ok, &v));
         }
         call.executor_authorizations
             .iter()
-            .for_each(|a| scan_entry(e, list.as_ref(), &a));
+            .for_each(|a| scan_entry(e, lists.as_ref(), &a));
     }
-    grants.iter().for_each(|a| match &list {
-        Some(_) => scan_entry(e, list.as_ref(), &a),
+    grants.iter().for_each(|a| match &lists {
+        Some(_) => scan_entry(e, lists.as_ref(), &a),
         None => vouched(e, prime, &a),
     });
 }
@@ -395,16 +506,33 @@ fn check(e: &Env, prime: &Address, calls: &Vec<Call>, grants: &Vec<InvokerContra
 /// names is the caller's choice and costs nothing: only a contract whose
 /// `enforce` asks for this adapter's approval of this Prime can use it, which
 /// is the Prime's policy, with a rule its admins bound to this adapter.
+///
+/// IT NEVER VOUCHES FOR ANOTHER EXECUTE OR RUN. The followed context - the
+/// pair the Prime's policy is asked to approve - must not itself be another
+/// contract's `execute` or `run`. A second no-gate adapter of the same Prime
+/// vouches for any `enforce(prime, context)` word, so without this a rule
+/// scoped to adapter N but run through a second adapter N2 would have N2 vouch
+/// for N's `execute` and skip N's own batch pin. The check is on the name, so
+/// it refuses either name whatever contract carries it; a venue function that
+/// merely happens to be called `execute` or `run` is refused too, which costs
+/// nothing a null adapter needs.
 fn vouched(e: &Env, prime: &Address, entry: &InvokerContractAuthEntry) {
     let InvokerContractAuthEntry::Contract(c) = entry else {
         panic_with_error!(e, E::Uncheckable)
     };
     let args = &c.context.args;
     let account = args.get(0).map(|a| Address::try_from_val(e, &a));
+    let followed_ok = match args.get(1).map(|v| Context::try_from_val(e, &v)) {
+        Some(Ok(Context::Contract(cc))) => {
+            cc.fn_name != symbol_short!("execute") && cc.fn_name != symbol_short!("run")
+        }
+        _ => true,
+    };
     let ok = c.context.fn_name == symbol_short!("enforce")
         && c.sub_invocations.is_empty()
         && args.len() == 2
-        && account == Some(Ok(prime.clone()));
+        && account == Some(Ok(prime.clone()))
+        && followed_ok;
     if !ok {
         panic_with_error!(e, E::Uncheckable);
     }
@@ -434,7 +562,7 @@ fn bound(e: &Env) -> Option<Address> {
 
 /// Whose money a gate guards.
 fn custody(e: &Env, gate: &Address) -> Address {
-    e.invoke_contract(gate, &Symbol::new(e, "custody"), vec![e])
+    e.invoke_contract(gate, &symbol_short!("custody"), vec![e])
 }
 
 fn invoke(e: &Env, calls: Vec<Call>) {
@@ -498,11 +626,18 @@ fn is_plain_object(e: &Env, v: &Val) -> bool {
 
 /// Bytes and strings a callee could read back as an address.
 ///
+/// THE LENGTH ALONE DECIDES, AND A MISMATCH REFUSES THE WHOLE BATCH. Any
+/// argument of 32, 40, 44, 48 or 56 bytes is compared against the encodings of
+/// the allowed addresses, and if it matches none the batch is refused with
+/// `AddressNotAllowed` - even when the bytes are a hash, a pool id or a salt
+/// that only happen to be that long. Such arguments must therefore stay off
+/// the batch unless they spell an allowed address. Data of any
+/// other length cannot denote an address under these conversions and passes.
+///
 /// This COMPARES rather than decodes. Neither conversion has a fallible form
 /// inside a contract, so parsing a value that turned out not to be an address
-/// would trap the whole batch instead of refusing one destination - and a
-/// 32-byte hash is a perfectly ordinary venue argument. Checking how each
-/// allowed address encodes costs the same and cannot trap.
+/// would trap in the host, with no contract error. Checking how each allowed
+/// address encodes costs the same, cannot trap and refuses `AddressNotAllowed`.
 ///
 /// Two more spellings can reach an address through a venue that decodes
 /// bytes: the XDR of an address value, which `Address::from_xdr` takes (40
@@ -513,12 +648,11 @@ fn is_plain_object(e: &Env, v: &Val) -> bool {
 /// of an allowed address, which a muxed one never does, and data of 69 bytes
 /// is refused outright because an allowed address is never spelled that way.
 ///
-/// Data of any other length cannot denote an address under these conversions
-/// and passes untouched, so venues that take signatures, memos or identifiers
-/// still work. The length decides WHICH encoding to compare before the loop
-/// starts: checking every encoding for every address cost a third more on a
-/// batch that carries strkeys, for no extra safety, since the others can never
-/// match.
+/// Data of a length other than those five passes untouched, so venues that take
+/// signatures, memos or identifiers of a different size still work. The length
+/// decides WHICH encoding to compare before the loop starts: checking every
+/// encoding for every address cost a third more on a batch that carries
+/// strkeys, for no extra safety, since the others can never match.
 ///
 /// THE LIMIT OF AN ABI-BLIND WALK: a number can carry 32 key bytes. A U256
 /// holding a stranger's key passes, and a venue that turned it back into bytes
@@ -559,15 +693,26 @@ fn scan_data(e: &Env, ok: &Vec<Address>, b: &Bytes) {
 /// outright rather than waved through unscanned. With no gate there is no list
 /// to check any of them against, so every one handed to a callee is refused;
 /// the batch's own grants are `vouched` instead.
-fn scan_entry(e: &Env, list: Option<&Vec<Address>>, entry: &InvokerContractAuthEntry) {
-    let (Some(ok), InvokerContractAuthEntry::Contract(c)) = (list, entry) else {
+///
+/// THE CONTEXT CONTRACT AND THE ARGUMENTS USE DIFFERENT LISTS. The contract a
+/// grant vouches for - the policy its `enforce` is asked to approve - is checked
+/// against `allowed`, where the interpreter sits. Everything the grant carries
+/// inside, which can name a destination, is checked against `payees`, where it
+/// does not. So the interpreter passes as a policy to call but never as a value
+/// destination buried in a grant.
+fn scan_entry(
+    e: &Env,
+    lists: Option<&(Vec<Address>, Vec<Address>)>,
+    entry: &InvokerContractAuthEntry,
+) {
+    let (Some((grant_ok, pay_ok)), InvokerContractAuthEntry::Contract(c)) = (lists, entry) else {
         panic_with_error!(e, E::Uncheckable);
     };
-    want(e, ok, &c.context.contract);
-    c.context.args.iter().for_each(|v| scan(e, ok, &v));
+    want(e, grant_ok, &c.context.contract);
+    c.context.args.iter().for_each(|v| scan(e, pay_ok, &v));
     c.sub_invocations
         .iter()
-        .for_each(|sub| scan_entry(e, list, &sub));
+        .for_each(|sub| scan_entry(e, lists, &sub));
 }
 
 #[cfg(test)]

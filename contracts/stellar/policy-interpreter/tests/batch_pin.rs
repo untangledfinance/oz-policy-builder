@@ -5,8 +5,10 @@
 //! to whoever asks it, so a keyless rule scoped to it and bound to it answers
 //! any caller. Its predicate is then the only fence on what the batch calls,
 //! and must fix, on every path to a permit: `call_fn == execute`, the wait
-//! (argument 2) `== 0`, the number of calls `== m`, and the target and
-//! function name of each of the first `m` calls (`eq`, or `in` constants).
+//! (argument 2) `== 0`, the number of calls `== m`, the target and function
+//! name of each of the first `m` calls (`eq`, or `in` constants), and the
+//! grants count (argument 1) `== g` for a non-negative constant g
+//! (F-2026-20241).
 //! These tests pin that check at `bind_executor`, at a re-install under the
 //! binding, and at `enforce` against the rule the account passes, and that
 //! the executor's word for the exact context is still required.
@@ -73,6 +75,12 @@ fn wait_zero() -> ScVal {
 
 fn len_is(n: u32) -> ScVal {
     eq(path(alloc::vec![u(0), ScVal::Bool(true)]), u(n))
+}
+
+/// Pin the grants count (`call_arg_len(1)`), argument 1 of `execute`
+/// (F-2026-20241).
+fn grants_is(n: u32) -> ScVal {
+    eq(path(alloc::vec![u(1), ScVal::Bool(true)]), u(n))
 }
 
 fn target(i: u32) -> ScVal {
@@ -166,10 +174,21 @@ impl World {
         code(self.client().try_install(&p, rule, &self.account))
     }
 
+    /// The rule's current shared version counter (F-2026-20275), 0 if unset.
+    fn ver(&self, key: &(Address, u32)) -> u32 {
+        self.env.as_contract(&self.interpreter, || {
+            let k = (soroban_sdk::symbol_short!("ver"), key.0.clone(), key.1);
+            self.env.storage().persistent().get(&k).unwrap_or(0)
+        })
+    }
+
     fn bind(&self, rule: &ContextRule) -> Option<u32> {
         self.env.mock_all_auths();
         let key = (self.account.clone(), rule.id);
-        code(self.client().try_bind_executor(&key, &self.executor))
+        code(
+            self.client()
+                .try_bind_executor(&key, &self.executor, &(self.ver(&key) + 1)),
+        )
     }
 
     /// Install `predicate` on a fresh keyless rule scoped to the executor and
@@ -245,7 +264,8 @@ impl World {
         }
     }
 
-    /// Two calls: `venue.submit`, then `token` or `other` `.transfer`.
+    /// Two calls: `venue.submit`, then `token` or `other` `.transfer`. Raises no
+    /// grants of its own, so `call_arg_len(1) == 0` is pinned too (F-2026-20241).
     fn shape(&self) -> StdVec<ScVal> {
         alloc::vec![
             fn_is("execute"),
@@ -261,6 +281,7 @@ impl World {
                 ]
             ),
             eq(function(1), sym("transfer")),
+            grants_is(0),
         ]
     }
 
@@ -341,6 +362,13 @@ fn anything_less_than_the_full_shape_is_refused_221() {
         w.shape_but(4, None),
         w.shape_but(5, None),
         w.shape_but(6, None),
+        // The grants count dropped, or only bounded (F-2026-20241): it must be
+        // pinned with `eq`.
+        w.shape_but(7, None),
+        w.shape_but(
+            7,
+            Some(lte(path(alloc::vec![u(1), ScVal::Bool(true)]), u(0))),
+        ),
         // The wait above 0, or only bounded.
         w.shape_but(1, Some(eq(path(alloc::vec![u(2)]), u(1)))),
         w.shape_but(1, Some(lte(path(alloc::vec![u(2)]), u(0)))),
@@ -452,9 +480,12 @@ fn a_reinstall_under_the_binding_cannot_open_the_batch() {
     let rule = w.rule(7, &w.executor);
     w.install(1, &and(w.shape()), &rule);
     assert_eq!(w.bind(&rule), None);
-    assert_eq!(w.install(2, &w.shape_but(3, None), &rule), Some(221));
-    assert_eq!(w.install(2, &w.shape_but(1, None), &rule), Some(221));
-    assert_eq!(w.install(2, &w.shape_but(2, Some(len_is(1))), &rule), None);
+    // F-2026-20275: install set the version to 1 and bind to 2, so a re-install
+    // takes nonce 3. The two 221 re-installs deny and roll their bump back, so
+    // the follow-up re-installs also take nonce 3.
+    assert_eq!(w.install(3, &w.shape_but(3, None), &rule), Some(221));
+    assert_eq!(w.install(3, &w.shape_but(1, None), &rule), Some(221));
+    assert_eq!(w.install(3, &w.shape_but(2, Some(len_is(1))), &rule), None);
 }
 
 /// `enforce` permits the pinned batch only with the executor's word for that
@@ -492,6 +523,434 @@ fn enforce_permits_the_pinned_batch_with_the_word() {
     );
 }
 
+/// F-2026-20241: a self-scoped keyless `execute` rule must pin the grants count
+/// (`call_arg_len(1)`), or a no-gate executor lets an anonymous caller append a
+/// smuggled grant and drain an inner rule through a contract payer callback. The
+/// unpinned shape is refused 221 at bind, at a re-install under the binding, and
+/// at enforce against the rule the account passes. Bypasses are closed and the
+/// residual is shown.
+#[test]
+fn the_grants_count_must_be_pinned() {
+    let w = World::new();
+    // The old shape: everything but the grants pin.
+    let unpinned = and(w.shape()[..7].to_vec());
+
+    // Installs unbound, but bind refuses it (221).
+    let a = w.rule(10, &w.executor);
+    assert_eq!(w.install(1, &unpinned, &a), None, "installs unbound");
+    assert_eq!(w.bind(&a), Some(221), "unpinned grants: bind refuses 221");
+
+    // A re-install under a binding cannot drop the grants pin.
+    let b = w.rule(11, &w.executor);
+    assert_eq!(w.install(1, &and(w.shape()), &b), None);
+    assert_eq!(w.bind(&b), None);
+    // F-2026-20275: install set the version to 1 and bind to 2, so this
+    // re-install takes nonce 3.
+    assert_eq!(
+        w.install(3, &unpinned, &b),
+        Some(221),
+        "re-install drops the grants pin: 221"
+    );
+
+    // enforce against an unpinned stored predicate refuses 221, even when a
+    // forged venue scope let the re-install skip the check.
+    let c = w.rule(12, &w.executor);
+    assert_eq!(w.install(1, &and(w.shape()), &c), None);
+    assert_eq!(w.bind(&c), None);
+    let forged = w.rule(12, &w.venue);
+    // F-2026-20275: install set the version to 1 and bind to 2, so this
+    // re-install of rule id 12 takes nonce 3.
+    assert_eq!(
+        w.install(3, &unpinned, &forged),
+        None,
+        "venue scope skips pins_own"
+    );
+    let good = [w.call(&w.venue, "submit"), w.call(&w.other, "transfer")];
+    assert_eq!(
+        w.enforce(&w.execute_ctx(&good, 0), &c, true),
+        Outcome::Code(221),
+        "enforce refuses the unpinned stored batch"
+    );
+
+    // Bypass: the grants pin in only one `or` branch does not pin on every path.
+    let one_branch = or(alloc::vec![and(w.shape()), and(w.shape()[..7].to_vec())]);
+    assert_eq!(
+        w.bind_fresh(300, &one_branch),
+        Some(221),
+        "grants pinned in one or branch only is refused"
+    );
+
+    // Residual: a constant ABOVE the real count still binds (the interpreter
+    // only requires a non-negative `eq`), so the author must pin the exact
+    // number of contexts the batch raises. Documented in the crate README.
+    let mut larger = w.shape()[..7].to_vec();
+    larger.push(grants_is(99));
+    assert_eq!(
+        w.bind_fresh(301, &and(larger)),
+        None,
+        "a larger grants constant still binds (residual)"
+    );
+}
+
+/// F-2026-20245: a self-scoped keyless FOLLOWER is committed at `bind_executor`
+/// to the call targets and functions the followed predicate pins. If the
+/// followed owner re-installs with a different target, the follower's `enforce`
+/// is refused (221); restoring the original targets makes it pass again. The
+/// commitment holds the targets and functions only, so the followed owner keeps
+/// control of amounts (proved separately by `call_pin_digest`'s unit test).
+#[test]
+fn a_followed_owner_cannot_retarget_a_keyless_follower() {
+    let w = World::new();
+    // RA (id 40): the followed inline batch, scoped elsewhere (a plain source).
+    let ra = w.rule(40, &w.venue);
+    assert_eq!(w.install(1, &and(w.shape()), &ra), None);
+    // RB (id 41): a keyless follower scoped to the executor, following (account,
+    // 40). It binds (pins_own passes on RA's batch) and records RA's target and
+    // function pins.
+    let reference = scvec(alloc::vec![w.a(&w.account), ScVal::U32(40)]);
+    let rb = w.rule(41, &w.executor);
+    assert_eq!(
+        w.install(1, &reference, &rb),
+        None,
+        "follower installs unbound"
+    );
+    assert_eq!(
+        w.bind(&rb),
+        None,
+        "follower binds, recording RA's call pins"
+    );
+
+    let good = [w.call(&w.venue, "submit"), w.call(&w.other, "transfer")];
+    let ctx = w.execute_ctx(&good, 0);
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Permit,
+        "follows RA as bound"
+    );
+
+    // A re-installs RA with a different target (venue -> other). RA was installed
+    // at nonce 1 and is unbound, so the re-install takes nonce 2.
+    let retargeted = w.shape_but(3, Some(eq(target(0), w.a(&w.other))));
+    assert_eq!(
+        w.install(2, &retargeted, &ra),
+        None,
+        "A retargets its own rule"
+    );
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Code(221),
+        "the follower refuses once the followed targets changed"
+    );
+    // The drain attempt: a batch that MATCHES the retargeted predicate (the first
+    // call now to `other`). Without the commitment the follower would permit this
+    // (the retarget succeeds); the commitment refuses it 221 before the predicate
+    // is even evaluated.
+    let drain = [w.call(&w.other, "submit"), w.call(&w.other, "transfer")];
+    assert_eq!(
+        w.enforce(&w.execute_ctx(&drain, 0), &rb, true),
+        Outcome::Code(221),
+        "the retargeted batch is refused, not permitted"
+    );
+
+    // A restores the original targets (nonce 3): the follower passes again, so
+    // the check is exactly the committed targets and functions.
+    assert_eq!(w.install(3, &and(w.shape()), &ra), None);
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Permit,
+        "restored targets pass"
+    );
+}
+
+/// F-2026-20245 (in-set): the canonical shape pins a call's target with an `in`
+/// set, which `pins_own` accepts. A keyless follower must therefore be committed
+/// to the set's contents too: a followed owner that edits the set retargets the
+/// follower, and the digest must catch it. Reordering the same members is not a
+/// change.
+#[test]
+fn a_followed_owner_cannot_retarget_a_follower_through_an_in_set() {
+    let w = World::new();
+    // RA (id 42): the followed inline batch, scoped elsewhere. `shape` pins
+    // call 1's target with `in(target(1), [token, other])`.
+    let ra = w.rule(42, &w.venue);
+    assert_eq!(w.install(1, &and(w.shape()), &ra), None);
+    // RB (id 43): a keyless follower scoped to the executor, following RA. It
+    // binds and records RA's call pins, the in-set among them.
+    let reference = scvec(alloc::vec![w.a(&w.account), ScVal::U32(42)]);
+    let rb = w.rule(43, &w.executor);
+    assert_eq!(
+        w.install(1, &reference, &rb),
+        None,
+        "follower installs unbound"
+    );
+    assert_eq!(
+        w.bind(&rb),
+        None,
+        "follower binds, recording RA's in-set target pin"
+    );
+
+    // A batch whose call 1 goes to `token`, a member of the set: follows.
+    let good = [w.call(&w.venue, "submit"), w.call(&w.token, "transfer")];
+    let ctx = w.execute_ctx(&good, 0);
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Permit,
+        "follows RA while the set is unchanged"
+    );
+
+    // A reorders the set's two members (nonce 2): same membership, so the
+    // follower still passes.
+    let reordered = node(
+        "in",
+        alloc::vec![target(1), scvec(alloc::vec![w.a(&w.other), w.a(&w.token)])],
+    );
+    assert_eq!(
+        w.install(2, &w.shape_but(5, Some(reordered)), &ra),
+        None,
+        "A reorders its in-set"
+    );
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Permit,
+        "a reordered but equal set is not a retarget"
+    );
+
+    // A swaps `token` out of the set for a fresh attacker address (nonce 3): a
+    // retarget, and the follower now refuses 221.
+    let attacker = Address::generate(&w.env);
+    let retargeted = node(
+        "in",
+        alloc::vec![target(1), scvec(alloc::vec![w.a(&attacker), w.a(&w.other)])],
+    );
+    assert_eq!(
+        w.install(3, &w.shape_but(5, Some(retargeted)), &ra),
+        None,
+        "A edits its in-set contents"
+    );
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Code(221),
+        "the follower refuses once the in-set membership changed"
+    );
+    // The drain: a batch that MATCHES the retargeted set (call 1 to the
+    // attacker). Without the in-set commitment the follower would permit this;
+    // the commitment refuses it 221 before the predicate is evaluated.
+    let drain = [w.call(&w.venue, "submit"), w.call(&attacker, "transfer")];
+    assert_eq!(
+        w.enforce(&w.execute_ctx(&drain, 0), &rb, true),
+        Outcome::Code(221),
+        "the retargeted set's own batch is refused, not permitted"
+    );
+
+    // Restoring the original set (nonce 4): the follower passes again.
+    assert_eq!(w.install(4, &and(w.shape()), &ra), None);
+    assert_eq!(
+        w.enforce(&ctx, &rb, true),
+        Outcome::Permit,
+        "the restored in-set passes"
+    );
+}
+
+/// A follower of `ra` (the account's rule `id`), the reference an install carries.
+fn follows(w: &World, id: u32) -> ScVal {
+    scvec(alloc::vec![w.a(&w.account), ScVal::U32(id)])
+}
+
+/// F-2026-20245 (re-install): a rule bound INLINE has no follower commitment. If
+/// it is re-installed as a follower of another rule it keeps its binding, so
+/// `install` must commit it to the predicate it follows now, as `bind_executor`
+/// does. Before this, `follow_pins` stayed None and `enforce` skipped the check,
+/// leaving the followed owner free to retarget it. Re-installing the same
+/// follower later keeps the commitment (it takes no retarget on), and the
+/// follower is held to the targets it was committed to.
+#[test]
+fn an_inline_bound_rule_reinstalled_as_a_follower_is_committed() {
+    let w = World::new();
+    let ra = w.rule(50, &w.venue);
+    assert_eq!(w.install(1, &and(w.shape()), &ra), None);
+    // RX: bound inline, scoped to the executor (version 1 installed, 2 bound).
+    let rx = w.rule(51, &w.executor);
+    assert_eq!(w.install(1, &and(w.shape()), &rx), None);
+    assert_eq!(w.bind(&rx), None, "the inline rule binds");
+    // Re-installed as a follower of RA under the live binding (version 3).
+    assert_eq!(
+        w.install(3, &follows(&w, 50), &rx),
+        None,
+        "the re-install as a follower keeps the binding"
+    );
+
+    let good = [w.call(&w.venue, "submit"), w.call(&w.other, "transfer")];
+    let ctx = w.execute_ctx(&good, 0);
+    assert_eq!(
+        w.enforce(&ctx, &rx, true),
+        Outcome::Permit,
+        "a legitimate follower still permits"
+    );
+
+    // RA retargets its own rule (version 2): the follower must refuse, and so
+    // must a batch that matches the retargeted predicate.
+    let retargeted = w.shape_but(3, Some(eq(target(0), w.a(&w.other))));
+    assert_eq!(w.install(2, &retargeted, &ra), None, "RA retargets");
+    assert_eq!(w.enforce(&ctx, &rx, true), Outcome::Code(221));
+    let drain = [w.call(&w.other, "submit"), w.call(&w.other, "transfer")];
+    assert_eq!(
+        w.enforce(&w.execute_ctx(&drain, 0), &rx, true),
+        Outcome::Code(221),
+        "the retargeted batch is refused, not permitted"
+    );
+
+    // Re-installing the same follower while RA stays retargeted does not take
+    // the retarget on: the commitment is the one it had.
+    assert_eq!(w.install(4, &follows(&w, 50), &rx), None);
+    assert_eq!(
+        w.enforce(&w.execute_ctx(&drain, 0), &rx, true),
+        Outcome::Code(221),
+        "a re-install of the same follower keeps its commitment"
+    );
+
+    // RA restores its targets (version 3): the follower passes again.
+    assert_eq!(w.install(3, &and(w.shape()), &ra), None);
+    assert_eq!(w.enforce(&ctx, &rx, true), Outcome::Permit);
+}
+
+/// F-2026-20245 (re-install): a bound follower moved to ANOTHER followed rule is
+/// committed to that rule's targets, and a follower moved back to an inline
+/// predicate carries no commitment. Before this the old commitment stayed, so the
+/// new followed rule never matched it (221 for every batch) and an inline rule
+/// was held to a stale digest.
+#[test]
+fn a_reinstall_that_changes_the_source_recommits_the_follower() {
+    let w = World::new();
+    let ra = w.rule(50, &w.venue);
+    assert_eq!(w.install(1, &and(w.shape()), &ra), None);
+    // RC pins call 0's target to `other` instead of the venue.
+    let rc = w.rule(52, &w.venue);
+    let to_other = w.shape_but(3, Some(eq(target(0), w.a(&w.other))));
+    assert_eq!(w.install(1, &to_other, &rc), None);
+
+    let rx = w.rule(51, &w.executor);
+    assert_eq!(w.install(1, &follows(&w, 50), &rx), None);
+    assert_eq!(w.bind(&rx), None, "the follower of RA binds");
+    let via_ra = [w.call(&w.venue, "submit"), w.call(&w.other, "transfer")];
+    let via_rc = [w.call(&w.other, "submit"), w.call(&w.other, "transfer")];
+    assert_eq!(
+        w.enforce(&w.execute_ctx(&via_ra, 0), &rx, true),
+        Outcome::Permit
+    );
+
+    // Moved to RC (version 3): committed to RC's targets, not RA's.
+    assert_eq!(w.install(3, &follows(&w, 52), &rx), None);
+    assert_eq!(
+        w.enforce(&w.execute_ctx(&via_rc, 0), &rx, true),
+        Outcome::Permit,
+        "the follower of RC permits RC's batch"
+    );
+    assert_eq!(
+        w.enforce(&w.execute_ctx(&via_ra, 0), &rx, true),
+        Outcome::Code(100),
+        "and only what RC's predicate says"
+    );
+    // RC retargets (version 2): the follower of RC refuses.
+    let to_token = w.shape_but(3, Some(eq(target(0), w.a(&w.token))));
+    assert_eq!(w.install(2, &to_token, &rc), None);
+    let via_token = [w.call(&w.token, "submit"), w.call(&w.other, "transfer")];
+    assert_eq!(
+        w.enforce(&w.execute_ctx(&via_token, 0), &rx, true),
+        Outcome::Code(221),
+        "RC's retarget is refused"
+    );
+
+    // Back to an inline rule (version 4): no commitment, so it is held to its
+    // own predicate alone, which here is the `other` target.
+    assert_eq!(w.install(4, &to_other, &rx), None);
+    assert_eq!(
+        w.enforce(&w.execute_ctx(&via_rc, 0), &rx, true),
+        Outcome::Permit,
+        "an inline rule is not held to a followed digest"
+    );
+}
+
+/// F-2026-20245 (backstop): a self-scoped follower that is bound but carries no
+/// commitment is refused at `enforce`, whatever wrote it. `bind_executor` and
+/// `install` always record one, so such a document can only be one they did not
+/// write; `bind_executor` records it and the follower permits again.
+#[test]
+fn a_bound_follower_without_a_commitment_is_refused_at_enforce() {
+    let w = World::new();
+    let ra = w.rule(50, &w.venue);
+    assert_eq!(w.install(1, &and(w.shape()), &ra), None);
+    let rx = w.rule(51, &w.executor);
+    let signers: soroban_sdk::Vec<Signer> = Vec::new(&w.env);
+    let doc = policy_interpreter::StoredDoc {
+        executor: Some(w.executor.clone()),
+        predicate_bytes: soroban_sdk::Bytes::new(&w.env),
+        nonce: 1,
+        signers_hash: w
+            .env
+            .crypto()
+            .sha256(&soroban_sdk::xdr::ToXdr::to_xdr(signers, &w.env))
+            .into(),
+        master_set: soroban_sdk::vec![&w.env, w.admin.clone()],
+        scope: Some(w.executor.clone()),
+        source: policy_interpreter::Source::Rule(w.account.clone(), 50),
+        follow_pins: None,
+    };
+    w.env.as_contract(&w.interpreter, || {
+        w.env
+            .storage()
+            .persistent()
+            .set(&(w.account.clone(), 51u32), &doc);
+    });
+    let good = [w.call(&w.venue, "submit"), w.call(&w.other, "transfer")];
+    let ctx = w.execute_ctx(&good, 0);
+    assert_eq!(
+        w.enforce(&ctx, &rx, true),
+        Outcome::Code(221),
+        "a follower with no commitment is refused"
+    );
+    assert_eq!(w.bind(&rx), None, "bind_executor records the commitment");
+    assert_eq!(w.enforce(&ctx, &rx, true), Outcome::Permit);
+}
+
+/// F-2026-20245 / E-38: the commitment covers targets and functions only. The
+/// followed owner can still change an amount bound, in either direction, and the
+/// follower follows it.
+#[test]
+fn a_followed_owner_can_still_change_an_amount_bound() {
+    let w = World::new();
+    let bound = |cap: i128| {
+        let mut kids = w.shape();
+        kids.push(node(
+            "lte",
+            alloc::vec![
+                path(alloc::vec![u(0), u(0), sym("args"), u(0)]),
+                common::i128v(cap)
+            ],
+        ));
+        and(kids)
+    };
+    let ra = w.rule(50, &w.venue);
+    assert_eq!(w.install(1, &bound(150), &ra), None);
+    let rx = w.rule(51, &w.executor);
+    assert_eq!(w.install(1, &follows(&w, 50), &rx), None);
+    assert_eq!(w.bind(&rx), None);
+
+    let mut submit = w.call(&w.venue, "submit");
+    submit.args = soroban_sdk::vec![&w.env, 200i128.into_val(&w.env)];
+    let ctx = w.execute_ctx(&[submit, w.call(&w.other, "transfer")], 0);
+    assert_eq!(
+        w.enforce(&ctx, &rx, true),
+        Outcome::Code(100),
+        "200 is over the bound of 150"
+    );
+    assert_eq!(w.install(2, &bound(300), &ra), None, "RA raises its bound");
+    assert_eq!(
+        w.enforce(&ctx, &rx, true),
+        Outcome::Permit,
+        "an amount-only change still permits"
+    );
+}
+
 /// A direct install can misstate the scope and so skip the re-install check;
 /// `enforce` checks the rule the account passes and refuses the open batch.
 #[test]
@@ -501,7 +960,9 @@ fn enforce_refuses_an_open_batch_whatever_install_was_told() {
     w.install(1, &and(w.shape()), &real);
     w.bind(&real);
     let forged = w.rule(7, &w.venue);
-    assert_eq!(w.install(2, &w.shape_but(3, None), &forged), None);
+    // F-2026-20275: install set the version to 1 and bind to 2, so the forged
+    // re-install of rule id 7 takes nonce 3.
+    assert_eq!(w.install(3, &w.shape_but(3, None), &forged), None);
     let good = [w.call(&w.venue, "submit"), w.call(&w.other, "transfer")];
     assert_eq!(
         w.enforce(&w.execute_ctx(&good, 0), &real, true),

@@ -283,11 +283,29 @@ impl World {
         )
     }
 
-    /// `bind_executor` of the account's rule to `executor`.
+    /// The rule's current shared version counter (F-2026-20275), 0 if unset.
+    fn current_ver(&self, account: &Address, id: u32) -> u32 {
+        self.env.as_contract(&self.interpreter, || {
+            let key = (Symbol::new(&self.env, "ver"), account.clone(), id);
+            self.env.storage().persistent().get(&key).unwrap_or(0)
+        })
+    }
+
+    /// Whether the interpreter still holds the stored doc for `(account, id)`.
+    fn has_doc(&self, account: &Address, id: u32) -> bool {
+        self.env.as_contract(&self.interpreter, || {
+            let key = (account.clone(), id);
+            self.env.storage().persistent().has(&key)
+        })
+    }
+
+    /// `bind_executor` of the account's rule to `executor`. The version
+    /// (F-2026-20275) is the next value of the rule's shared counter.
     fn bind(&self, rule: &ContextRule, executor: &Address) -> Option<u32> {
         self.env.mock_all_auths();
+        let version = self.current_ver(&self.account, rule.id) + 1;
         let args: Vec<Val> =
-            ((self.account.clone(), rule.id), executor.clone()).into_val(&self.env);
+            ((self.account.clone(), rule.id), executor.clone(), version).into_val(&self.env);
         match self.env.try_invoke_contract::<(), soroban_sdk::Error>(
             &self.interpreter,
             &Symbol::new(&self.env, "bind_executor"),
@@ -327,7 +345,7 @@ impl World {
         ])
     }
 
-    /// The liquidate rule's predicate: PayFi's "Liquidation by anyone" shape.
+    /// The liquidate rule's predicate: the keyless "liquidation by anyone" shape.
     fn liquidate(&self) -> ScVal {
         let (paid, payer) = (at_arg(0, 2), at_arg(0, 0));
         let debt = self.read("debt", alloc::vec![self.a(&self.account)]);
@@ -341,6 +359,10 @@ impl World {
             fn_is("execute"),
             eq(arg(2), u(0)),
             eq(scvec(alloc::vec![sym("call_arg_len"), u(0)]), u(5)),
+            // The grants count, pinned to the exact number of account contexts
+            // the batch raises (F-2026-20241), so an anonymous caller cannot
+            // append a smuggled grant for a payer-callback context.
+            eq(scvec(alloc::vec![sym("call_arg_len"), u(1)]), u(5)),
             eq(at(0, "target"), self.a(&self.tusd)),
             eq(at(0, "function_name"), sym("transfer")),
             eq(at(1, "target"), self.a(&self.xlm)),
@@ -1391,7 +1413,8 @@ fn l10_a_strangers_rule_bound_to_our_adapter_gets_nothing() {
     let s_rule: ContextRule =
         w.env
             .invoke_contract(&stranger, &Symbol::new(&w.env, "add_context_rule"), args);
-    let bind: Vec<Val> = ((stranger.clone(), s_rule.id), w.adapter.clone()).into_val(&w.env);
+    let s_ver = w.current_ver(&stranger, s_rule.id) + 1;
+    let bind: Vec<Val> = ((stranger.clone(), s_rule.id), w.adapter.clone(), s_ver).into_val(&w.env);
     let _: () = w
         .env
         .invoke_contract(&w.interpreter, &Symbol::new(&w.env, "bind_executor"), bind);
@@ -1583,4 +1606,103 @@ fn e36_a_keyed_door_without_a_grants_pin_drains_through_keyless_inner_rules() {
     );
     assert_eq!(w.balance(&w.xlm, &agent), 0);
     assert_eq!(w.balance(&w.xlm, &w.account), all);
+}
+
+/// F-2026-20241 (real wasm): a self-scoped keyless `execute` rule that pins the
+/// function, wait and a call's target/function but NOT the grants count
+/// (`call_arg_len(1)`) is refused at `bind_executor` with RunNotPinned (221).
+/// With the grants pin added it binds. The reference liquidate rules already
+/// carry this pin (5 or 3), so this does not regress them; the full reference
+/// liquidation above (`liquidate()`, now pinned to 5) still runs end to end in
+/// the `l*` tests.
+#[test]
+fn f20241_a_self_scoped_execute_rule_without_the_grants_pin_is_refused_at_bind() {
+    let w = World::new();
+    let base = alloc::vec![
+        fn_is("execute"),
+        eq(arg(2), u(0)),
+        eq(scvec(alloc::vec![sym("call_arg_len"), u(0)]), u(1)),
+        eq(at(0, "target"), w.a(&w.tusd)),
+        eq(at(0, "function_name"), sym("transfer")),
+    ];
+    let unpinned = w.add_rule(&w.adapter, Vec::new(&w.env), &and(base.clone()));
+    assert_eq!(
+        w.bind(&unpinned, &w.adapter),
+        Some(221),
+        "a self-scoped execute rule without the grants pin must not bind"
+    );
+    let mut pinned = base;
+    pinned.push(eq(scvec(alloc::vec![sym("call_arg_len"), u(1)]), u(1)));
+    let ok = w.add_rule(&w.adapter, Vec::new(&w.env), &and(pinned));
+    assert_eq!(w.bind(&ok, &w.adapter), None, "the grants pin lets it bind");
+}
+
+// ---- F-2026-20275 (real wasm): the OZ 0.8.0 remove-context-rule flow ----
+
+/// The OpenZeppelin 0.8.0 account calls `interpreter.try_uninstall(context_rule,
+/// account)` with exactly two arguments when a context rule is removed, and
+/// ignores the result. The version design keeps that 2-argument signature, so
+/// the call reaches the interpreter. uninstall then asks the policy admins (the
+/// master set) to authorise the version it moves to. With that authorisation
+/// available (a non-root auth), the uninstall completes: the stored doc is
+/// removed and the version key survives and advances to 2.
+#[test]
+fn oz_remove_context_rule_reaches_the_two_arg_uninstall_with_master_auth() {
+    let w = World::new();
+    let rule = w.add_rule(&w.xlm, Vec::new(&w.env), &fn_is("transfer"));
+    assert!(w.has_doc(&w.account, rule.id), "installed");
+    assert_eq!(
+        w.current_ver(&w.account, rule.id),
+        1,
+        "install set the version to 1"
+    );
+
+    // Allow the master set's non-root `require_auth_for_args` inside the flow.
+    w.env.mock_all_auths_allowing_non_root_auth();
+    let _: () = w.env.invoke_contract(
+        &w.account,
+        &Symbol::new(&w.env, "remove_context_rule"),
+        soroban_sdk::vec![&w.env, rule.id.into_val(&w.env)],
+    );
+    assert!(
+        !w.has_doc(&w.account, rule.id),
+        "doc removed through the OZ flow"
+    );
+    assert_eq!(
+        w.current_ver(&w.account, rule.id),
+        2,
+        "version survived and advanced"
+    );
+}
+
+/// The realistic flow: `remove_context_rule` needs only the account's own
+/// authorisation, and the policy admins do not sign. The master set's
+/// `require_auth_for_args` inside the nested uninstall is then unsatisfied, so
+/// `try_uninstall` fails (best effort), the account drops its context rule, and
+/// the interpreter keeps the doc to be re-installed later. The point: the
+/// 2-argument signature is REACHED; a 3-argument uninstall would not match this
+/// call at all.
+#[test]
+fn oz_remove_context_rule_without_master_auth_leaves_the_doc_best_effort() {
+    let w = World::new();
+    let rule = w.add_rule(&w.xlm, Vec::new(&w.env), &fn_is("transfer"));
+    assert_eq!(w.current_ver(&w.account, rule.id), 1);
+
+    // Plain root-only auth: the account's remove is authorised, but the master
+    // set's non-root auth for the nested uninstall is not.
+    w.env.mock_all_auths();
+    let _: () = w.env.invoke_contract(
+        &w.account,
+        &Symbol::new(&w.env, "remove_context_rule"),
+        soroban_sdk::vec![&w.env, rule.id.into_val(&w.env)],
+    );
+    assert!(
+        w.has_doc(&w.account, rule.id),
+        "interpreter doc stays (best effort)"
+    );
+    assert_eq!(
+        w.current_ver(&w.account, rule.id),
+        1,
+        "uninstall did not run"
+    );
 }

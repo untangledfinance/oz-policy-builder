@@ -682,5 +682,38 @@
       }
     ]
   },
-  "events": []
+  "events": [
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "CCUQPUBXSDUMCD4MQLSRGQ4GCR54TM72GVRPIU4ZNKEDM2X7CEJBQVCO",
+        "type_": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "batch_stored"
+              },
+              {
+                "u32": 3
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "run_at"
+                  },
+                  "val": {
+                    "u32": 1005
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "failed_call": false
+    }
+  ]
 }

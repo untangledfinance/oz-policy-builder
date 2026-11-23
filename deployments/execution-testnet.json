@@ -1,23 +1,23 @@
 {
   "network": "testnet",
-  "recorded": "2026-10-25T20:20:00.000Z",
+  "recorded": "2026-11-02T20:36:12.262Z",
   "uploader": {
-    "custody-gate": "GB5GXWIYHTVDUI3USESZIH2GCK63WMUUUW7F7WP2KNXHYROOVF2Z4RPQ",
-    "execution-adapter": "GDJVFOIKPX7CSTVPXSYF6CVNSRN6GNH4SB45MRQTK73AYPBU74VGNAYD"
+    "custody-gate": "GDF6LKF6TZ3AXS4HOUFVZ63QT4I2K424ZQBT6B6QNPAC3CDEHKFFAUVJ",
+    "execution-adapter": "GDF6LKF6TZ3AXS4HOUFVZ63QT4I2K424ZQBT6B6QNPAC3CDEHKFFAUVJ"
   },
   "wasmSha256": {
-    "custody-gate": "b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab",
-    "execution-adapter": "bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0"
+    "custody-gate": "89e48fcb5c9f037f1d702d2cb6ed3be99f24a7794c0f5df712b7ba887db50dbb",
+    "execution-adapter": "eafcd011a3c2e0aae08402e9fbd5f39e65d1feb370e45035ee20a25d4c95b725"
   },
   "uploadTx": {
-    "custody-gate": "c7c9dedbabdb1a9f2cd64eb587a334a4346c8e97fc7b1f7bcbc811c574f08e2d",
-    "execution-adapter": "be2f7813a0081fe3c1a5d41be4bba1d12db73e52ca9bb415c478ec91ad6e3e5e"
+    "custody-gate": "2b1c2c4ef1a27f7a82b6b5d5821ec8fdc5ff39f2869a02d075179b490ff80d23",
+    "execution-adapter": "f3a65ae12118f92e2e04c16ee551150008be2d3391ddabdef1518f434a6511cc"
   },
   "sizes": {
-    "custody-gate": 9026,
-    "execution-adapter": 28003
+    "custody-gate": 13205,
+    "execution-adapter": 31667
   },
-  "note": "Linux builds through each crate's build-wasm.sh, so the hashes can be rebuilt from source; CI does. The Prime app pins these: new gates are created from the custody-gate hash and name the execution-adapter hash as their caller's code. A deployed build can lag main: each network's record says which build it runs.",
+  "note": "Linux builds through each crate's build-wasm.sh, so the hashes can be rebuilt from source; CI does. The client application pins these: new gates are created from the custody-gate hash and name the execution-adapter hash as their caller's code. A deployed build can lag main: each network's record says which build it runs.",
   "interimBuilds": {
     "execution-adapter": {
       "wasmSha256": "eefcfdd76c0668c03470843b9394d086be239e8de908edbeaf705d4a1207746b",
@@ -28,6 +28,13 @@
   },
   "superseded": {
     "execution-adapter": [
+      {
+        "wasmSha256": "bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0",
+        "uploadTx": "be2f7813a0081fe3c1a5d41be4bba1d12db73e52ca9bb415c478ec91ad6e3e5e",
+        "size": 28003,
+        "uploader": "GDJVFOIKPX7CSTVPXSYF6CVNSRN6GNH4SB45MRQTK73AYPBU74VGNAYD",
+        "why": "the adapter before the rebind floor, the payees checks and the events; this source builds the adapter that replaces it here (eafcd011...)"
+      },
       {
         "wasmSha256": "4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b",
         "uploadTx": "5b9323ac435f015f441715f9c3ae6c951666ab8e0bbe907d5aa1e2d600f85138",
@@ -42,7 +49,294 @@
         "uploader": "GB5GXWIYHTVDUI3USESZIH2GCK63WMUUUW7F7WP2KNXHYROOVF2Z4RPQ",
         "why": "the build before the optional gate; this source builds the adapter whose gate is optional (4985cd12...), which replaces it here"
       }
+    ],
+    "custody-gate": [
+      {
+        "wasmSha256": "b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab",
+        "uploadTx": "c7c9dedbabdb1a9f2cd64eb587a334a4346c8e97fc7b1f7bcbc811c574f08e2d",
+        "size": 9026,
+        "uploader": "GB5GXWIYHTVDUI3USESZIH2GCK63WMUUUW7F7WP2KNXHYROOVF2Z4RPQ",
+        "why": "the gate before the payees list and the events; this source builds the gate that replaces it here (89e48fcb...)"
+      }
     ]
+  },
+  "testnetVerification": {
+    "note": "Fresh instances deployed on testnet to verify the [SCA] fixes (patched wasms): new addresses, with the four patched wasms uploaded.",
+    "recorded": "2026-11-02T20:36:12.262Z",
+    "deployer": "throwaway friendbot key",
+    "uploads": {
+      "policy_interpreter": {
+        "sha256": "c6273cb1880233c541e67592a687d01b309b15ce2c41158d043f50cce96955e5",
+        "size": 84280,
+        "uploadTx": "f9d6bffb67d6d57dd36e382c003a001db91095367284e41f215713e851e063a5"
+      },
+      "execution_adapter": {
+        "sha256": "eafcd011a3c2e0aae08402e9fbd5f39e65d1feb370e45035ee20a25d4c95b725",
+        "size": 31667,
+        "uploadTx": "f3a65ae12118f92e2e04c16ee551150008be2d3391ddabdef1518f434a6511cc"
+      },
+      "custody_gate": {
+        "sha256": "89e48fcb5c9f037f1d702d2cb6ed3be99f24a7794c0f5df712b7ba887db50dbb",
+        "size": 13205,
+        "uploadTx": "2b1c2c4ef1a27f7a82b6b5d5821ec8fdc5ff39f2869a02d075179b490ff80d23"
+      },
+      "prime_seat": {
+        "sha256": "f39587ad8a190e31955a6fab1c274372fa724180c4ab1bad72846e08f1f2bd51",
+        "size": 19758,
+        "uploadTx": "fb4d42109961c374f6d4a53ef7e22456fde600f969dddfd07b902cd4bfc737bf"
+      }
+    },
+    "wasmSha256": {
+      "custody-gate": "89e48fcb5c9f037f1d702d2cb6ed3be99f24a7794c0f5df712b7ba887db50dbb",
+      "execution-adapter": "eafcd011a3c2e0aae08402e9fbd5f39e65d1feb370e45035ee20a25d4c95b725"
+    },
+    "uploadTx": {
+      "custody-gate": "2b1c2c4ef1a27f7a82b6b5d5821ec8fdc5ff39f2869a02d075179b490ff80d23",
+      "execution-adapter": "f3a65ae12118f92e2e04c16ee551150008be2d3391ddabdef1518f434a6511cc"
+    },
+    "sizes": {
+      "custody-gate": 13205,
+      "execution-adapter": 31667
+    },
+    "instances": {
+      "gate": {
+        "address": "CC5OXLYQXMVTWK65PFDU2EWYGF34GXG363TMKPCUCWHWZSFGHIKHGMJX",
+        "createTx": "322e66c9c192db18d40931dfdd14fc0435161ebd24fb2f0536596f4cf5f78c78",
+        "allowed": [
+          "CD3HJFX764IRXHGI4GSGM3TNIAQWFS7KHSDFOEIPN5IZ2BYRYBWJKK2F",
+          "GBOMIKX7HFORZRXNHUKXCWPAAICRQ42TRBH2NMMPBPJPIYEJH6JV6WXB",
+          "CDYGYHZT6HBTQYOQBX6XNUEX7WU72CVUBENOO4QDFOO4S5QSHILYPH2T",
+          "GAHGENBAOC3MILALXIBCMTCDEPXB43V6OWAOCCR7QAEH2PQCWNIK2MKP",
+          "GAXJB742LQ5APLRIHTJYQ4JPA4V2F7OPN7YB6AS6HWB5CY66ZOC4XMKS",
+          "CBDL3KAJF5L2PDLJTULBHH7EUJE3W44OG5EE7YVTLAW32SFKV7C4CTQ4",
+          "CADKAYWUKXICWTUJABTOOLKJXKF4NRVTMBXNG7T6JT7UYBIHXTGDR4QW"
+        ],
+        "payees": [
+          "GAHGENBAOC3MILALXIBCMTCDEPXB43V6OWAOCCR7QAEH2PQCWNIK2MKP",
+          "GAXJB742LQ5APLRIHTJYQ4JPA4V2F7OPN7YB6AS6HWB5CY66ZOC4XMKS",
+          "CBDL3KAJF5L2PDLJTULBHH7EUJE3W44OG5EE7YVTLAW32SFKV7C4CTQ4"
+        ],
+        "note": "payees is a strict subset of allowed and EXCLUDES the interpreter (F-2026-20150)."
+      },
+      "gatedAdapter": {
+        "address": "CD3HJFX764IRXHGI4GSGM3TNIAQWFS7KHSDFOEIPN5IZ2BYRYBWJKK2F",
+        "prime": "CBDL3KAJF5L2PDLJTULBHH7EUJE3W44OG5EE7YVTLAW32SFKV7C4CTQ4",
+        "gate": "CC5OXLYQXMVTWK65PFDU2EWYGF34GXG363TMKPCUCWHWZSFGHIKHGMJX"
+      },
+      "nogateLiquidationAdapter": {
+        "address": "CC7FBJKHE2UE6DO2HAVYPTC6M557XLWRA3VGWK2R3EG7OA3HA65W4CZD",
+        "prime": "CBDL3KAJF5L2PDLJTULBHH7EUJE3W44OG5EE7YVTLAW32SFKV7C4CTQ4",
+        "gate": null,
+        "createTx": "f57ad38f219848b578b486f057056954a8c563748610b139545096205211bbd6"
+      }
+    },
+    "round3": {
+      "note": "Round 3: the remaining on-chain checks (contract-payer grants-count PoC, follower retarget at enforce, gate pull, rebind floor, stored take-over run, adapter and gate events) on a second set of fresh instances. Additive: every field above is unchanged. New addresses only; the wasm builds are the ones uploaded in this record's uploads.",
+      "recorded": "2026-11-03",
+      "driver": "throwaway friendbot keys; drivers and run log are kept outside this repository",
+      "instances": {
+        "noGateAdapter": {
+          "address": "CCVJ3MRHSHXG6UMQQW5YZVPKVFNLRXTR533NGBZKK35ZJALRSCETPDJ6",
+          "createTx": "6169b8059e52d3571f2c62db585363fcd44494779b5f7e103393a9f7e810c31f",
+          "salt": "(void, 0, 100)",
+          "note": "liquidation adapter and take-over adapter"
+        },
+        "noGateAdapterFollower": {
+          "address": "CAKOME5E7NA6NAFS67PKHCANZM3Q5N7VO4WQD6SZDM5Y7PJOK6FRU755",
+          "createTx": "7edcf5eed432da671a4deb5fff9d41f9f6456a93d6da303b7101adffdfa9bba2",
+          "salt": "(void, 0, 101)"
+        },
+        "gate": {
+          "address": "CBWHQHCURGTMTKQBY5AORCCS3HFOS4SZIU7MEAWWHTDV67TX7NPCLXJR",
+          "createTx": "317daccf2cc69b6fcea1fc7476b64fa0c067f279411d6026437eb762b811d6c5",
+          "allowed": [
+            "CDGCMJAAZ4G7Q4VRMMNV6G47G5WWCRTDJNPLU5XNCO4YTWYVD77JRE7Q",
+            "GBOMIKX7HFORZRXNHUKXCWPAAICRQ42TRBH2NMMPBPJPIYEJH6JV6WXB",
+            "CCUWLFUDN54MCGRDXIGMPHTTYKZI2EKLWG2XBUCOLRWSVEARSMY2EYSH",
+            "CBNRM6WY5LZUSTY5JJGFJUUBIC2HNFCBLLFFUFP4PGGJECJ2QFGKOK4R",
+            "GAHGENBAOC3MILALXIBCMTCDEPXB43V6OWAOCCR7QAEH2PQCWNIK2MKP",
+            "GAXJB742LQ5APLRIHTJYQ4JPA4V2F7OPN7YB6AS6HWB5CY66ZOC4XMKS",
+            "CBWLXJUW3OJSKR6HSIASVW5A57H7LD7IZUTKWBTHE2CVHODT4F7AWR3M",
+            "CA6IGORHZ4M4BSC5TF7NK3EIAMQU5Q72GL6OTFS424Y5IC7OSZ2O5EL4",
+            "CCVJ3MRHSHXG6UMQQW5YZVPKVFNLRXTR533NGBZKK35ZJALRSCETPDJ6"
+          ],
+          "payees": [
+            "GAHGENBAOC3MILALXIBCMTCDEPXB43V6OWAOCCR7QAEH2PQCWNIK2MKP",
+            "GAXJB742LQ5APLRIHTJYQ4JPA4V2F7OPN7YB6AS6HWB5CY66ZOC4XMKS",
+            "CBWLXJUW3OJSKR6HSIASVW5A57H7LD7IZUTKWBTHE2CVHODT4F7AWR3M",
+            "CCUWLFUDN54MCGRDXIGMPHTTYKZI2EKLWG2XBUCOLRWSVEARSMY2EYSH",
+            "CCVJ3MRHSHXG6UMQQW5YZVPKVFNLRXTR533NGBZKK35ZJALRSCETPDJ6"
+          ],
+          "custody": "GBOMIKX7HFORZRXNHUKXCWPAAICRQ42TRBH2NMMPBPJPIYEJH6JV6WXB",
+          "note": "payees exclude the interpreter"
+        },
+        "gatedAdapter": {
+          "address": "CDGCMJAAZ4G7Q4VRMMNV6G47G5WWCRTDJNPLU5XNCO4YTWYVD77JRE7Q",
+          "createTx": "45f3dae66201a7ef5d6bdb4bdf34cc9a9e6a28c4308ec9c8be8d393db55432d5",
+          "gate": "CBWHQHCURGTMTKQBY5AORCCS3HFOS4SZIU7MEAWWHTDV67TX7NPCLXJR",
+          "minWait": 0,
+          "runWindow": 1000
+        },
+        "successorGate": {
+          "address": "CBFURX2KCHCK5NWJJPVG6BAPMB5QPVMU5VA35AOFAE2MBS33U5KW5POY",
+          "createTx": "4d6a106abc47415c0f2716e65947cfb6687988d998a0bf644974c4f7317e353b",
+          "allowed": [
+            "CDGCMJAAZ4G7Q4VRMMNV6G47G5WWCRTDJNPLU5XNCO4YTWYVD77JRE7Q",
+            "GBOMIKX7HFORZRXNHUKXCWPAAICRQ42TRBH2NMMPBPJPIYEJH6JV6WXB",
+            "CCUWLFUDN54MCGRDXIGMPHTTYKZI2EKLWG2XBUCOLRWSVEARSMY2EYSH",
+            "CBNRM6WY5LZUSTY5JJGFJUUBIC2HNFCBLLFFUFP4PGGJECJ2QFGKOK4R",
+            "GAHGENBAOC3MILALXIBCMTCDEPXB43V6OWAOCCR7QAEH2PQCWNIK2MKP",
+            "GAXJB742LQ5APLRIHTJYQ4JPA4V2F7OPN7YB6AS6HWB5CY66ZOC4XMKS",
+            "CBWLXJUW3OJSKR6HSIASVW5A57H7LD7IZUTKWBTHE2CVHODT4F7AWR3M",
+            "CA6IGORHZ4M4BSC5TF7NK3EIAMQU5Q72GL6OTFS424Y5IC7OSZ2O5EL4",
+            "CCVJ3MRHSHXG6UMQQW5YZVPKVFNLRXTR533NGBZKK35ZJALRSCETPDJ6",
+            "CBWHQHCURGTMTKQBY5AORCCS3HFOS4SZIU7MEAWWHTDV67TX7NPCLXJR"
+          ],
+          "payees": [
+            "GAHGENBAOC3MILALXIBCMTCDEPXB43V6OWAOCCR7QAEH2PQCWNIK2MKP",
+            "GAXJB742LQ5APLRIHTJYQ4JPA4V2F7OPN7YB6AS6HWB5CY66ZOC4XMKS",
+            "CBWLXJUW3OJSKR6HSIASVW5A57H7LD7IZUTKWBTHE2CVHODT4F7AWR3M",
+            "CCUWLFUDN54MCGRDXIGMPHTTYKZI2EKLWG2XBUCOLRWSVEARSMY2EYSH",
+            "CCVJ3MRHSHXG6UMQQW5YZVPKVFNLRXTR533NGBZKK35ZJALRSCETPDJ6",
+            "CBWHQHCURGTMTKQBY5AORCCS3HFOS4SZIU7MEAWWHTDV67TX7NPCLXJR",
+            "CA6IGORHZ4M4BSC5TF7NK3EIAMQU5Q72GL6OTFS424Y5IC7OSZ2O5EL4"
+          ],
+          "note": "Test-only: its payees include the interpreter and the first gate, so that the first gate's own payee check can be reached after a rebind."
+        }
+      },
+      "accountRules": {
+        "account": "CBWLXJUW3OJSKR6HSIASVW5A57H7LD7IZUTKWBTHE2CVHODT4F7AWR3M",
+        "keyedForGatedAdapter": {
+          "id": 9,
+          "installTx": "a8db23b18fb1fdf3841458f3e261f1d4f3102a1c2207c7be61fd77bd86ae8f95"
+        },
+        "run": {
+          "id": 10,
+          "installTx": "396fff60d10332fb24be9ed331704faf7ea299fcd431b2d569ba7c19f8b6206b",
+          "bindTx": "a974e9e04d6e6afb3a7dc95953e69e9a7386accbb37d1882bf5ce66640afb35b"
+        },
+        "takeOver": {
+          "id": 11,
+          "scope": "no-gate adapter",
+          "boundTo": "gated adapter",
+          "installTx": "07cc77d5f5496ddb4346d24e09a4e20a50fa82de8668c28c3fd01ad98482c1fa",
+          "bindTx": "32a01ad8671c5133a8100bb726349bdab219d04862d93f3f577246d86f349ad7"
+        },
+        "inner": {
+          "id": 12,
+          "scope": "TUSD",
+          "boundTo": "gated adapter",
+          "installTx": "0a35145a69841a43729bc8f6c26a3d18f4f3195be9d3eaaece01deb35ba83ba5",
+          "bindTx": "b4616a73d57f3e74ff82a9866a9a5c31f5eb9f72207bcbce93e39280270984f5"
+        }
+      },
+      "pull": {
+        "permitTx": "216c538acb78859fb858f387986c3d9f9a05654081de40d5f6be7ab408c42c52",
+        "payeeBalance": ["0", "1000000"],
+        "toInterpreterRefused": {
+          "code": 2,
+          "raisedBy": "gated adapter (payees)"
+        },
+        "toStrangerRefused": {
+          "code": 2,
+          "raisedBy": "gated adapter (payees)"
+        },
+        "gateLevelRefused": {
+          "code": 1,
+          "raisedBy": "gate",
+          "note": "after a rebind to the successor gate, whose lists admit the interpreter, a pull to the interpreter through the first gate meets the first gate's own payees check"
+        }
+      },
+      "takeOver": {
+        "storeTx": "d2b2f77e74a748bbde5124ebed5bb1d909e760a11efc65f65dff77d1f843f314",
+        "storedId": 1,
+        "runTx": "141f517a78a494396d18c78a0401f562465db497e144d9cc13fad8814d45d337",
+        "authTree": "run -> execute (no-gate adapter) -> TUSD.transfer(account -> payee)",
+        "ruleIds": [10, 11, 12],
+        "amountMoved": "1000000",
+        "rerunRefused": {
+          "code": 5
+        }
+      },
+      "rebindFloor": {
+        "storedBeforeRebind": [1, 2, 3],
+        "storeTx": {
+          "2": "3378701103c1985875726f9e989ec3fb61895a5811192128160b7db6b7e80773",
+          "3": "ce92c4f493c9e3c1d5ec1c83cb9b336d85501f9a05b8e63108d36934fc4674fb"
+        },
+        "runBeforeRebindTx": "241013b94fbcc86fb1656506fbc87fb2fe5b1f529d903295f5bda7b6198d8fcb",
+        "runBeforeRebindId": 2,
+        "rebindTx": "86fa078fb6cac8a68e7b15514e67b95151044f58ef226e5975223f22fcc43707",
+        "floor": 3,
+        "oldBatchRefused": {
+          "id": 3,
+          "code": 5,
+          "note": "a simulation showed it runnable before the rebind"
+        },
+        "storedAfterRebind": {
+          "id": 4,
+          "storeTx": "3a66dbbf17aaa65a4b89082da61e0e31306fa97891c7b25a015766980c5ffd90",
+          "runTx": "bb6ee0cec3a7c530e1f57194caf1ee052475629ed709ea726b01f6538feabe29"
+        }
+      },
+      "cancel": {
+        "byCustody": {
+          "id": 5,
+          "storeTx": "a76dcf4988bc36db43e912a1f1ee905e5d8f83fb9f54f09eb481fd69ddb9ea81",
+          "cancelTx": "f86d15c53d53f5ffb997651c4fa33730111d73d4c01ceb6d7ed6a5096be9114f"
+        },
+        "byAccount": {
+          "id": 6,
+          "storeTx": "769f7c91ff45323695f0eba7e70b10fecc0e59c68e6a9f4c2d0d3a4688f34d48",
+          "cancelTx": "ed023e15c9ce1add504b02e5dfd234b9d8d782e9b4c950f13c35378212c32799"
+        }
+      },
+      "events": {
+        "note": "read from transaction meta",
+        "BatchStored": {
+          "tx": "d2b2f77e74a748bbde5124ebed5bb1d909e760a11efc65f65dff77d1f843f314",
+          "topics": ["batch_stored", 1],
+          "data": {
+            "run_at": 5534252
+          }
+        },
+        "RanImmediate": {
+          "tx": "216c538acb78859fb858f387986c3d9f9a05654081de40d5f6be7ab408c42c52",
+          "topics": ["ran", 0]
+        },
+        "RanStored": {
+          "tx": "241013b94fbcc86fb1656506fbc87fb2fe5b1f529d903295f5bda7b6198d8fcb",
+          "topics": ["ran", 2]
+        },
+        "RanTakeOver": {
+          "tx": "141f517a78a494396d18c78a0401f562465db497e144d9cc13fad8814d45d337",
+          "topics": [["ran", 0], ["ran", 1]],
+          "note": "no-gate adapter then gated adapter"
+        },
+        "Pulled": {
+          "tx": "216c538acb78859fb858f387986c3d9f9a05654081de40d5f6be7ab408c42c52",
+          "topics": ["pulled", "TUSD", "payee"],
+          "data": {
+            "amount": 1000000
+          }
+        },
+        "Rebound": {
+          "tx": "86fa078fb6cac8a68e7b15514e67b95151044f58ef226e5975223f22fcc43707",
+          "topics": ["rebound"],
+          "data": {
+            "floor": 3
+          }
+        },
+        "CancelledByCustody": {
+          "tx": "f86d15c53d53f5ffb997651c4fa33730111d73d4c01ceb6d7ed6a5096be9114f",
+          "topics": ["cancelled", 5]
+        },
+        "CancelledByAccount": {
+          "tx": "ed023e15c9ce1add504b02e5dfd234b9d8d782e9b4c950f13c35378212c32799",
+          "topics": ["cancelled", 6]
+        }
+      }
+    }
   },
   "extendTx": {
     "execution-adapter": "93bdf6513cd55d97f6914def6531f5c60804cb0c5c255c77b2559423ae183120"

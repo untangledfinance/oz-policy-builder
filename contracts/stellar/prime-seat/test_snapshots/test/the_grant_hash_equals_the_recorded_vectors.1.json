@@ -93,5 +93,54 @@
       }
     ]
   },
-  "events": []
+  "events": [
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "CDZPWOQO4SRC6XOWIDYKCYK6DPBA25B542YKW7L56OAEYJVXZLZGDM4Z",
+        "type_": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "granted"
+              },
+              {
+                "bytes": "08f8920abf0c19c2515c2bd4f45a59e3981d9068553fb0f2284cb8ded5098b75"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "end"
+                  },
+                  "val": {
+                    "u64": "1791827880"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "generation"
+                  },
+                  "val": {
+                    "u32": 0
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "start"
+                  },
+                  "val": {
+                    "u64": "1791799080"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "failed_call": false
+    }
+  ]
 }

@@ -6,8 +6,8 @@
 //
 // UPLOAD ONLY. Neither contract is a shared instance: the custody account
 // deploys its own gate and the Prime its own adapter, both from these hashes.
-// What has to exist is the code, and what the app pins is its hash - so the
-// record is what the app's pinned builds and CI's rebuild are compared with.
+// What has to exist is the code, and what the client application pins is its hash - so the
+// record is what the client application's pinned builds and CI's rebuild are compared with.
 // It names no commit: CI rebuilding the tree and matching these hashes is what
 // ties them to the source.
 //
@@ -69,7 +69,7 @@ const next = {
   sizes: { ...rec.sizes } as Record<string, number>,
   note:
     rec.note ??
-    "Linux builds through each crate's build-wasm.sh, so the hashes can be rebuilt from source; CI does. The Prime app pins these: new gates are created from the custody-gate hash and name the execution-adapter hash as their caller's code.",
+    "Linux builds through each crate's build-wasm.sh, so the hashes can be rebuilt from source; CI does. The client application pins these: new gates are created from the custody-gate hash and name the execution-adapter hash as their caller's code.",
   ...(rec.interimBuilds ? { interimBuilds: rec.interimBuilds } : {}),
   superseded: { ...rec.superseded } as Record<string, unknown[]>,
 }

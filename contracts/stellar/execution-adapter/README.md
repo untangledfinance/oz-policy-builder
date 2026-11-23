@@ -83,6 +83,28 @@ fixed domain constant. The Prime deploys its own adapter: a G
 account signs the deployment as the transaction source or by an
 address-credential entry; an OpenZeppelin account approves it through a rule.
 
+## Events
+
+Each step of a batch's life publishes an event as the last statement of its
+function, after every check and authorisation, so a custody monitor follows a
+move from schedule to run or cancel without decoding storage. The batch number
+is the topic, so a watcher can follow one batch; stored numbers start at 1, so a
+`Ran` with id 0 is an immediate `execute` that never waited and has no number.
+The topics are stable.
+
+| Event | Topics | Data |
+|---|---|---|
+| `BatchStored` | `("BatchStored", id)` | `run_at: u32` |
+| `Ran` | `("Ran", id)` | (none) |
+| `Cancelled` | `("Cancelled", id)` | `by: Address` |
+| `Rebound` | `("Rebound",)` | `gate: Address`, `floor: u32` |
+
+`BatchStored.run_at` is the ledger the batch becomes runnable on. `Ran` fires
+both for a stored batch (its number) and for an immediate `execute` (id 0).
+`Cancelled.by` is the Prime or the gate's custody that dropped it. `Rebound.floor`
+is the batch number the rebind raised to: every stored batch at or below it can
+no longer run.
+
 ## Build and test
 
 ```sh

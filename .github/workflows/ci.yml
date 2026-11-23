@@ -152,7 +152,7 @@ jobs:
 
       # The gate is not a shared instance - each custody account deploys its
       # own - so what is recorded is the uploaded code, in
-      # deployments/execution-testnet.json, and the Prime app pins that hash.
+      # deployments/execution-testnet.json, and the client application pins that hash.
       # Same rule as the interpreter: a source change that was never uploaded
       # and re-pinned turns this red.
       - name: Wasm build and record parity
@@ -168,14 +168,14 @@ jobs:
             echo ""
             echo "The recorded ${{ matrix.crate }} build is not the wasm this tree builds."
             echo "Upload the current builds with scripts/upload-execution-testnet.ts"
-            echo "and re-pin the Prime app together."
+            echo "and re-pin every consumer of that hash together."
             exit 1
           fi
 
-      # The seat is not deployed as a shared instance: the Prime app deploys one
+      # The seat is not deployed as a shared instance: the client application deploys one
       # per owner and account, so there is no deployments/ record. Its
       # reproducible build (build-wasm.sh, which remaps the crate and registry
-      # paths) is pinned in contracts/build-hashes.json, and the app pins the
+      # paths) is pinned in contracts/build-hashes.json, and the client application pins the
       # same hash. So is the adapter's, which deployments/execution-testnet.json
       # also records as uploaded to testnet.
       - name: Wasm build and pin parity

@@ -220,7 +220,7 @@ describe('buildSelfCall to another contract trusts only the source as admin, for
         })
     )
     await expect(
-      buildBind({ ...args, server: asSource }, interpreterFor('testnet'), 6, GATED_ADAPTER)
+      buildBind({ ...args, server: asSource }, interpreterFor('testnet'), 6, GATED_ADAPTER, 1)
     ).rejects.toThrow(/an authorisation other than the account's and the source account's/)
     const other = adding(
       () =>
@@ -237,7 +237,7 @@ describe('buildSelfCall to another contract trusts only the source as admin, for
         })
     )
     await expect(
-      buildBind({ ...args, server: other }, interpreterFor('testnet'), 6, GATED_ADAPTER)
+      buildBind({ ...args, server: other }, interpreterFor('testnet'), 6, GATED_ADAPTER, 1)
     ).rejects.toThrow(/the RPC answer is not trusted/)
   })
 
@@ -253,7 +253,7 @@ describe('buildSelfCall to another contract trusts only the source as admin, for
       })
     })
     await expect(
-      buildBind({ ...args, server: nested }, interpreterFor('testnet'), 6, GATED_ADAPTER)
+      buildBind({ ...args, server: nested }, interpreterFor('testnet'), 6, GATED_ADAPTER, 1)
     ).rejects.toThrow(/an authorisation other than the account's and the source account's/)
   })
 })

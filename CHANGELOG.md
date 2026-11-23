@@ -6,6 +6,143 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-11-02
+
+A major release: the contracts change, in answer to the external auditor's
+preliminary review. Every fix below ships with a regression test that fails
+without the fix and passes with it, in the contract's own suite and, where the
+account matters, against OpenZeppelin's 0.8.0 account (`oz08/`).
+
+Contract builds (Linux, `build-wasm.sh`; all under the network's 131,072-byte
+`CONTRACT_MAX_SIZE_BYTES`):
+
+| Contract | sha256 | Size |
+|---|---|---|
+| Policy interpreter | `3c150d73d2fb513a6a0e6f9ed25fe84a1fc0fa2101aaf5985fb7fcd298975945` | 85,332 |
+| Execution adapter | `eafcd011a3c2e0aae08402e9fbd5f39e65d1feb370e45035ee20a25d4c95b725` | 31,667 |
+| Custody gate | `89e48fcb5c9f037f1d702d2cb6ed3be99f24a7794c0f5df712b7ba887db50dbb` | 13,205 |
+| Prime seat | `f39587ad8a190e31955a6fab1c274372fa724180c4ab1bad72846e08f1f2bd51` | 19,758 |
+
+The testnet verification below ran on the interpreter build `c6273cb1…` (84,280
+bytes). The interpreter above also commits a follower's `and` / `or` grouping and
+records the commitment at a re-install that changes what a bound rule follows
+(F-2026-20245); that build is not uploaded to testnet yet.
+
+Testnet verification, on 2 November 2026 and 3 November 2026 on fresh instances
+(throwaway keys; transactions in
+[evidence/README.md](./evidence/README.md#the-600-fixes-preliminary-review-2-november-2026)):
+verified on chain are the executor refusal (222), the version counter (202 on a
+stale bind and a stale install, `uninstall` over the next version, re-install at
+counter + 1), the grants count at `bind_executor` (221) and at `enforce` on
+OpenZeppelin's 0.8.0 account (an extra grant refused 100, also with a contract
+account as payer whose `__check_auth` raises the extra transfer), the follower
+commitment at bind and the follower retarget at `enforce` (a retarget by `eq` or
+by an `in` set refused 221, an amount change still permitted), the word refusal
+(3), the gate's `payees` refusals (2 and 3) and a live `pull`, the rebind floor
+(a batch stored before a rebind refused 5, one stored after it runs), a stored
+take-over run, the events of the interpreter, the adapter, the gate and the seat,
+and the seat generation (an old end refused, short and empty inputs return
+false). **Not run on testnet:** a seat re-grant after the 180-day eviction of
+the temporary end entry, which cannot be reproduced in real time (the host suite
+covers it, and the generation guard is shown on chain).
+
+The gate and adapter hashes are recorded in `deployments/execution-testnet.json`
+with their upload transactions; the fresh instances are under
+`testnetVerification`.
+
+Why major: `bind_executor` gains a `version` argument and the custody gate's
+constructor gains `payees`; both are outside the OpenZeppelin `Policy`
+interface. The interpreter's `install`, `enforce` and `uninstall` keep exactly the
+OpenZeppelin shapes. The three npm packages move together to 6.0.0.
+
+### Security
+
+- **Interpreter, grants count.** A rule scoped to its own executor must pin
+  `call_arg_len(1)` `eq` a non-negative constant on every `execute` branch, as
+  well as the wait, the number of calls and each call's target and function
+  (221, at `bind_executor`, at a re-install and at `enforce`). Without it any
+  caller of a keyless liquidation could add a word for a context the batch's own
+  payer raises and drain a balance a keyless inner rule covers. The pin takes
+  `eq` only and, in an `or`, every branch; it fixes how many grants, not what
+  they name, so the rule's author pins the exact count the flow raises (the reference
+  liquidation rules pin 5 or 3). A rule installed without it is refused.
+- **Interpreter, executor.** `bind_executor` refuses the account and the
+  interpreter as an executor (`InvalidExecutor`, 222). A rule bound to its own
+  account skipped the pins above.
+- **Interpreter, replay.** One persistent version counter per rule,
+  `("ver", account, rule_id)`, is shared by `install` (`install_nonce` must be
+  counter + 1), `bind_executor` (new `version` argument, counter + 1) and
+  `uninstall` (still the two-argument OpenZeppelin signature; the master set
+  authorises `(rule, counter + 1)`). It survives an uninstall and `enforce`
+  extends it, so a held-back signed bind or uninstall, or an old signed install,
+  is refused (`NonceReplay`, 202).
+- **Interpreter, followers.** A keyless follower scoped to its own executor is
+  committed at `bind_executor` to the call targets and functions the followed
+  predicate pins and to how those pins are grouped under `and` / `or`; `enforce`
+  refuses (221) when the live followed predicate pins other ones, or when such a
+  follower carries no commitment. A re-install that changes the source of a bound
+  rule (inline to follower, another followed rule) records the commitment again.
+  The followed owner keeps control of amounts.
+- **Custody gate and adapter, payees.** The gate takes `payees`, a subset of
+  `allowed` (`PayeeNotAllowed`, 3), and `pull` pays only `payees`. The adapter
+  holds call targets, call arguments and a grant's inner arguments to `payees`;
+  only a grant's context contract may be allowed-but-not-payee, so the
+  interpreter is named only as a policy and never paid.
+- **Adapter, no gate.** A word that follows another contract's `execute` or `run`
+  is refused.
+- **Adapter, rebind.** A rebind floors the stored batches: one stored before it
+  is refused at `run` (`NotScheduled`), so a previous custody is not bound to a
+  batch that still draws on its old allowance.
+- **Seat.** A per-key generation (persistent, bumped by each end) is appended to
+  the grant message once it is above zero, so an old end or an old grant no
+  longer verifies and a replayed end cannot revoke a key granted again. Messages
+  are byte-identical until a key's first end. An empty rule-id list and a short
+  proof or preimage are refused without a trap.
+
+### Changed
+
+- **`@crediolabs/policy-synth`:** a keyless self-scoped rule is refused unless it
+  pins the grants count (`pinsOwn`); `bind_policy` builds
+  `bind_executor(rule, executor, version)`, reading the rule's counter off the
+  interpreter and sending counter + 1 (`version` comes back in the result);
+  `install_policy`, `bind_policy` and `review_unsigned` refuse an executor that
+  is the account or the interpreter; `review_unsigned` reads the three-argument
+  bind and shows the version; `bind_policy` reads the payees of a gated
+  executor's gate (the `allowed` list when the configuration has no `payees` field) and
+  warns when they include the interpreter or cannot be read. Reference run and
+  liquidation predicates are
+  test vectors. `fixtures/rpc/bind.json` carries the three-argument bind but was
+  edited by hand, not recorded live (a live recording would run against the
+  pinned interpreter, which the verification deliberately did not transact
+  against). `gatePayees` was read against a real gate with `payees` on testnet
+  (three payees, no interpreter).
+- **Interpreter performance:** the read-target contract check runs once at
+  install instead of at every `enforce` and `bind_executor` (a worst-case
+  four-context enforce: 29,259,085 to 29,084,349 CPU instructions).
+- **Adapter:** the gate binding is read once per `execute`, one word is built per
+  distinct policy (the cost was quadratic in the grants), and the unused
+  `hazmat-address` feature is dropped from the contract's dependencies.
+- **Comments and docs:** interpreter, adapter and seat source comments now match
+  the code (TTL bump threshold, limits, error descriptions, the keyless run rule,
+  the scan of 32 to 56 byte arguments, the delegated frame check, the seven-day
+  `MAX_GRANT_WINDOW`). The docs state that a keyed follower is widened by the
+  followed owner's re-install too (give it a second policy that holds its own
+  cap), that a followed orphan stays read and renewed, that a permit extends an
+  entry only in its last 100 ledgers, that a previous custody can no longer
+  cancel after a rebind (the floor drops those batches), and that the interpreter
+  must never be a payee. A constructor allowlist for `read` was weighed and not
+  built (see `docs/stellar.md`).
+- **Events.** Each state change publishes an event as the last statement of the
+  call, after every check, authorisation and storage write, so no authorisation
+  or result changes. Interpreter: `Installed`, `ExecutorBound`, `Uninstalled`,
+  `MasterSetRotated`, topics `(name, account, rule_id)`, data `version: u32`
+  (`Installed` also `bound: bool`; `MasterSetRotated` has `size: u32` and no
+  version, since rotation does not move the counter). Adapter: `BatchStored(id)`
+  with `run_at`, `Ran(id)` (id 0 is an immediate `execute`), `Cancelled(id)` with
+  `by`, `Rebound` with `gate` and `floor`. Gate: `Pulled(token, to)` with
+  `amount`. Seat: `Granted(key)` with `start`, `end` and `generation`, for a
+  grant and for an end. Each crate's README lists them.
+
 ## [5.2.0] - 2026-10-26
 
 A minor release: OpenZeppelin `stellar-contracts` v0.8.0 on testnet. The

@@ -68,7 +68,7 @@ describe('oversized input is refused before the expensive loop', () => {
     })
   })
 
-  it('still accepts honest inputs (no over-restriction)', async () => {
+  it('still accepts valid inputs (no over-restriction)', async () => {
     // A normal amount, a shallow intent and a small map all pass.
     expect(() =>
       validate([

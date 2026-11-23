@@ -23,6 +23,14 @@ impl FixtureGate {
     pub fn allowed(e: Env) -> Vec<Address> {
         e.storage().instance().get(&symbol_short!("a")).unwrap()
     }
+    /// The real gate's second list. Defaults to `allowed` so a test that does
+    /// not care about the split sees one perimeter; a test sets `p` to narrow it.
+    pub fn payees(e: Env) -> Vec<Address> {
+        e.storage()
+            .instance()
+            .get(&symbol_short!("p"))
+            .unwrap_or_else(|| e.storage().instance().get(&symbol_short!("a")).unwrap())
+    }
     pub fn custody(e: Env) -> Address {
         e.storage().instance().get(&symbol_short!("c")).unwrap()
     }
@@ -625,20 +633,87 @@ fn a_batch_is_checked_before_it_is_stored() {
     );
 }
 
+/// F-2026-20247: a batch stored before a rebind cannot run afterwards. It was
+/// approved against the gate the previous custody answered to, and that custody
+/// loses the right to cancel it the moment the binding moves. Rather than let it
+/// run on against a custody that can no longer stop it, `rebind` raises a floor
+/// and `run` refuses every number at or below it.
 #[test]
-fn a_batch_is_checked_again_against_the_gate_bound_when_it_runs() {
+fn a_batch_stored_before_a_rebind_is_floored() {
     let w = world();
-    // Allowed by the gate it was scheduled under: the custody address.
+    // C0 stores a batch under its gate G0.
     let args = Vec::from_array(&w.e, [w.custody.to_val()]);
     let calls = Vec::from_array(&w.e, [call_to(&w.e, &w.gate, "one", args)]);
-    client(&w).execute(&calls, &no_grants(&w), &10);
+    assert_eq!(client(&w).execute(&calls, &no_grants(&w), &10), Some(1));
 
-    // Custody rebinds to a gate that no longer lists itself or the old gate.
-    let narrower =
-        w.e.register(FixtureGate, (Vec::<Address>::new(&w.e), w.custody.clone()));
-    client(&w).rebind(&narrower);
+    // C0 rebinds to a successor gate G1 a DIFFERENT custody C1 answers to.
+    let c1 = Address::generate(&w.e);
+    let g1 = w.e.register(
+        FixtureGate,
+        (Vec::from_array(&w.e, [c1.clone()]), c1.clone()),
+    );
+    client(&w).rebind(&g1);
+
+    // The previous custody C0 can no longer cancel; C1 now holds that right.
+    contract_error(client(&w).try_cancel(&1, &w.custody), E::NotACanceller);
+
+    // And the batch cannot run: it sits at or below the floor.
     advance(&w, 10);
-    contract_error(client(&w).try_run(&1), E::AddressNotAllowed);
+    contract_error(client(&w).try_run(&1), E::NotScheduled);
+
+    // It can still be tidied away by the current canceller.
+    client(&w).cancel(&1, &c1);
+}
+
+/// A batch stored AFTER a rebind is above the floor and runs normally, so the
+/// floor does not block the new custody's own batches.
+#[test]
+fn a_batch_stored_after_a_rebind_still_runs() {
+    let w = world();
+    let c1 = Address::generate(&w.e);
+    let g1 = w.e.register(
+        FixtureGate,
+        (Vec::from_array(&w.e, [c1.clone()]), c1.clone()),
+    );
+    client(&w).rebind(&g1);
+
+    // A fresh batch, targeting the new gate, stored under G1.
+    let calls = Vec::from_array(&w.e, [call_to(&w.e, &g1, "bump", Vec::new(&w.e))]);
+    assert_eq!(client(&w).execute(&calls, &no_grants(&w), &10), Some(1));
+    advance(&w, 10);
+    client(&w).run(&1);
+    assert_eq!(FixtureGateClient::new(&w.e, &g1).count(), 1);
+}
+
+/// Two batches straddling a rebind: the earlier is floored, the later runs.
+#[test]
+fn the_floor_splits_batches_at_the_rebind() {
+    let w = world();
+    let before = Vec::from_array(
+        &w.e,
+        [call_to(
+            &w.e,
+            &w.gate,
+            "one",
+            Vec::from_array(&w.e, [w.custody.to_val()]),
+        )],
+    );
+    assert_eq!(client(&w).execute(&before, &no_grants(&w), &10), Some(1));
+
+    let c1 = Address::generate(&w.e);
+    let g1 = w.e.register(
+        FixtureGate,
+        (Vec::from_array(&w.e, [c1.clone()]), c1.clone()),
+    );
+    client(&w).rebind(&g1);
+
+    let after = Vec::from_array(&w.e, [call_to(&w.e, &g1, "bump", Vec::new(&w.e))]);
+    assert_eq!(client(&w).execute(&after, &no_grants(&w), &10), Some(2));
+
+    advance(&w, 10);
+    contract_error(client(&w).try_run(&1), E::NotScheduled);
+    client(&w).run(&2);
+    assert_eq!(FixtureGateClient::new(&w.e, &g1).count(), 1);
 }
 
 #[test]
@@ -871,6 +946,175 @@ mod muxed {
             let calls = Vec::from_array(e, [call_to(e, &m.w.gate, "one", Vec::from_array(e, [a]))]);
             assert!(run(&m.w, calls).is_ok());
         }
+    }
+}
+
+/// F-2026-20150: the gate names the interpreter on `allowed`, so a grant may
+/// vouch for it, but not on `payees`. The gated adapter must refuse a call that
+/// would pay the interpreter (or any allowed non-payee), yet still accept a
+/// grant whose context contract is the interpreter.
+mod interpreter_payee {
+    use super::*;
+    use soroban_sdk::auth::{Context, ContractContext, SubContractInvocation};
+
+    struct W {
+        e: Env,
+        adapter: Address,
+        prime: Address,
+        token: Address,
+        interpreter: Address,
+    }
+
+    fn setup() -> W {
+        let e = Env::default();
+        e.ledger().set_sequence_number(1_000);
+        e.mock_all_auths();
+        let prime = Address::generate(&e);
+        let custody = Address::generate(&e);
+        let token = e.register(MuxToken, ());
+        let interpreter = Address::generate(&e);
+        let allowed = Vec::from_array(
+            &e,
+            [
+                custody.clone(),
+                prime.clone(),
+                token.clone(),
+                interpreter.clone(),
+            ],
+        );
+        let payees = Vec::from_array(&e, [custody.clone(), prime.clone(), token.clone()]);
+        let gate = e.register(FixtureGate, (allowed, custody.clone()));
+        e.as_contract(&gate, || {
+            e.storage().instance().set(&symbol_short!("p"), &payees);
+        });
+        let at = agreed_address(&e, &prime, &gate, 0, 100);
+        let adapter = e.register_at(
+            &at,
+            ExecutionAdapter,
+            (prime.clone(), gate.clone(), 0u32, 100u32),
+        );
+        W {
+            e,
+            adapter,
+            prime,
+            token,
+            interpreter,
+        }
+    }
+
+    fn paid(w: &W, who: &Address) -> i128 {
+        MuxTokenClient::new(&w.e, &w.token).balance(who)
+    }
+
+    /// A transfer whose recipient is the interpreter is refused and nothing moves.
+    #[test]
+    fn a_call_that_pays_the_interpreter_is_refused() {
+        let w = setup();
+        let e = &w.e;
+        let args = Vec::from_array(
+            e,
+            [
+                w.prime.to_val(),
+                w.interpreter.to_val(),
+                100i128.into_val(e),
+            ],
+        );
+        let calls = Vec::from_array(e, [call_to(e, &w.token, "transfer", args)]);
+        let r = ExecutionAdapterClient::new(e, &w.adapter).try_execute(&calls, &Vec::new(e), &0);
+        assert!(
+            matches!(&r, Err(Ok(er)) if *er == soroban_sdk::Error::from_contract_error(E::AddressNotAllowed as u32)),
+            "a call paying the interpreter must be refused: {r:?}"
+        );
+        assert_eq!(paid(&w, &w.interpreter), 0);
+    }
+
+    /// The interpreter as a plain call target is refused too.
+    #[test]
+    fn the_interpreter_as_a_call_target_is_refused() {
+        let w = setup();
+        let e = &w.e;
+        let calls = Vec::from_array(e, [call_to(e, &w.interpreter, "enforce", Vec::new(e))]);
+        let r = ExecutionAdapterClient::new(e, &w.adapter).try_execute(&calls, &Vec::new(e), &0);
+        assert!(
+            matches!(&r, Err(Ok(er)) if *er == soroban_sdk::Error::from_contract_error(E::AddressNotAllowed as u32)),
+            "the interpreter as a call target must be refused: {r:?}"
+        );
+    }
+
+    /// A grant whose context contract is the interpreter still passes: it names
+    /// the interpreter as a policy to call, not as a destination.
+    #[test]
+    fn a_grant_whose_context_is_the_interpreter_passes() {
+        let w = setup();
+        let e = &w.e;
+        // A harmless self-payment the Prime makes, with a grant that vouches for
+        // interpreter.enforce(prime, token.transfer(prime, prime, 100)).
+        let pay = Vec::from_array(e, [w.prime.to_val(), w.prime.to_val(), 100i128.into_val(e)]);
+        let calls = Vec::from_array(e, [call_to(e, &w.token, "transfer", pay.clone())]);
+        let inner = Context::Contract(ContractContext {
+            contract: w.token.clone(),
+            fn_name: Symbol::new(e, "transfer"),
+            args: pay,
+        });
+        let grant = InvokerContractAuthEntry::Contract(SubContractInvocation {
+            context: ContractContext {
+                contract: w.interpreter.clone(),
+                fn_name: Symbol::new(e, "enforce"),
+                args: (w.prime.clone(), inner).into_val(e),
+            },
+            sub_invocations: Vec::new(e),
+        });
+        let grants = Vec::from_array(e, [grant]);
+        let r = ExecutionAdapterClient::new(e, &w.adapter).try_execute(&calls, &grants, &0);
+        assert!(
+            r.is_ok(),
+            "a grant naming the interpreter as its policy must pass: {r:?}"
+        );
+    }
+
+    /// A grant that buries the interpreter as a destination inside its inner
+    /// context is refused: only the context contract may be an allowed non-payee.
+    #[test]
+    fn a_grant_paying_the_interpreter_inside_is_refused() {
+        let w = setup();
+        let e = &w.e;
+        let calls = Vec::from_array(
+            e,
+            [call_to(
+                e,
+                &w.token,
+                "transfer",
+                Vec::from_array(e, [w.prime.to_val(), w.prime.to_val(), 1i128.into_val(e)]),
+            )],
+        );
+        // inner context pays the interpreter.
+        let bad = Vec::from_array(
+            e,
+            [
+                w.prime.to_val(),
+                w.interpreter.to_val(),
+                100i128.into_val(e),
+            ],
+        );
+        let inner = Context::Contract(ContractContext {
+            contract: w.token.clone(),
+            fn_name: Symbol::new(e, "transfer"),
+            args: bad,
+        });
+        let grant = InvokerContractAuthEntry::Contract(SubContractInvocation {
+            context: ContractContext {
+                contract: w.interpreter.clone(),
+                fn_name: Symbol::new(e, "enforce"),
+                args: (w.prime.clone(), inner).into_val(e),
+            },
+            sub_invocations: Vec::new(e),
+        });
+        let grants = Vec::from_array(e, [grant]);
+        let r = ExecutionAdapterClient::new(e, &w.adapter).try_execute(&calls, &grants, &0);
+        assert!(
+            matches!(&r, Err(Ok(er)) if *er == soroban_sdk::Error::from_contract_error(E::AddressNotAllowed as u32)),
+            "a grant paying the interpreter inside must be refused: {r:?}"
+        );
     }
 }
 
@@ -1231,6 +1475,34 @@ mod null_gate {
         assert_eq!(paid(&n, &n.stranger), 100);
     }
 
+    /// F-2026-20246: a word whose followed context is another contract's
+    /// `execute` or `run` is refused. A second no-gate adapter vouches for any
+    /// `enforce(prime, context)` word, so without this a rule scoped to one
+    /// adapter could be run through a second and skip its own batch pin. Tested
+    /// alone and behind a word that would otherwise pass, for both names.
+    #[test]
+    fn it_refuses_a_word_following_another_execute_or_run() {
+        let n = null_world();
+        let other = Address::generate(&n.e);
+        let batch = Vec::from_array(&n.e, [pay(&n, n.stranger.to_val())]);
+        for f in ["execute", "run"] {
+            let ctx = soroban_sdk::auth::Context::Contract(soroban_sdk::auth::ContractContext {
+                contract: other.clone(),
+                fn_name: Symbol::new(&n.e, f),
+                args: Vec::new(&n.e),
+            });
+            let args = (n.prime.clone(), ctx).into_val(&n.e);
+            let g = word(&n, &n.hello, "enforce", args, Vec::new(&n.e));
+            for words in [
+                Vec::from_array(&n.e, [g.clone()]),
+                Vec::from_array(&n.e, [enforce_word(&n, &n.prime), g.clone()]),
+            ] {
+                contract_error(c(&n).try_execute(&batch, &words, &0), E::Uncheckable);
+            }
+        }
+        assert_eq!(paid(&n, &n.stranger), 0);
+    }
+
     /// Anything that is not exactly that word is refused, before the Prime is
     /// asked: another account, another function, a nested invocation, another
     /// number of arguments, a first argument that is no address, a deploy.
@@ -1310,6 +1582,21 @@ mod null_gate {
             }
         }
         assert_eq!(paid(&n, &n.stranger), 0);
+    }
+
+    /// F-2026-20270: two grants naming the same policy still run. The word loop
+    /// now collects distinct policies and builds one word each, which must give
+    /// the same result as the old per-grant de-duplication.
+    #[test]
+    fn two_grants_for_one_policy_still_run() {
+        let n = null_world();
+        let batch = Vec::from_array(&n.e, [pay(&n, n.stranger.to_val())]);
+        let words = Vec::from_array(
+            &n.e,
+            [enforce_word(&n, &n.prime), enforce_word(&n, &n.prime)],
+        );
+        assert_eq!(c(&n).execute(&batch, &words, &0), None);
+        assert_eq!(paid(&n, &n.stranger), 100);
     }
 
     /// A callee is still handed nothing, the word included.
@@ -1703,4 +1990,74 @@ mod handed_out {
         assert!(try_run(&h, &calls, &Vec::from_array(&h.e, [need(&h)])));
         assert_eq!(served(&h), 1);
     }
+}
+
+/// F-2026-20273: the batch lifecycle publishes an event at each step. BatchStored
+/// when a batch is scheduled, Ran when it runs (id 0 for an immediate execute),
+/// Cancelled when it is dropped, and Rebound when the binding moves. Each publish
+/// is the last statement of its function, after every check and authorisation, so
+/// it reports what happened without changing a decision.
+#[test]
+fn the_batch_lifecycle_publishes_events() {
+    use soroban_sdk::testutils::Events as _;
+    use soroban_sdk::Event as _;
+    let w = world();
+
+    // A waiting batch publishes BatchStored with its number and run ledger.
+    let run_at = w.e.ledger().sequence() + 10;
+    let id = client(&w)
+        .execute(&bump_batch(&w), &no_grants(&w), &10)
+        .unwrap();
+    assert_eq!(id, 1);
+    let events = w.e.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &BatchStored { id: 1, run_at }.to_xdr(&w.e, &w.adapter)
+    );
+
+    // Running it publishes Ran with the same number.
+    advance(&w, 10);
+    client(&w).run(&1);
+    let events = w.e.events().all();
+    let evs = events.events();
+    assert_eq!(evs.last().unwrap(), &Ran { id: 1 }.to_xdr(&w.e, &w.adapter));
+
+    // An immediate execute (no wait, no stored number) publishes Ran with id 0.
+    client(&w).execute(&bump_batch(&w), &no_grants(&w), &0);
+    let events = w.e.events().all();
+    let evs = events.events();
+    assert_eq!(evs.last().unwrap(), &Ran { id: 0 }.to_xdr(&w.e, &w.adapter));
+
+    // Cancelling a stored batch publishes Cancelled with the canceller.
+    let id2 = client(&w)
+        .execute(&bump_batch(&w), &no_grants(&w), &10)
+        .unwrap();
+    assert_eq!(id2, 2);
+    client(&w).cancel(&id2, &w.prime);
+    let events = w.e.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &Cancelled {
+            id: id2,
+            by: w.prime.clone()
+        }
+        .to_xdr(&w.e, &w.adapter)
+    );
+
+    // Rebinding publishes Rebound with the new gate and the floor it raised to
+    // the last stored number (2).
+    let c1 = Address::generate(&w.e);
+    let g1 = w.e.register(
+        FixtureGate,
+        (Vec::from_array(&w.e, [c1.clone()]), c1.clone()),
+    );
+    client(&w).rebind(&g1);
+    let events = w.e.events().all();
+    let evs = events.events();
+    assert_eq!(
+        evs.last().unwrap(),
+        &Rebound { gate: g1, floor: 2 }.to_xdr(&w.e, &w.adapter)
+    );
 }
